@@ -1,7 +1,25 @@
 from neutron.db import oneview_network_db
+from neutron.db.models_v2 import Network
+
+
+# Neutron Network
+def get_neutron_network(session, uuid):
+    with session.begin(subtransactions=True):
+        return session.query(
+            Network
+        ).filter_by(
+            id=uuid
+        ).first()
 
 
 # Neutron OneView Network
+def list_neutron_oneview_network(session):
+    with session.begin(subtransactions=True):
+        return session.query(
+            oneview_network_db.NeutronOneviewNetwork
+        ).all()
+
+
 def insert_neutron_oneview_network(
     session, neutron_network_uuid, oneview_network_uuid
 ):

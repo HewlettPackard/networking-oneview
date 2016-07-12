@@ -18,6 +18,7 @@ from neutron._i18n import _
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
+from neutron.plugins.ml2.drivers.oneview import resources_sync
 from oneview_client import client
 from oneview_client import exceptions
 from oneview_client import models
@@ -44,7 +45,10 @@ opts = [
                default=12,
                help=_('Max connection retries to check changes on OneView')),
     cfg.StrOpt('uplinksets_uuid',
-               help=_('UplinkSets to be used'))
+               help=_('UplinkSets to be used')),
+    cfg.IntOpt('ov_refresh_interval',
+               default=3600,
+               help=_('Interval between periodic task executions in seconds'))
 ]
 
 
@@ -60,6 +64,13 @@ class OneViewDriver(driver_api.MechanismDriver):
             CONF.oneview.username,
             CONF.oneview.password,
             allow_insecure_connections=True)
+        self._start_resource_sync_periodic_task()
+
+    def _start_resource_sync_periodic_task(self):
+        task = resources_sync.ResourcesSyncService(
+            self.oneview_client, CONF.database.connection
+        )
+        task.start(CONF.oneview.ov_refresh_interval)
 
     def _add_network_to_uplinksets(
         self, uplinksets_uuid, oneview_network_uuid
@@ -88,8 +99,6 @@ class OneViewDriver(driver_api.MechanismDriver):
             if seg_id:
                 kwargs['ethernet_network_type'] = models.EthernetNetwork.TAGGED
                 kwargs['vlan'] = seg_id
-
-            return kwargs
 
         session = context._plugin_context._session
         neutron_network_dict = context._network
