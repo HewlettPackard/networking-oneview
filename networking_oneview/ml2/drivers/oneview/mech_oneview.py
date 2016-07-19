@@ -14,13 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron._i18n import _
+from neutron._i18n import _, _LW
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
+from neutron.plugins.ml2.drivers.oneview import resources_sync
 from oneview_client import client
 from oneview_client import exceptions
-from oneview_client import models
 from oneview_client import utils
 from oslo_config import cfg
 from oslo_log import log
@@ -44,7 +44,10 @@ opts = [
                default=12,
                help=_('Max connection retries to check changes on OneView')),
     cfg.StrOpt('uplinksets_uuid',
-               help=_('UplinkSets to be used'))
+               help=_('UplinkSets to be used')),
+    cfg.IntOpt('ov_refresh_interval',
+               default=3600,
+               help=_('Interval between periodic task executions in seconds'))
 ]
 
 
@@ -60,12 +63,19 @@ class OneViewDriver(driver_api.MechanismDriver):
             CONF.oneview.username,
             CONF.oneview.password,
             allow_insecure_connections=True)
+        self._start_resource_sync_periodic_task()
+
+    def _start_resource_sync_periodic_task(self):
+        task = resources_sync.ResourcesSyncService(
+            self.oneview_client, CONF.database.connection
+        )
+        task.start(CONF.oneview.ov_refresh_interval)
 
     def _add_network_to_uplinksets(
         self, uplinksets_uuid, oneview_network_uuid
     ):
         for uplinkset_uuid in uplinksets_uuid:
-            self.oneview_client.uplink_set.add_network(
+            self.oneview_client.uplinkset.add_network(
                 uplinkset_uuid, oneview_network_uuid
             )
 
@@ -80,17 +90,6 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
 
     def create_network_postcommit(self, context):
-        def prepare_oneview_network_args(name, seg_id):
-            kwargs = {
-                'name': name,
-                'ethernet_network_type': models.EthernetNetwork.UNTAGGED
-            }
-            if seg_id:
-                kwargs['ethernet_network_type'] = models.EthernetNetwork.TAGGED
-                kwargs['vlan'] = seg_id
-
-            return kwargs
-
         session = context._plugin_context._session
         neutron_network_dict = context._network
         neutron_network_id = neutron_network_dict.get('id')
@@ -99,7 +98,7 @@ class OneViewDriver(driver_api.MechanismDriver):
             'provider:segmentation_id'
         )
 
-        kwargs = prepare_oneview_network_args(
+        kwargs = common.prepare_oneview_network_args(
             neutron_network_name, neutron_network_seg_id
         )
         oneview_network_uri = self.oneview_client.ethernet_network.create(
@@ -128,7 +127,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
 
         try:
-            ethernet_network_obj = self.oneview_client.ethernet_network.delete(
+            self.oneview_client.ethernet_network.delete(
                 neutron_oneview_network.oneview_network_uuid
             )
         finally:
@@ -141,8 +140,6 @@ class OneViewDriver(driver_api.MechanismDriver):
         session = context._plugin_context._session
         neutron_network = context._network
 
-        new_network_name = neutron_network.get('name')
-
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, neutron_network.get('id')
         )
@@ -151,7 +148,7 @@ class OneViewDriver(driver_api.MechanismDriver):
             return
 
         try:
-            ethernet_network_obj = self.oneview_client.ethernet_network.get(
+            self.oneview_client.ethernet_network.get(
                 neutron_oneview_network.oneview_network_uuid
             )
         except exceptions.OneViewResourceNotFoundError:
@@ -159,7 +156,7 @@ class OneViewDriver(driver_api.MechanismDriver):
                 session, neutron_network.get('id'),
                 neutron_oneview_network.oneview_network_uuid
             )
-            LOG.warning("No mapped Network in Oneview")
+            LOG.warning(_LW("No mapped Network in Oneview"))
 
     def create_port_postcommit(self, context):
         session = context._plugin_context._session
@@ -178,7 +175,7 @@ class OneViewDriver(driver_api.MechanismDriver):
            vnic_type != 'baremetal':
             return
         elif len(local_link_information_list) > 1:
-            raise exception.ValueError(
+            raise ValueError(
                 "'local_link_information' must have only one value"
             )
 
@@ -230,10 +227,6 @@ class OneViewDriver(driver_api.MechanismDriver):
 
         server_profile_uuid = utils.get_uuid_from_uri(
             server_hardware.server_profile_uri
-        )
-
-        server_profile = self.oneview_client.server_profile.get(
-            server_profile_uuid
         )
 
         oneview_network_uplinkset = db_manager.get_oneview_network_uplinkset(

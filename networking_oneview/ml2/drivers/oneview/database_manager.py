@@ -1,7 +1,52 @@
+#
+# Copyright 2016 Hewlett Packard Development Company, LP
+# Copyright 2016 Universidade Federal de Campina Grande
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+from neutron.db.models_v2 import Network
 from neutron.db import oneview_network_db
+from neutron.db.segments_db import NetworkSegment
+
+
+# Neutron Network
+def get_neutron_network(session, uuid):
+    with session.begin(subtransactions=True):
+        return session.query(
+            Network
+        ).filter_by(
+            id=uuid
+        ).first()
+
+
+# Neutron Network Segments
+def get_network_segment(session, network_uuid):
+    with session.begin(subtransactions=True):
+        return session.query(
+            NetworkSegment
+        ).filter_by(
+            network_id=network_uuid
+        ).first()
 
 
 # Neutron OneView Network
+def list_neutron_oneview_network(session):
+    with session.begin(subtransactions=True):
+        return session.query(
+            oneview_network_db.NeutronOneviewNetwork
+        ).all()
+
+
 def insert_neutron_oneview_network(
     session, neutron_network_uuid, oneview_network_uuid
 ):
@@ -10,6 +55,13 @@ def insert_neutron_oneview_network(
             neutron_network_uuid, oneview_network_uuid
         )
         session.add(net)
+
+
+def update_neutron_oneview_network(session, neutron_uuid, new_oneview_uuid):
+    with session.begin(subtransactions=True):
+        return session.query(
+            oneview_network_db.NeutronOneviewNetwork
+        ).all()
 
 
 def get_neutron_oneview_network(session, neutron_network_uuid):
