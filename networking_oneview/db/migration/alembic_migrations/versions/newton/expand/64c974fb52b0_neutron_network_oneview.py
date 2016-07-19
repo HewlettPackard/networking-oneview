@@ -30,23 +30,26 @@ import sqlalchemy as sa
 
 
 def upgrade():
-    op.create_table('neutron_oneview_network',
+    op.create_table(
+        'neutron_oneview_network',
         sa.Column('neutron_network_uuid', sa.String(length=36)),
         sa.Column('oneview_network_uuid', sa.String(length=36)),
         sa.PrimaryKeyConstraint('neutron_network_uuid')
     )
-    
-    op.create_table('oneview_network_uplinkset',
+
+    op.create_table(
+        'oneview_network_uplinkset',
         sa.Column('oneview_network_uuid', sa.String(length=36)),
         sa.Column('oneview_uplinkset_uuid', sa.String(length=36)),
-        sa.PrimaryKeyConstraint('oneview_network_uuid','oneview_uplinkset_uuid')
+        sa.PrimaryKeyConstraint(
+            'oneview_network_uuid', 'oneview_uplinkset_uuid'
+        )
     )
 
-    op.create_table('neutron_oneview_port',
+    op.create_table(
+        'neutron_oneview_port',
         sa.Column('neutron_port_uuid', sa.String(length=36)),
         sa.Column('oneview_server_profile_uuid', sa.String(length=36)),
         sa.Column('oneview_connection_id', sa.String(length=36)),
         sa.PrimaryKeyConstraint('neutron_port_uuid')
     )
-
-

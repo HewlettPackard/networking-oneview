@@ -17,15 +17,12 @@
 
 import mock
 
-from neutron.db import models_v2
 from neutron.db import oneview_network_db
 from neutron.plugins.ml2 import driver_api as api
-from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from neutron.plugins.ml2.drivers.oneview import mech_oneview
 from neutron.tests.unit.plugins.ml2 import _test_mech_agent as base
 from oneview_client import client
-from oneview_client import exceptions
 from oneview_client import managers
 from oneview_client import models
 from oslo_config import cfg
@@ -217,7 +214,7 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         self.driver.initialize()
 
     @mock.patch.object(managers.UplinkSetManager, 'add_network', autospec=True)
-    def test__add_network_to_one_uplink_set(
+    def test__add_network_to_one_uplinkset(
         self, mock_add_network
     ):
         uplinkset_uuid = 'uuid'
@@ -229,13 +226,13 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         )
 
         mock_add_network.assert_called_once_with(
-            self.driver.oneview_client.uplink_set, uplinkset_uuid,
+            self.driver.oneview_client.uplinkset, uplinkset_uuid,
             oneview_network_uuid
         )
 
     @mock.patch.object(managers.UplinkSetManager, 'add_network', autospec=True)
-    def test__add_network_to_multiple_uplink_sets(
-         self, mock_add_network
+    def test__add_network_to_multiple_uplinksets(
+        self, mock_add_network
     ):
         uplinkset_uuid_one = 'uuid-1'
         uplinkset_uuid_two = 'uuid-2'
@@ -248,11 +245,11 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
 
         calls = [
             mock.call(
-                self.driver.oneview_client.uplink_set,
+                self.driver.oneview_client.uplinkset,
                 uplinkset_uuid_one, oneview_network_uuid
             ),
             mock.call(
-                self.driver.oneview_client.uplink_set,
+                self.driver.oneview_client.uplinkset,
                 uplinkset_uuid_two, oneview_network_uuid
             ),
         ]
@@ -300,7 +297,6 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
             vlan=vlan_id
         )
 
-        uplinksets_uuid = cfg.CONF.oneview.uplinksets_uuid.split(",")
         mock__add_network_to_uplinksets.assert_called_once_with(
             self.driver, [uplinkset_uuid], oneview_network_uuid
         )
@@ -357,7 +353,6 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
             vlan=vlan_id
         )
 
-        uplinksets_uuid = cfg.CONF.oneview.uplinksets_uuid.split(",")
         mock__add_network_to_uplinksets.assert_called_once_with(
             self.driver, [uplinkset_uuid_one, uplinkset_uuid_two],
             oneview_network_uuid
@@ -439,7 +434,6 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         self, mock_get_neutron_oneview_network, mock_get
     ):
         oneview_network_uuid = 'net-uuid'
-        oneview_network_uri = '/rest/ethernet-networks/' + oneview_network_uuid
         network_name = 'test-network'
         vlan_id = '100'
         neutron_network_id = 1
