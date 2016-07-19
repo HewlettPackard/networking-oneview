@@ -35,7 +35,7 @@ class ResourcesSyncService(object):
 
     def start(self, interval):
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.task)
-        heartbeat.start(interval=interval, initial_delay=4)
+        heartbeat.start(interval=interval, initial_delay=interval)
 
     def task(self):
         LOG.info(_LI("Starting periodic task"))
