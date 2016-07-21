@@ -93,12 +93,15 @@ def insert_oneview_network_uplinkset(
         session.add(net)
 
 
-def delete_oneview_network_uplinkset(session, oneview_network_uuid):
+def delete_oneview_network_uplinkset(
+    session, oneview_network_uuid, oneview_uplinkset_uuid
+):
     with session.begin(subtransactions=True):
         session.query(
             oneview_network_db.OneviewNetworkUplinkset
         ).filter_by(
-            oneview_network_uuid=oneview_network_uuid
+            oneview_network_uuid=oneview_network_uuid,
+            oneview_uplinkset_uuid=oneview_uplinkset_uuid
         ).delete()
 
 
