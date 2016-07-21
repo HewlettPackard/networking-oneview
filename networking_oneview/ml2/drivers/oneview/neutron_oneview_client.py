@@ -52,7 +52,8 @@ class Network(ResourceManager):
         provider_network = neutron_network_dict.get('provider:network_type')
 
         oneview_network_uuid = self.get_mapped_oneview_network_uuid(
-            oneview_network_mapping_list, provider_network, physical_network
+            oneview_network_mapping_list, provider_network, physical_network,
+            neutron_network_name
         )
 
         if oneview_network_uuid is None:
@@ -75,7 +76,8 @@ class Network(ResourceManager):
         )
 
     def get_mapped_oneview_network_uuid(
-        self, oneview_network_mapping_list, provider_network, physical_network
+        self, oneview_network_mapping_list, provider_network, physical_network,
+        neutron_network_name
     ):
         for network_mapping in oneview_network_mapping_list:
             neutron_mapped_net_name, oneview_mapped_net_uuid =\
@@ -121,7 +123,8 @@ class Network(ResourceManager):
         provider_network = neutron_network_dict.get('provider:network_type')
 
         oneview_network_uuid = self.get_mapped_oneview_network_uuid(
-            oneview_network_mapping_list, provider_network, physical_network
+            oneview_network_mapping_list, provider_network, physical_network,
+            neutron_network_name
         )
 
         if oneview_network_uuid is None:
