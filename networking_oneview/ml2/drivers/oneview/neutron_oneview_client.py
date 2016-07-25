@@ -80,10 +80,11 @@ class Network(ResourceManager):
         neutron_network_name
     ):
         for network_mapping in oneview_network_mapping_list:
-            neutron_mapped_net_name, oneview_mapped_net_uuid =\
+            neutron_mapped_net_name, oneview_mapped_net_uuid = (
                 network_mapping.split(':')
-            if provider_network == "flat" and physical_network is not None and\
-               neutron_mapped_net_name == neutron_network_name:
+            )
+            if (provider_network == "flat" and physical_network is not None and
+               neutron_mapped_net_name == neutron_network_name):
                 return oneview_mapped_net_uuid
 
     def map_add_neutron_network_to_oneview_network_in_database(
@@ -149,7 +150,6 @@ class Network(ResourceManager):
             session, neutron_network_id
         )
         for uplinkset_uuid in uplinksets_uuid_list:
-            print uplinkset_uuid
             db_manager.delete_oneview_network_uplinkset(
                 session, oneview_network_uuid, uplinkset_uuid
             )

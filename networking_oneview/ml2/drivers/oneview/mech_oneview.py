@@ -126,6 +126,9 @@ class OneViewDriver(driver_api.MechanismDriver):
         session = context._plugin_context._session
         neutron_port_uuid = context._port.get('id')
         mac_address = context._port.get('mac_address')
+
+        neutron_network_dict = common.get_network_from_port_context(context)
+        neutron_network_id = neutron_network_dict.get('id')
         vnic_type = common.get_vnic_type_from_port_context(context)
 
         if vnic_type != 'baremetal':
@@ -135,6 +138,16 @@ class OneViewDriver(driver_api.MechanismDriver):
             local_link_information_from_context(
                 context._port
             )
+
+        if local_link_information_list is None or\
+           len(local_link_information_list) == 0:
+            return
+        elif len(local_link_information_list) > 1:
+            raise exception.ValueError(
+                "'local_link_information' must have only one value"
+            )
+
+        local_link_information_dict = local_link_information_list[0]
 
         self.neutron_oneview_client.port.create(
             session, neutron_port_uuid, neutron_network_id, mac_address,
