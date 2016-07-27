@@ -18,6 +18,7 @@ from neutron._i18n import _, _LW
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
+from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
 from neutron.plugins.ml2.drivers.oneview import resources_sync
 from oneview_client import client
 from oneview_client import exceptions
@@ -45,6 +46,9 @@ opts = [
                help=_('Max connection retries to check changes on OneView')),
     cfg.StrOpt('uplinksets_uuid',
                help=_('UplinkSets to be used')),
+    cfg.StrOpt('flat_net_mappings',
+               default='',
+               help=_('-')),
     cfg.IntOpt('ov_refresh_interval',
                default=3600,
                help=_('Interval between periodic task executions in seconds'))
@@ -53,6 +57,7 @@ opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(opts, group='oneview')
+
 LOG = log.getLogger(__name__)
 
 
@@ -63,7 +68,23 @@ class OneViewDriver(driver_api.MechanismDriver):
             CONF.oneview.username,
             CONF.oneview.password,
             allow_insecure_connections=True)
+        self.neutron_oneview_client = Client(self.oneview_client)
+
+        self._load_conf()
         self._start_resource_sync_periodic_task()
+
+    def _load_conf(self):
+        uplinksets_uuid = CONF.oneview.uplinksets_uuid
+        self.uplinksets_uuid_list = []
+        if uplinksets_uuid is not None and uplinksets_uuid.strip():
+            self.uplinksets_uuid_list = uplinksets_uuid.split(",")
+
+        oneview_network_mapping = CONF.oneview.flat_net_mappings
+        self.oneview_network_mapping_list = []
+        if oneview_network_mapping is not None and\
+           oneview_network_mapping.strip():
+            self.oneview_network_mapping_list =\
+                oneview_network_mapping.split(",")
 
     def _start_resource_sync_periodic_task(self):
         task = resources_sync.ResourcesSyncService(
@@ -71,99 +92,47 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
         task.start(CONF.oneview.ov_refresh_interval)
 
-    def _add_network_to_uplinksets(
-        self, uplinksets_uuid, oneview_network_uuid
-    ):
-        for uplinkset_uuid in uplinksets_uuid:
-            self.oneview_client.uplinkset.add_network(
-                uplinkset_uuid, oneview_network_uuid
-            )
-
-    def remove_inconsistence_from_db(
-        self, session, neutron_network_uuid, oneview_network_uuid
-    ):
-        db_manager.delete_neutron_oneview_network(
-            session, neutron_network_uuid
-        )
-        db_manager.delete_oneview_network_uplinkset(
-            session, oneview_network_uuid
-        )
-
     def create_network_postcommit(self, context):
         session = context._plugin_context._session
         neutron_network_dict = context._network
-        neutron_network_id = neutron_network_dict.get('id')
-        neutron_network_name = neutron_network_dict.get('name')
-        neutron_network_seg_id = neutron_network_dict.get(
-            'provider:segmentation_id'
-        )
 
-        kwargs = common.prepare_oneview_network_args(
-            neutron_network_name, neutron_network_seg_id
+        self.neutron_oneview_client.network.create(
+            session, neutron_network_dict, self.uplinksets_uuid_list,
+            self.oneview_network_mapping_list
         )
-        oneview_network_uri = self.oneview_client.ethernet_network.create(
-            **kwargs
-        )
-
-        oneview_network_uuid = utils.get_uuid_from_uri(oneview_network_uri)
-
-        uplinksets_uuid = CONF.oneview.uplinksets_uuid.split(",")
-        self._add_network_to_uplinksets(uplinksets_uuid, oneview_network_uuid)
-
-        db_manager.insert_neutron_oneview_network(
-            session, neutron_network_id, oneview_network_uuid
-        )
-        for uplinkset_uuid in uplinksets_uuid:
-            db_manager.insert_oneview_network_uplinkset(
-                session, oneview_network_uuid, uplinkset_uuid
-            )
 
     def delete_network_postcommit(self, context):
         session = context._plugin_context._session
-        neutron_network = context._network
+        neutron_network_dict = context._network
 
-        neutron_oneview_network = db_manager.get_neutron_oneview_network(
-            session, neutron_network.get('id')
+        self.neutron_oneview_client.network.delete(
+            session, neutron_network_dict, self.uplinksets_uuid_list,
+            self.oneview_network_mapping_list
         )
-
-        try:
-            self.oneview_client.ethernet_network.delete(
-                neutron_oneview_network.oneview_network_uuid
-            )
-        finally:
-            self.remove_inconsistence_from_db(
-                session, neutron_network.get('id'),
-                neutron_oneview_network.oneview_network_uuid
-            )
 
     def update_network_postcommit(self, context):
         session = context._plugin_context._session
-        neutron_network = context._network
+        neutron_network_id = context._network.get("id")
+        new_network_name = context._network.get('name')
 
-        neutron_oneview_network = db_manager.get_neutron_oneview_network(
-            session, neutron_network.get('id')
+        self.neutron_oneview_client.network.update(
+            session, neutron_network_id, new_network_name
         )
 
-        if neutron_oneview_network is None:
-            return
-
-        try:
-            self.oneview_client.ethernet_network.get(
-                neutron_oneview_network.oneview_network_uuid
-            )
-        except exceptions.OneViewResourceNotFoundError:
-            self.remove_inconsistence_from_db(
-                session, neutron_network.get('id'),
-                neutron_oneview_network.oneview_network_uuid
-            )
-            LOG.warning(_LW("No mapped Network in Oneview"))
-
     def create_port_postcommit(self, context):
+        self._create_port_from_context(context)
+
+    def _create_port_from_context(self, context):
         session = context._plugin_context._session
         neutron_port_uuid = context._port.get('id')
-        mac = context._port.get('mac_address')
-        neutron_network_json = common.get_network_from_port_context(context)
+        mac_address = context._port.get('mac_address')
+
+        neutron_network_dict = common.get_network_from_port_context(context)
+        neutron_network_id = neutron_network_dict.get('id')
         vnic_type = common.get_vnic_type_from_port_context(context)
+
+        if vnic_type != 'baremetal':
+            return
 
         local_link_information_list = common.\
             local_link_information_from_context(
@@ -171,119 +140,49 @@ class OneViewDriver(driver_api.MechanismDriver):
             )
 
         if local_link_information_list is None or\
-           len(local_link_information_list) == 0 or\
-           vnic_type != 'baremetal':
+           len(local_link_information_list) == 0:
             return
         elif len(local_link_information_list) > 1:
-            raise ValueError(
+            raise exception.ValueError(
                 "'local_link_information' must have only one value"
             )
 
         local_link_information_dict = local_link_information_list[0]
-        switch_info_dict = local_link_information_dict.get('switch_info')
-        server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
-        boot_priority = switch_info_dict.get('boot_priority')
 
-        server_hardware = self.oneview_client.server_hardware.get(
-            server_hardware_uuid
-        )
-
-        server_profile_uuid = utils.get_uuid_from_uri(
-            server_hardware.server_profile_uri
-        )
-
-        neutron_oneview_network = db_manager.get_neutron_oneview_network(
-            session, neutron_network_json.get("id")
-        )
-
-        connection = self.oneview_client.server_profile.add_connection(
-            server_profile_uuid,
-            neutron_oneview_network.oneview_network_uuid, boot_priority,
-            server_hardware.generate_connection_port_for_mac(mac)
-        )
-
-        db_manager.insert_neutron_oneview_port(
-            session, neutron_port_uuid, server_profile_uuid,
-            connection.get('id')
-        )
-
-    def _create_port_from_context(self, context, local_link_information):
-        session = context._plugin_context._session
-        neutron_port_uuid = context._port.get('id')
-        mac = context._port.get('mac_address')
-        neutron_network_dict = common.get_network_from_port_context(context)
-        vnic_type = common.get_vnic_type_from_port_context(context)
-
-        if vnic_type != 'baremetal':
-            return
-
-        switch_info_dict = local_link_information.get('switch_info')
-        server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
-        boot_priority = switch_info_dict.get('boot_priority')
-
-        server_hardware = self.oneview_client.server_hardware.get(
-            server_hardware_uuid
-        )
-
-        server_profile_uuid = utils.get_uuid_from_uri(
-            server_hardware.server_profile_uri
-        )
-
-        oneview_network_uplinkset = db_manager.get_oneview_network_uplinkset(
-            session, neutron_network_dict.get("id")
-        )
-
-        connection = self.oneview_client.server_profile.add_connection(
-            server_profile_uuid,
-            oneview_network_uplinkset.oneview_network_uuid, boot_priority,
-            server_hardware.generate_connection_port_for_mac(mac)
-        )
-
-        db_manager.insert_neutron_oneview_port(
-            session, neutron_port_uuid, server_profile_uuid,
-            connection.get('id')
+        self.neutron_oneview_client.port.create(
+            session, neutron_port_uuid, neutron_network_id, mac_address,
+            local_link_information_dict
         )
 
     def update_port_postcommit(self, context):
         session = context._plugin_context._session
-        original_port = context._original_port
         port = context._port
+        original_port = context._original_port
         neutron_port_uuid = port.get('id')
-
-        original_port_mac = original_port.get('mac_address')
-        port_mac = port.get('mac_address')
 
         port_lli = common.first_local_link_information_from_port_context(port)
         original_port_lli = common.\
             first_local_link_information_from_port_context(original_port)
 
-        original_port_boot_priority =\
-            common.boot_priority_from_local_link_information(original_port_lli)
+        original_port_mac = original_port.get('mac_address')
+        port_mac = port.get('mac_address')
+
         port_boot_priority =\
             common.boot_priority_from_local_link_information(port_lli)
+        original_port_boot_priority =\
+            common.boot_priority_from_local_link_information(original_port_lli)
 
         if not original_port_lli and not port_lli:
             return
         if not original_port_lli and port_lli:
-            return self._create_port_from_context(context, port_lli)
+            return self._create_port_from_context(context)
         if original_port_lli and not port_lli:
             return self._delete_port_from_context(context)
         if original_port_mac != port_mac or\
            original_port_boot_priority != port_boot_priority:
-            neutron_oneview_port = db_manager.get_neutron_oneview_port(
-                session, neutron_port_uuid
-            )
-            server_hardware = self.oneview_client.server_hardware.get(
-                common.server_hardware_from_local_link_information(port_lli)
-            )
-            server_profile_uuid = utils.get_uuid_from_uri(
-                server_hardware.server_profile_uri
-            )
-
-            return self.oneview_client.server_profile.update_connection(
-                server_profile_uuid,
-                neutron_oneview_port.oneview_connection_id, port_boot_priority,
-                server_hardware.generate_connection_port_for_mac(port_mac)
+            self.neutron_oneview_client.port.update(
+                session, neutron_port_uuid, port_lli, port_boot_priority,
+                port_mac
             )
 
     def _delete_port_from_context(self, context):
@@ -294,17 +193,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         if vnic_type != 'baremetal':
             return
 
-        neutron_oneview_port = db_manager.get_neutron_oneview_port(
-            session, neutron_port_uuid
-        )
-
-        if neutron_oneview_port:
-            self.oneview_client.server_profile.remove_connection(
-                neutron_oneview_port.oneview_server_profile_uuid,
-                neutron_oneview_port.oneview_connection_id
-            )
-
-            db_manager.delete_neutron_oneview_port(session, neutron_port_uuid)
+        self.neutron_oneview_client.port.delete(session, neutron_port_uuid)
 
     def delete_port_postcommit(self, context):
         self._delete_port_from_context(context)
