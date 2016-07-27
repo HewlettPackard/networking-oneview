@@ -12,6 +12,8 @@ from oslo_config import cfg
 
 CONF = cfg.CONF
 
+NETWORK_TYPE_FLAT = 'flat'
+
 
 @six.add_metaclass(abc.ABCMeta)
 class ResourceManager:
@@ -21,16 +23,16 @@ class ResourceManager:
 
 class Network(ResourceManager):
     def add_network_to_uplinksets(
-        self, uplinksets_uuid_list, oneview_network_uuid
+        self, uplinksets_id_list, oneview_network_id
     ):
-        for uplinkset_uuid in uplinksets_uuid_list:
+        for uplinkset_id in uplinksets_id_list:
             self.oneview_client.uplinkset.add_network(
-                uplinkset_uuid, oneview_network_uuid
+                uplinkset_id, oneview_network_id
             )
 
     def create(
-        self, session, neutron_network_dict, uplinksets_uuid_list,
-        oneview_network_mapping_list
+        self, session, neutron_network_dict, uplinkset_id_list,
+        oneview_network_mapping_dict
     ):
         """Create a Network resource on OneView and populates the database.
 
@@ -52,7 +54,7 @@ class Network(ResourceManager):
         provider_network = neutron_network_dict.get('provider:network_type')
 
         oneview_network_uuid = self.get_mapped_oneview_network_uuid(
-            oneview_network_mapping_list, provider_network, physical_network,
+            oneview_network_mapping_dict, provider_network, physical_network,
             neutron_network_name
         )
 
@@ -64,39 +66,36 @@ class Network(ResourceManager):
                 **kwargs
             )
 
-            oneview_network_uuid = utils.get_uuid_from_uri(oneview_network_uri)
+            oneview_network_id = utils.get_uuid_from_uri(oneview_network_uri)
 
             self.add_network_to_uplinksets(
-                uplinksets_uuid_list, oneview_network_uuid
+                uplinkset_id_list, oneview_network_id
             )
 
         self.map_add_neutron_network_to_oneview_network_in_database(
             session, neutron_network_id, oneview_network_uuid,
-            uplinksets_uuid_list
+            uplinkset_id_list
         )
 
     def get_mapped_oneview_network_uuid(
-        self, oneview_network_mapping_list, provider_network, physical_network,
+        self, oneview_network_mapping_dict, provider_network, physical_network,
         neutron_network_name
     ):
-        for network_mapping in oneview_network_mapping_list:
-            neutron_mapped_net_name, oneview_mapped_net_uuid = (
-                network_mapping.split(':')
-            )
-            if (provider_network == "flat" and physical_network is not None and
-               neutron_mapped_net_name == neutron_network_name):
-                return oneview_mapped_net_uuid
+        if provider_network != NETWORK_TYPE_FLAT or physical_network is None:
+            return None
+
+        return oneview_network_mapping_dict.get(neutron_network_name)
 
     def map_add_neutron_network_to_oneview_network_in_database(
-        self, session, neutron_network_id, oneview_network_uuid,
-        uplinksets_uuid_list
+        self, session, neutron_network_id, oneview_network_id,
+        uplinksets_id_list
     ):
         db_manager.insert_neutron_oneview_network(
-            session, neutron_network_id, oneview_network_uuid
+            session, neutron_network_id, oneview_network_id
         )
-        for uplinkset_uuid in uplinksets_uuid_list:
+        for uplinkset_id in uplinksets_id_list:
             db_manager.insert_oneview_network_uplinkset(
-                session, oneview_network_uuid, uplinkset_uuid
+                session, oneview_network_id, uplinkset_id
             )
 
     def _remove_inconsistence_from_db(
@@ -240,7 +239,31 @@ class Port(ResourceManager):
             db_manager.delete_neutron_oneview_port(session, neutron_port_uuid)
 
 
+class UplinkSet(ResourceManager):
+    neutron_net_type_to_oneview_net_type = {
+        'vxlan': 'Tagged',
+        'vlan': 'Tagged',
+        'flat': 'Untagged',
+    }
+
+    def get_uplinkset_by_type(self, uplinkset_list, network_type):
+        uplinkset_by_type = []
+        if uplinkset_list is None or len(uplinkset_list) == 0:
+            return uplinkset_by_type
+
+        oneview_net_type = self.neutron_net_type_to_oneview_net_type.get(
+            network_type
+        )
+        for uplinkset_uuid in uplinkset_list:
+            uplinkset = self.oneview_client.uplinkset.get(uplinkset_uuid)
+            if uplinkset.ethernet_network_type == oneview_net_type:
+                uplinkset_by_type.append(uplinkset_uuid)
+
+        return uplinkset_by_type
+
+
 class Client:
     def __init__(self, oneview_client):
         self.network = Network(oneview_client)
         self.port = Port(oneview_client)
+        self.uplinkset = UplinkSet(oneview_client)

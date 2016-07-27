@@ -44,7 +44,7 @@ opts = [
     cfg.IntOpt('max_polling_attempts',
                default=12,
                help=_('Max connection retries to check changes on OneView')),
-    cfg.StrOpt('uplinksets_uuid',
+    cfg.StrOpt('uplinkset_mapping',
                help=_('UplinkSets to be used')),
     cfg.StrOpt('flat_net_mappings',
                default='',
@@ -70,21 +70,16 @@ class OneViewDriver(driver_api.MechanismDriver):
             allow_insecure_connections=True)
         self.neutron_oneview_client = Client(self.oneview_client)
 
-        self._load_conf()
+        self.uplinkset_mappings_dict = (
+            common.load_conf_option_to_dict(CONF.oneview.uplinkset_mapping)
+        )
+        self.oneview_network_mapping_dict = (
+            common.load_oneview_network_mapping_conf_to_dict(
+                CONF.oneview.flat_net_mappings
+            )
+        )
+
         self._start_resource_sync_periodic_task()
-
-    def _load_conf(self):
-        uplinksets_uuid = CONF.oneview.uplinksets_uuid
-        self.uplinksets_uuid_list = []
-        if uplinksets_uuid is not None and uplinksets_uuid.strip():
-            self.uplinksets_uuid_list = uplinksets_uuid.split(",")
-
-        oneview_network_mapping = CONF.oneview.flat_net_mappings
-        self.oneview_network_mapping_list = []
-        if oneview_network_mapping is not None and\
-           oneview_network_mapping.strip():
-            self.oneview_network_mapping_list =\
-                oneview_network_mapping.split(",")
 
     def _start_resource_sync_periodic_task(self):
         task = resources_sync.ResourcesSyncService(
@@ -96,10 +91,23 @@ class OneViewDriver(driver_api.MechanismDriver):
         session = context._plugin_context._session
         neutron_network_dict = context._network
 
-        self.neutron_oneview_client.network.create(
-            session, neutron_network_dict, self.uplinksets_uuid_list,
-            self.oneview_network_mapping_list
+        physical_network = neutron_network_dict.get(
+            'provider:physical_network'
         )
+        provider_network = neutron_network_dict.get('provider:network_type')
+
+        uplinkset_uuid_list = (
+            self.neutron_oneview_client.uplinkset.get_uplinkset_by_type(
+                self.uplinkset_mappings_dict.get(physical_network),
+                provider_network
+            )
+        )
+
+        if len(uplinkset_uuid_list) > 0:
+            self.neutron_oneview_client.network.create(
+                session, neutron_network_dict, self.uplinkset_mappings_dict,
+                self.oneview_network_mapping_dict
+            )
 
     def delete_network_postcommit(self, context):
         session = context._plugin_context._session
@@ -107,7 +115,7 @@ class OneViewDriver(driver_api.MechanismDriver):
 
         self.neutron_oneview_client.network.delete(
             session, neutron_network_dict, self.uplinksets_uuid_list,
-            self.oneview_network_mapping_list
+            self.oneview_network_mapping_dict
         )
 
     def update_network_postcommit(self, context):
