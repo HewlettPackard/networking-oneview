@@ -73,7 +73,7 @@ class Network(ResourceManager):
             )
 
         self.map_add_neutron_network_to_oneview_network_in_database(
-            session, neutron_network_id, oneview_network_uuid,
+            session, neutron_network_id, oneview_network_id,
             uplinkset_id_list
         )
 

@@ -20,6 +20,7 @@ from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
 from neutron.plugins.ml2.drivers.oneview import resources_sync
+from neutron.plugins.ml2.drivers.oneview import init_sync
 from oneview_client import client
 from oneview_client import exceptions
 from oneview_client import utils
@@ -80,12 +81,19 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
 
         self._start_resource_sync_periodic_task()
+        self._start_initial_sync_periodic_task()
 
     def _start_resource_sync_periodic_task(self):
         task = resources_sync.ResourcesSyncService(
             self.oneview_client, CONF.database.connection
         )
         task.start(CONF.oneview.ov_refresh_interval)
+
+    def _start_initial_sync_periodic_task(self):
+        task = init_sync.InitSync(
+            self.oneview_client, CONF.database.connection
+        )
+        task.check_mapped_networks_on_db_and_create_on_oneview()
 
     def create_network_postcommit(self, context):
         session = context._plugin_context._session

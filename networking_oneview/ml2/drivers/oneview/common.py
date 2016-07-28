@@ -36,7 +36,6 @@ def load_conf_option_to_dict(key_value_option):
     if key_value_option is None or not key_value_option:
         return key_value_dict
     key_value_list = key_value_option.split(',')
-    print key_value_list
 
     for key_value in key_value_list:
         key, value = key_value.split(':')
