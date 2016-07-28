@@ -104,13 +104,12 @@ class Network(ResourceManager):
         db_manager.delete_neutron_oneview_network(
             session, neutron_network_uuid
         )
-        db_manager.delete_oneview_network_uplinkset(
+        db_manager.delete_oneview_network_uplinkset_by_uplinkset(
             session, oneview_network_uuid
         )
 
     def delete(
-        self, session, neutron_network_dict, uplinksets_uuid_list,
-        oneview_network_mapping_list
+        self, session, neutron_network_dict, oneview_network_mapping_list
     ):
         neutron_network_id = neutron_network_dict.get('id')
         neutron_network_name = neutron_network_dict.get('name')
@@ -122,12 +121,12 @@ class Network(ResourceManager):
         )
         provider_network = neutron_network_dict.get('provider:network_type')
 
-        oneview_network_uuid = self.get_mapped_oneview_network_uuid(
+        oneview_network_id = self.get_mapped_oneview_network_uuid(
             oneview_network_mapping_list, provider_network, physical_network,
             neutron_network_name
         )
 
-        if oneview_network_uuid is None:
+        if oneview_network_id is None:
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 session, neutron_network_id
             )
@@ -137,21 +136,18 @@ class Network(ResourceManager):
             )
 
         self.map_remove_neutron_network_to_oneview_network_in_database(
-            session, neutron_network_id, oneview_network_uuid,
-            uplinksets_uuid_list
+            session, neutron_network_id, oneview_network_id
         )
 
     def map_remove_neutron_network_to_oneview_network_in_database(
-        self, session, neutron_network_id, oneview_network_uuid,
-        uplinksets_uuid_list
+        self, session, neutron_network_id, oneview_network_id
     ):
         db_manager.delete_neutron_oneview_network(
             session, neutron_network_id
         )
-        for uplinkset_uuid in uplinksets_uuid_list:
-            db_manager.delete_oneview_network_uplinkset(
-                session, oneview_network_uuid, uplinkset_uuid
-            )
+        db_manager.delete_oneview_network_uplinkset_by_uplinkset(
+            session, oneview_network_id
+        )
 
     def update(self, session, neutron_network_id, new_network_name):
         neutron_oneview_network = db_manager.get_neutron_oneview_network(

@@ -122,8 +122,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         neutron_network_dict = context._network
 
         self.neutron_oneview_client.network.delete(
-            session, neutron_network_dict, self.uplinksets_uuid_list,
-            self.oneview_network_mapping_dict
+            session, neutron_network_dict, self.oneview_network_mapping_dict
         )
 
     def update_network_postcommit(self, context):
