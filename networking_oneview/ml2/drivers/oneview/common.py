@@ -17,6 +17,35 @@
 from oneview_client import models
 
 
+def load_oneview_network_mapping_conf_to_dict(oneview_network_mapping):
+    oneview_network_mapping_dict = {}
+    if oneview_network_mapping is None or not oneview_network_mapping:
+        return oneview_network_mapping_dict
+
+    oneview_network_mapping_list = oneview_network_mapping.split(',')
+
+    for neutron_oneview in oneview_network_mapping_list:
+        neutron_net_name, oneview_net_id = neutron_oneview.split(':')
+        oneview_network_mapping_dict[neutron_net_name] = oneview_net_id
+
+    return oneview_network_mapping_dict
+
+
+def load_conf_option_to_dict(key_value_option):
+    key_value_dict = {}
+    if key_value_option is None or not key_value_option:
+        return key_value_dict
+    key_value_list = key_value_option.split(',')
+
+    for key_value in key_value_list:
+        key, value = key_value.split(':')
+        if key_value_dict.get(key) is None:
+            key_value_dict[key] = []
+        key_value_dict[key].append(value)
+
+    return key_value_dict
+
+
 def get_network_from_port_context(context):
     network_context_dict = context._network_context
     if network_context_dict is None:
