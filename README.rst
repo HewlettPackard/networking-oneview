@@ -43,17 +43,23 @@ Install
 - Edit the /etc/neutron/neutron.conf file. Copy the following lines to the end of this file:
 
 [oneview]
-manager_url=<path_to_my_OneView>
-username=myAdminUserName
-password=mySecretOneViewPassword
-allow_insecure_connections=true
-tls_cacert_file=
-uplinksets_uuid=8b4d1932-2528-4f32-8b00-3879cfa1de28
+manager_url=<url_to_OneView>
+username=<username>
+password=<password>
+allow_insecure_connections=<boolean>
+tls_cacert_file=<filepath>
+uplinkset_mappings=<physical-network>:<uplinksets_uuid>,<physical-network>:<uplinksets_uuid>,...
+network_mapping=<network_mapping>
+flat_net_mapping=???
+vlan_net_mapping=???
+ov_refresh_interval=<ov_refresh_interval>
+
+
+- Examples of the lines are:
+manager_url=https://10.5.0.20
+uplinkset_mappings=physnet1:8b4d1932-2528-4f32-8b00-3879cfa1de28,physnet2:f0be6758-4b4b-4596-8aa1-6c38d2422d4f
 network_mapping=neutron-prov:f0be6758-4b4b-4596-8aa1-6c38d2422d4f
 ov_refresh_interval=4
-
-- One example of the manager_url line is:
-manager_url=https://10.5.0.20
 
 
 4) Making setup.cfg file configurations: 
