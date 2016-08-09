@@ -34,6 +34,16 @@ def list_neutron_networks(session):
         return session.query(Network).all()
 
 
+def list_networks_and_segments_with_physnet(session):
+    with session.begin(subtransactions=True):
+        return session.query(
+            Network, NetworkSegment
+        ).filter(
+            Network.id == NetworkSegment.network_id,
+            NetworkSegment.physical_network.isnot(None)
+        ).all()
+
+
 # Neutron Network Segments
 def get_network_segment(session, network_uuid):
     with session.begin(subtransactions=True):
@@ -60,7 +70,6 @@ def insert_neutron_oneview_network(
             neutron_network_uuid, oneview_network_uuid
         )
         session.add(net)
-    session.commit()
 
 
 def update_neutron_oneview_network(session, neutron_uuid, new_oneview_uuid):
@@ -101,6 +110,19 @@ def insert_oneview_network_uplinkset(
     session.commit()
 
 
+def delete_oneview_network_uplinkset(
+    session, uplinkset_id, network_id
+):
+    with session.begin(subtransactions=True):
+        session.query(
+            oneview_network_db.OneviewNetworkUplinkset
+        ).filter_by(
+            oneview_uplinkset_uuid=uplinkset_id,
+            oneview_network_uuid=network_id
+        ).delete()
+    session.commit()
+
+
 def delete_oneview_network_uplinkset_by_uplinkset(
     session, oneview_network_uuid
 ):
@@ -113,12 +135,12 @@ def delete_oneview_network_uplinkset_by_uplinkset(
     session.commit()
 
 
-def get_oneview_network_uplinkset(session, neutron_network_uuid):
+def get_network_uplinksets(session, oneview_network_uuid):
     with session.begin(subtransactions=True):
         return session.query(
-            oneview_network_db.NeutronOneviewNetwork
+            oneview_network_db.OneviewNetworkUplinkset
         ).filter_by(
-            neutron_network_uuid=neutron_network_uuid
+            oneview_network_uuid=oneview_network_uuid
         ).all()
 
 

@@ -22,7 +22,10 @@ from oslo_config import cfg
 from oslo_log import log
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-#
+
+import requests
+requests.packages.urllib3.disable_warnings()
+
 CONF = cfg.CONF
 LOG = log.getLogger(__name__)
 
@@ -43,6 +46,46 @@ class InitSync(object):
                 CONF.oneview.flat_net_mappings
             )
         )
+
+    def check_and_sync_mapped_uplinksets_on_db(self):
+        for neutron_network, segment in (
+            db_manager.list_networks_and_segments_with_physnet(self.session)
+        ):
+            physical_network_uplinkset_list = self.uplinkset_mappings_dict.get(
+                segment.physical_network
+            )
+            if physical_network_uplinkset_list is None:
+                continue
+
+            neutron_oneview_network = db_manager.get_neutron_oneview_network(
+                self.session, neutron_network.id
+            )
+
+            oneview_network_id = neutron_oneview_network.oneview_network_uuid
+
+            oneview_network_uplink_list = db_manager.get_network_uplinksets(
+                self.session, oneview_network_id
+            )
+
+            network_uplinkset_list = [
+                network_uplinkset.oneview_uplinkset_uuid
+                for network_uplinkset in oneview_network_uplink_list
+            ]
+
+            if neutron_oneview_network is None:
+                pass
+            else:
+                for uplinkset_id in network_uplinkset_list:
+                    if uplinkset_id not in physical_network_uplinkset_list:
+                        self.client.uplinkset.remove_network(
+                            self.session, uplinkset_id, oneview_network_id
+                        )
+
+                for uplinkset_id in physical_network_uplinkset_list:
+                    if uplinkset_id not in network_uplinkset_list:
+                        self.client.uplinkset.add_network(
+                            self.session, uplinkset_id, oneview_network_id
+                        )
 
     def check_mapped_networks_on_db_and_create_on_oneview(self):
         for neutron_network in db_manager.list_neutron_networks(

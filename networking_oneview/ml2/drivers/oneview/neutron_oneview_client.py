@@ -250,12 +250,29 @@ class UplinkSet(ResourceManager):
         oneview_net_type = self.neutron_net_type_to_oneview_net_type.get(
             network_type
         )
+
         for uplinkset_uuid in uplinkset_list:
             uplinkset = self.oneview_client.uplinkset.get(uplinkset_uuid)
             if uplinkset.ethernet_network_type == oneview_net_type:
                 uplinkset_by_type.append(uplinkset_uuid)
 
         return uplinkset_by_type
+
+    def remove_network(self, session, uplinkset_id, network_id):
+        self.oneview_client.uplinkset.remove_network(
+            uplinkset_id, network_id
+        )
+        db_manager.delete_oneview_network_uplinkset(
+            session, uplinkset_id, network_id
+        )
+
+    def add_network(self, session, uplinkset_id, network_id):
+        self.oneview_client.uplinkset.add_network(
+            uplinkset_id, network_id
+        )
+        db_manager.insert_oneview_network_uplinkset(
+            session, network_id, uplinkset_id
+        )
 
 
 class Client:
