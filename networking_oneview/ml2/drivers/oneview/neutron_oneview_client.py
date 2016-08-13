@@ -130,10 +130,25 @@ class Network(ResourceManager):
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 session, neutron_network_id
             )
-            oneview_network_uuid = neutron_oneview_network.oneview_network_uuid
+            oneview_network_id = neutron_oneview_network.oneview_network_uuid
             self.oneview_client.ethernet_network.delete(
                 neutron_oneview_network.oneview_network_uuid
             )
+
+            for port in db_manager.list_port_with_network(
+                session, neutron_network_id
+            ):
+                neutron_oneview_port = db_manager.get_neutron_oneview_port(
+                    session, port.id
+                )
+                sp_id = neutron_oneview_port.oneview_server_profile_uuid
+                conn_id = neutron_oneview_port.oneview_connection_id
+
+                self.oneview_client.server_profile.remove_connection(
+                    sp_id, conn_id
+                )
+
+                db_manager.delete_neutron_oneview_port(session, port.id)
 
         self.map_remove_neutron_network_to_oneview_network_in_database(
             session, neutron_network_id, oneview_network_id
@@ -145,7 +160,7 @@ class Network(ResourceManager):
         db_manager.delete_neutron_oneview_network(
             session, neutron_network_id
         )
-        db_manager.delete_oneview_network_uplinkset_by_uplinkset(
+        db_manager.delete_oneview_network_uplinkset_by_network(
             session, oneview_network_id
         )
 
@@ -242,7 +257,7 @@ class UplinkSet(ResourceManager):
         'flat': 'Untagged',
     }
 
-    def get_uplinkset_by_type(self, uplinkset_list, network_type):
+    def filter_uplinkset_id_by_type(self, uplinkset_list, network_type):
         uplinkset_by_type = []
         if uplinkset_list is None or len(uplinkset_list) == 0:
             return uplinkset_by_type
