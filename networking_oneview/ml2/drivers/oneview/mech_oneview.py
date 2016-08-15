@@ -94,6 +94,7 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.oneview_client, CONF.database.connection
         )
         task.check_mapped_networks_on_db_and_create_on_oneview()
+        task.check_and_sync_mapped_uplinksets_on_db()
 
     def create_network_postcommit(self, context):
         session = context._plugin_context._session
