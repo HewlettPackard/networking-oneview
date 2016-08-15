@@ -50,53 +50,6 @@ class InitSync(object):
             )
         )
 
-    def sync_neutron_oneview_network_table(self):
-        for neutron_oneview_network in db_manager.list_neutron_oneview_network(
-            self.session
-        ):
-            print neutron_oneview_network
-            neutron_net = db_manager.get_neutron_network(
-                self.session,
-                neutron_oneview_network.neutron_network_uuid
-            )
-            print neutron_net
-
-            # if neutron_net is None:
-            #     try:
-            #         self.oneview_client.ethernet_network.delete(
-            #             neutron_oneview_network.oneview_network_uuid
-            #         )
-            #     except:
-            #         pass
-            #     db_manager.delete_neutron_oneview_network(
-            #         session, neutron_oneview_network.neutron_network_uuid
-            #     )
-            #     db_manager.delete_oneview_network_uplinkset_by_network(
-            #         session, neutron_oneview_network.oneview_network_uuid
-            #     )
-
-        # for neutron_oneview_network in db_manager.list_neutron_oneview_network(
-        #     self.session
-        # ):
-        #     neutron_network = db_manager.get_neutron_network(
-        #         neutron_oneview_network.neutron_network_uuid
-        #     )
-        #     # oneview_network = db_manager.(
-        #     #     neutron_oneview_network.neutron_network_uuid
-        #     # )
-        #
-        # for neutron_network, segment in (
-        #     db_manager.list_networks_and_segments_with_physnet(self.session)
-        # ):
-        #     neutron_oneview_network = db_manager.get_neutron_oneview_network(
-        #         self.session, neutron_network.id
-        #     )
-        #
-        #     if neutron_oneview_network is None:
-        #         continue
-        #
-        #     pass
-
     def sync_ports(self, network_id):
         for port, port_binding in db_manager.get_port_with_binding_profile(
             self.session, network_id
@@ -119,7 +72,6 @@ class InitSync(object):
         for neutron_network, segment in (
             db_manager.list_networks_and_segments_with_physnet(self.session)
         ):
-            # print neutron_network, segment
             physnet_compatible_uplinkset_list = (
                 self.client.uplinkset.filter_uplinkset_id_by_type(
                     self.uplinkset_mappings_dict.get(
@@ -128,8 +80,6 @@ class InitSync(object):
                     segment.network_type
                 )
             )
-
-            # print physnet_compatible_uplinkset_list
 
             neutron_network_dict = {
                 'id': neutron_network.id,
@@ -142,7 +92,6 @@ class InitSync(object):
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 self.session, neutron_network.id
             )
-            # print neutron_oneview_network
 
             if len(physnet_compatible_uplinkset_list) == 0:
                 if neutron_oneview_network is not None:
@@ -171,17 +120,13 @@ class InitSync(object):
                     for network_uplinkset in oneview_network_uplink_list
                 ]
 
-                # print physnet_compatible_uplinkset_list
                 for uplinkset_id in network_uplinkset_list:
-                    # print uplinkset_id
                     if uplinkset_id not in physnet_compatible_uplinkset_list:
                         self.client.uplinkset.remove_network(
                             self.session, uplinkset_id, oneview_network_id
                         )
 
-                # print network_uplinkset_list
                 for uplinkset_id in physnet_compatible_uplinkset_list:
-                    # print uplinkset_id
                     if uplinkset_id not in network_uplinkset_list:
                         self.client.uplinkset.add_network(
                             self.session, uplinkset_id, oneview_network_id
@@ -225,15 +170,6 @@ class InitSync(object):
                     'provider:physical_network': segment.physical_network,
                     'provider:network_type': segment.network_type
                 }
-
-                # uplinkset_id_list = (
-                #     self.client.uplinkset.get_uplinkset_by_type(
-                #         self.uplinkset_mappings_dict.get(
-                #             segment.physical_network
-                #         ),
-                #         segment.network_type
-                #     )
-                # )
 
                 if len(uplinkset_id_list) > 0:
                     self.client.network.create(

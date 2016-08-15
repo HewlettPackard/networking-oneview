@@ -186,18 +186,6 @@ def delete_oneview_network_uplinkset_by_network(session, network_id):
     session.commit()
 
 
-# def delete_oneview_network_uplinkset_by_uplinkset(
-#     session, oneview_network_uuid
-# ):
-#     with session.begin(subtransactions=True):
-#         session.query(
-#             oneview_network_db.OneviewNetworkUplinkset
-#         ).filter_by(
-#             oneview_network_uuid=oneview_network_uuid
-#         ).delete()
-#     session.commit()
-
-
 def get_network_uplinksets(session, oneview_network_uuid):
     with session.begin(subtransactions=True):
         return session.query(
