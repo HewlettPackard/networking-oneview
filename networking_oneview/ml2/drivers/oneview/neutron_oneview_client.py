@@ -26,9 +26,9 @@ class Network(ResourceManager):
         self, uplinksets_id_list, oneview_network_id
     ):
         for uplinkset_id in uplinksets_id_list:
-            self.oneview_client.uplinkset.add_network(
-                uplinkset_id, oneview_network_id
-            )
+            uplinkset = self.oneview_client.uplink_sets.get(oneview_network_id)
+            uplinkset['networkUris'].append(oneview_network_id)
+            self.oneview_client.uplink_sets.update(uplinkset)
 
     def create(
         self, session, neutron_network_dict, uplinkset_id_list,
@@ -62,7 +62,7 @@ class Network(ResourceManager):
             kwargs = common.prepare_oneview_network_args(
                 neutron_network_name, neutron_network_seg_id
             )
-            oneview_network_uri = self.oneview_client.ethernet_network.create(
+            oneview_network_uri = self.oneview_client.ethernet_networks.create(
                 **kwargs
             )
 
@@ -257,7 +257,7 @@ class UplinkSet(ResourceManager):
         'flat': 'Untagged',
     }
 
-    def filter_uplinkset_id_by_type(self, uplinkset_list, network_type):
+    def filter_by_type(self, uplinkset_list, network_type):
         uplinkset_by_type = []
         if uplinkset_list is None or len(uplinkset_list) == 0:
             return uplinkset_by_type
@@ -267,7 +267,7 @@ class UplinkSet(ResourceManager):
         )
 
         for uplinkset_uuid in uplinkset_list:
-            uplinkset = self.oneview_client.uplinkset.get(uplinkset_uuid)
+            uplinkset = self.oneview_client.uplink_sets.get(uplinkset_uuid)
             if uplinkset.ethernet_network_type == oneview_net_type:
                 uplinkset_by_type.append(uplinkset_uuid)
 
