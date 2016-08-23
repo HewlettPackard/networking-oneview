@@ -95,13 +95,13 @@ def server_hardware_from_local_link_information(local_link_information):
             return switch_info_dict.get('server_hardware_uuid')
 
 
-def prepare_oneview_network_args(name, seg_id=None):
-    kwargs = {
-        'name': name,
-        'ethernet_network_type': models.EthernetNetwork.UNTAGGED
-    }
-    if seg_id:
-        kwargs['ethernet_network_type'] = models.EthernetNetwork.TAGGED
-        kwargs['vlan'] = seg_id
-
-    return kwargs
+# def prepare_oneview_network_args(name, seg_id=None):
+#     kwargs = {
+#         'name': name,
+#         'ethernet_network_type': models.EthernetNetwork.UNTAGGED
+#     }
+#     if seg_id:
+#         kwargs['ethernet_network_type'] = models.EthernetNetwork.TAGGED
+#         kwargs['vlan'] = seg_id
+#
+#     return kwargs

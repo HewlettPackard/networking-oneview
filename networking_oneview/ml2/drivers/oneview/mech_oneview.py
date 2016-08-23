@@ -55,7 +55,7 @@ LOG = log.getLogger(__name__)
 
 
 class OneViewDriver(driver_api.MechanismDriver):
-    def initialize(self):
+    def _initialize_driver(self):
         self.oneview_client = OneViewClient({
             "ip": CONF.oneview.oneview_ip,
             "credentials": {
@@ -73,6 +73,9 @@ class OneViewDriver(driver_api.MechanismDriver):
                 CONF.oneview.flat_net_mappings
             )
         )
+
+    def initialize(self):
+        self._initialize_driver()
 
         self._start_resource_sync_periodic_task()
         self._start_initial_sync_periodic_task()
