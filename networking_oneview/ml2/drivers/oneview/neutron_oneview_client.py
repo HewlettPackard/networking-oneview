@@ -182,10 +182,6 @@ class Network(ResourceManager):
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 session, neutron_network_id
             )
-            print neutron_network_id
-            print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-            print neutron_oneview_network
-            print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
 
             oneview_network_id = neutron_oneview_network.oneview_network_uuid
             self.oneview_client.ethernet_network.delete(
@@ -207,9 +203,9 @@ class Network(ResourceManager):
 
                 db_manager.delete_neutron_oneview_port(session, port.id)
 
-        self.map_remove_neutron_network_to_oneview_network_in_database(
-            session, neutron_network_id, oneview_network_id
-        )
+            self.map_remove_neutron_network_to_oneview_network_in_database(
+                session, neutron_network_id, oneview_network_id
+            )
 
     def map_remove_neutron_network_to_oneview_network_in_database(
         self, session, neutron_network_id, oneview_network_id
