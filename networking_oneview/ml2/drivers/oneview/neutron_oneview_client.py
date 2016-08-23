@@ -13,6 +13,9 @@ from oslo_config import cfg
 CONF = cfg.CONF
 
 NETWORK_TYPE_FLAT = 'flat'
+FLAT_NET = '0'
+UPLINKSET = '1'
+NETWORK_IS_NONE = '2'
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -30,10 +33,35 @@ class Network(ResourceManager):
                 uplinkset_id, oneview_network_id
             )
 
-    def create(
-        self, session, neutron_network_dict, uplinkset_id_list,
+    def get_network_oneview_id(
+        self, session, neutron_network_id, physical_network,
         oneview_network_mapping_dict
     ):
+        network_id = oneview_network_mapping_dict.get(physical_network)
+        if network_id:
+            return network_id
+
+        return db_manager.get_neutron_oneview_network(
+            session, neutron_network_id
+        )
+
+    def verify_mapping_type(
+        self, physical_network, uplinkset_mappings_dict,
+        oneview_network_mapping_dict
+    ):
+        if physical_network in oneview_network_mapping_dict:
+            return FLAT_NET
+
+        if physical_network in uplinkset_mappings_dict:
+            return UPLINKSET
+
+        return NETWORK_IS_NONE
+
+    def create(
+        self, session, neutron_network_dict, uplinkset_id_list,
+        oneview_network_mapping_dict, uplinkset_mappings_dict
+    ):
+
         """Create a Network resource on OneView and populates the database.
 
         This function will create a Ethernet Network resource on OneView using
@@ -53,45 +81,59 @@ class Network(ResourceManager):
 
         provider_network = neutron_network_dict.get('provider:network_type')
 
-        oneview_network_uuid = self.get_mapped_oneview_network_uuid(
-            oneview_network_mapping_dict, provider_network, physical_network,
-            neutron_network_name
+        oneview_network_id = self.get_network_oneview_id(
+            session, neutron_network_id, physical_network,
+            oneview_network_mapping_dict
+        )
+        verify_mapping = self.verify_mapping_type(
+            physical_network, uplinkset_mappings_dict,
+            oneview_network_mapping_dict
         )
 
-        if oneview_network_uuid is None:
-            kwargs = common.prepare_oneview_network_args(
-                neutron_network_name, neutron_network_seg_id
-            )
-            oneview_network_uri = self.oneview_client.ethernet_network.create(
-                **kwargs
+        # oneview_network_uuid = self.get_mapped_oneview_network_uuid(
+        #     oneview_network_mapping_dict, provider_network, physical_network,
+        #     neutron_network_name
+        # )
+
+        if verify_mapping is FLAT_NET:
+            return self.map_add_neutron_network_to_oneview_network_in_database(
+                session, neutron_network_id, oneview_network_id,
+                uplinkset_id_list, manageable=False
             )
 
-            oneview_network_id = utils.get_uuid_from_uri(oneview_network_uri)
+        kwargs = common.prepare_oneview_network_args(
+            neutron_network_name, neutron_network_seg_id
+        )
+        oneview_network_uri = self.oneview_client.ethernet_network.create(
+            **kwargs
+        )
 
-            self.add_network_to_uplinksets(
-                uplinkset_id_list, oneview_network_id
-            )
+        oneview_network_id = utils.get_uuid_from_uri(oneview_network_uri)
+
+        self.add_network_to_uplinksets(
+            uplinkset_id_list, oneview_network_id
+        )
 
         self.map_add_neutron_network_to_oneview_network_in_database(
             session, neutron_network_id, oneview_network_id,
             uplinkset_id_list
         )
 
-    def get_mapped_oneview_network_uuid(
-        self, oneview_network_mapping_dict, provider_network, physical_network,
-        neutron_network_name
-    ):
-        if provider_network != NETWORK_TYPE_FLAT or physical_network is None:
-            return None
-
-        return oneview_network_mapping_dict.get(neutron_network_name)
+    # def get_mapped_oneview_network_uuid(
+    #     self, oneview_network_mapping_dict, provider_network, physical_network,
+    #     neutron_network_name
+    # ):
+    #     if provider_network != NETWORK_TYPE_FLAT or physical_network is None:
+    #         return None
+    #
+    #     return oneview_network_mapping_dict.get(neutron_network_name)
 
     def map_add_neutron_network_to_oneview_network_in_database(
         self, session, neutron_network_id, oneview_network_id,
-        uplinksets_id_list
+        uplinksets_id_list, manageable=True
     ):
         db_manager.insert_neutron_oneview_network(
-            session, neutron_network_id, oneview_network_id
+            session, neutron_network_id, oneview_network_id, manageable
         )
         for uplinkset_id in uplinksets_id_list:
             db_manager.insert_oneview_network_uplinkset(
@@ -109,7 +151,8 @@ class Network(ResourceManager):
         )
 
     def delete(
-        self, session, neutron_network_dict, oneview_network_mapping_list
+        self, session, neutron_network_dict, uplinkset_mappings_dict,
+        oneview_network_mapping_dict
     ):
         neutron_network_id = neutron_network_dict.get('id')
         neutron_network_name = neutron_network_dict.get('name')
@@ -121,15 +164,29 @@ class Network(ResourceManager):
         )
         provider_network = neutron_network_dict.get('provider:network_type')
 
-        oneview_network_id = self.get_mapped_oneview_network_uuid(
-            oneview_network_mapping_list, provider_network, physical_network,
-            neutron_network_name
+        oneview_network_id = self.get_network_oneview_id(
+            session, neutron_network_id, physical_network,
+            oneview_network_mapping_dict
         )
 
-        if oneview_network_id is None:
+        verify_mapping = self.verify_mapping_type(
+            physical_network, uplinkset_mappings_dict,
+            oneview_network_mapping_dict
+        )
+        # oneview_network_id = self.get_mapped_oneview_network_uuid(
+        #     oneview_network_mapping_list, provider_network, physical_network,
+        #     neutron_network_name
+        # )
+
+        if verify_mapping is not FLAT_NET:
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 session, neutron_network_id
             )
+            print neutron_network_id
+            print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+            print neutron_oneview_network
+            print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+
             oneview_network_id = neutron_oneview_network.oneview_network_uuid
             self.oneview_client.ethernet_network.delete(
                 neutron_oneview_network.oneview_network_uuid
@@ -160,22 +217,32 @@ class Network(ResourceManager):
         db_manager.delete_neutron_oneview_network(
             session, neutron_network_id
         )
+
         db_manager.delete_oneview_network_uplinkset_by_network(
             session, oneview_network_id
         )
 
-    def update(self, session, neutron_network_id, new_network_name):
+    def update(
+        self, session, neutron_network_id, new_network_name, physical_network,
+        uplinkset_mappings_dict, oneview_network_mapping_dict
+    ):
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, neutron_network_id
         )
         if neutron_oneview_network is None:
             return
 
+        verify_mapping = self.verify_mapping_type(
+            physical_network, uplinkset_mappings_dict,
+            oneview_network_mapping_dict
+        )
+
         try:
-            self.oneview_client.ethernet_network.update_name(
-                neutron_oneview_network.oneview_network_uuid,
-                new_network_name
-            )
+            if verify_mapping is not FLAT_NET:
+                self.oneview_client.ethernet_network.update_name(
+                    neutron_oneview_network.oneview_network_uuid,
+                    new_network_name
+                )
         except exceptions.OneViewResourceNotFoundError:
             self._remove_inconsistence_from_db(
                 session, neutron_network_id,

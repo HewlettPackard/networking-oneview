@@ -106,11 +106,11 @@ def list_neutron_oneview_network(session):
 
 
 def insert_neutron_oneview_network(
-    session, neutron_network_uuid, oneview_network_uuid
+    session, neutron_network_uuid, oneview_network_uuid, manageable=True
 ):
     with session.begin(subtransactions=True):
         net = oneview_network_db.NeutronOneviewNetwork(
-            neutron_network_uuid, oneview_network_uuid
+            neutron_network_uuid, oneview_network_uuid, manageable
         )
         session.add(net)
 
@@ -138,7 +138,6 @@ def delete_neutron_oneview_network(session, neutron_network_uuid):
         ).filter_by(
             neutron_network_uuid=neutron_network_uuid
         ).delete()
-    session.commit()
 
 
 # OneView Network Uplinkset
@@ -160,7 +159,7 @@ def insert_oneview_network_uplinkset(
             oneview_network_uuid, uplinkset_uuid
         )
         session.add(net)
-    session.commit()
+    #session.commit()
 
 
 def delete_oneview_network_uplinkset(
@@ -183,7 +182,7 @@ def delete_oneview_network_uplinkset_by_network(session, network_id):
         ).filter_by(
             oneview_network_uuid=network_id
         ).delete()
-    session.commit()
+    #session.commit()
 
 
 def get_network_uplinksets(session, oneview_network_uuid):

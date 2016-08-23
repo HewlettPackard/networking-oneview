@@ -61,6 +61,10 @@ CONF.register_opts(opts, group='oneview')
 
 LOG = log.getLogger(__name__)
 
+FLAT_NET = '0'
+UPLINKSET = '1'
+NETWORK_IS_NONE = '2'
+
 
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
@@ -80,8 +84,8 @@ class OneViewDriver(driver_api.MechanismDriver):
             )
         )
 
-        self._start_resource_sync_periodic_task()
-        self._start_initial_sync_periodic_task()
+        # self._start_resource_sync_periodic_task()
+        # self._start_initial_sync_periodic_task()
 
     def _start_resource_sync_periodic_task(self):
         task = resources_sync.ResourcesSyncService(
@@ -91,7 +95,7 @@ class OneViewDriver(driver_api.MechanismDriver):
 
     def _start_initial_sync_periodic_task(self):
         task = init_sync.InitSync(
-            self.oneview_client, CONF.database.connection
+           self.oneview_client, CONF.database.connection
         )
         task.check_mapped_networks_on_db_and_create_on_oneview()
         task.check_and_sync_mapped_uplinksets_on_db()
@@ -105,17 +109,31 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
         provider_network = neutron_network_dict.get('provider:network_type')
 
+        verify_mapping = self.neutron_oneview_client.\
+            network.verify_mapping_type(
+                physical_network, self.uplinkset_mappings_dict,
+                self.oneview_network_mapping_dict
+                )
+
         uplinkset_id_list = (
-            self.neutron_oneview_client.uplinkset.get_uplinkset_by_type(
+            self.neutron_oneview_client.uplinkset.filter_uplinkset_id_by_type(
                 self.uplinkset_mappings_dict.get(physical_network),
                 provider_network
-            )
+                )
         )
 
-        if len(uplinkset_id_list) > 0:
+        if verify_mapping is not FLAT_NET:
+            if len(uplinkset_id_list) > 0:
+                self.neutron_oneview_client.network.create(
+                    session, neutron_network_dict, uplinkset_id_list,
+                    self.oneview_network_mapping_dict,
+                    self.uplinkset_mappings_dict
+                )
+
+        elif verify_mapping is FLAT_NET:
             self.neutron_oneview_client.network.create(
                 session, neutron_network_dict, uplinkset_id_list,
-                self.oneview_network_mapping_dict
+                self.oneview_network_mapping_dict, self.uplinkset_mappings_dict
             )
 
     def delete_network_postcommit(self, context):
@@ -123,7 +141,8 @@ class OneViewDriver(driver_api.MechanismDriver):
         neutron_network_dict = context._network
 
         self.neutron_oneview_client.network.delete(
-            session, neutron_network_dict, self.oneview_network_mapping_dict
+            session, neutron_network_dict, self.uplinkset_mappings_dict,
+            self.oneview_network_mapping_dict
         )
 
     def update_network_postcommit(self, context):
@@ -131,8 +150,13 @@ class OneViewDriver(driver_api.MechanismDriver):
         neutron_network_id = context._network.get("id")
         new_network_name = context._network.get('name')
 
+        physical_network = context._network.get(
+            'provider:physical_network'
+        )
+
         self.neutron_oneview_client.network.update(
-            session, neutron_network_id, new_network_name
+            session, neutron_network_id, new_network_name, physical_network,
+            self.uplinkset_mappings_dict, self.oneview_network_mapping_dict
         )
 
     def create_port_postcommit(self, context):

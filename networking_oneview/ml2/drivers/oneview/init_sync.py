@@ -31,6 +31,8 @@ requests.packages.urllib3.disable_warnings()
 CONF = cfg.CONF
 LOG = log.getLogger(__name__)
 
+FLAT_NET = '0'
+
 
 class InitSync(object):
     def __init__(self, oneview_client, connection):
@@ -144,9 +146,16 @@ class InitSync(object):
                     segment.network_type
                 )
             )
-            if physnet_compatible_uplinkset_list is None:
-                continue
 
+            verify_mapping = self.client.network.verify_mapping_type(
+                segment.physical_network, self.uplinkset_mappings_dict,
+                self.oneview_network_mapping_dict
+            )
+            self.oneview_network_mapping_dict
+
+            if physnet_compatible_uplinkset_list is None:
+                if verify_mapping is not FLAT_NET:
+                    continue
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 self.session, neutron_network.id
             )
@@ -219,7 +228,7 @@ class InitSync(object):
             }
 
             uplinkset_id_list = (
-                self.client.uplinkset.get_uplinkset_by_type(
+                self.client.uplinkset.filter_uplinkset_id_by_type(
                     self.uplinkset_mappings_dict.get(
                         segment.physical_network
                     ),
