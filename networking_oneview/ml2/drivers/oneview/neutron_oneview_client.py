@@ -231,24 +231,100 @@ class Port(ResourceManager):
             server_hardware_uuid
         )
 
-        server_profile_uuid = utils.get_uuid_from_uri(
-            server_hardware.server_profile_uri
+        server_profile_uri = utils.get_uuid_from_uri(
+            server_hardware.get('serverProfileUri')
         )
 
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, neutron_network_id
         )
 
-        connection = self.oneview_client.server_profile.add_connection(
-            server_profile_uuid,
-            neutron_oneview_network.oneview_network_uuid, boot_priority,
-            server_hardware.generate_connection_port_for_mac(mac_address)
+        connection_id = self._add_connection(
+            server_profile_uri,
+            self._generate_connection_port_for_mac(
+                server_hardware, mac_address
+            ),
+            utils.get_uri_from_uuid(
+                '/rest/ethernet-networks/',
+                neutron_oneview_network.oneview_network_uuid
+            ), boot_priority
         )
 
+        # connection = self.oneview_client.server_profile.add_connection(
+        #     server_profile_uri,
+        #     neutron_oneview_network.oneview_network_uuid, boot_priority,
+        #     server_hardware.generate_connection_port_for_mac(mac_address)
+        # )
+
         db_manager.insert_neutron_oneview_port(
-            session, neutron_port_uuid, server_profile_uuid,
-            connection.get('id')
+            session, neutron_port_uuid, server_profile_uri, connection_id
         )
+
+    def _generate_connection_port_for_mac(self, server_hardware, mac_address):
+        port_info = self._get_connection_port_info(
+            server_hardware, mac_address
+        )
+        return str(port_info.get('device_slot_location')) + " " +\
+            str(port_info.get('device_slot_port_number')) + ":" +\
+            str(port_info.get('physical_port_number')) + "-" +\
+            str(port_info.get('virtual_port_function'))
+
+    def _get_connection_port_info(self, server_hardware, mac_address):
+        port_map = server_hardware.get('portMap')
+        device_slots = port_map.get('deviceSlots')
+
+        for device_slot in device_slots:
+            physical_ports = device_slot.get('physicalPorts')
+            for physical_port in physical_ports:
+                virtual_ports = physical_port.get('virtualPorts')
+                for virtual_port in virtual_ports:
+                    mac = virtual_port.get('mac')
+                    if mac == mac_address:
+                        info_dict = {
+                            'virtual_port_function': virtual_port.get(
+                                'portFunction'
+                            ),
+                            'physical_port_number': physical_port.get(
+                                'portNumber'
+                            ),
+                            'device_slot_port_number': device_slot.get(
+                                'slotNumber'
+                            ),
+                            'device_slot_location': device_slot.get(
+                                'location'
+                            ),
+                        }
+                        return info_dict
+
+    def _add_connection(
+        self, server_profile_id, port_id, network_uri, boot_priority
+    ):
+        def get_next_connection_id(server_profile):
+            next_id = 0
+            for connection in server_profile.get('connections'):
+                if connection.get('id') > next_id:
+                    next_id = connection.get('id')
+            return next_id + 1
+
+        server_profile = self.oneview_client.server_profiles.get(
+            server_profile_id
+        ).copy()
+
+        connection_id = get_next_connection_id(server_profile)
+        server_profile['connections'].append({
+            'portId': port_id,
+            'networkUri': network_uri,
+            'boot': {'priority': boot_priority},
+            'functionType': 'Ethernet',
+            'id': connection_id
+        })
+
+        self.oneview_client.server_profiles.update(
+            resource=server_profile,
+            id_or_uri=server_profile.get('uri')
+        )
+
+        return connection_id
 
     def update(
         self, session, neutron_port_uuid, lli_dict, port_boot_priority,
@@ -276,12 +352,29 @@ class Port(ResourceManager):
         )
 
         if neutron_oneview_port:
-            self.oneview_client.server_profile.remove_connection(
+            self._delete_connection(
                 neutron_oneview_port.oneview_server_profile_uuid,
                 neutron_oneview_port.oneview_connection_id
             )
 
             db_manager.delete_neutron_oneview_port(session, neutron_port_uuid)
+
+    def _delete_connection(self, server_profile_id, connection_id):
+        server_profile = self.oneview_client.server_profiles.get(
+            server_profile_id
+        ).copy()
+
+        connections = []
+        for connection in server_profile.get('connections'):
+            if connection.get('id') != connection_id:
+                connections.append(connection)
+
+        server_profile['connections'] = connections
+
+        self.oneview_client.server_profiles.update(
+            resource=server_profile,
+            id_or_uri=server_profile.get('uri')
+        )
 
 
 class UplinkSet(ResourceManager):

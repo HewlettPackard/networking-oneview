@@ -113,6 +113,7 @@ def insert_neutron_oneview_network(
             neutron_network_uuid, oneview_network_uuid
         )
         session.add(net)
+    session.commit()
 
 
 def update_neutron_oneview_network(session, neutron_uuid, new_oneview_uuid):

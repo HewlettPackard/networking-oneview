@@ -15,16 +15,12 @@
 #    under the License.
 
 from hpOneView.oneview_client import OneViewClient
-from neutron._i18n import _, _LW
+from neutron._i18n import _
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.ml2.drivers.oneview import common
-from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
 from neutron.plugins.ml2.drivers.oneview import resources_sync
 from neutron.plugins.ml2.drivers.oneview import init_sync
-from oneview_client import client
-from oneview_client import exceptions
-from oneview_client import utils
 from oslo_config import cfg
 from oslo_log import log
 
@@ -55,6 +51,12 @@ LOG = log.getLogger(__name__)
 
 
 class OneViewDriver(driver_api.MechanismDriver):
+    def initialize(self):
+        self._initialize_driver()
+
+        self._start_resource_sync_periodic_task()
+        self._start_initial_sync_periodic_task()
+
     def _initialize_driver(self):
         self.oneview_client = OneViewClient({
             "ip": CONF.oneview.oneview_ip,
@@ -73,12 +75,6 @@ class OneViewDriver(driver_api.MechanismDriver):
                 CONF.oneview.flat_net_mappings
             )
         )
-
-    def initialize(self):
-        self._initialize_driver()
-
-        self._start_resource_sync_periodic_task()
-        self._start_initial_sync_periodic_task()
 
     def _start_resource_sync_periodic_task(self):
         task = resources_sync.ResourcesSyncService(
