@@ -337,14 +337,41 @@ class Port(ResourceManager):
             common.server_hardware_from_local_link_information(lli_dict)
         )
         server_profile_uuid = utils.get_uuid_from_uri(
-            server_hardware.server_profile_uri
+            server_hardware.get('serverProfileUri')
         )
 
-        return self.oneview_client.server_profile.update_connection(
+        # return self.oneview_client.server_profile.update_connection(
+        #     server_profile_uuid,
+        #     neutron_oneview_port.oneview_connection_id, port_boot_priority,
+        #     server_hardware.generate_connection_port_for_mac(port_mac_address)
+        # )
+        return self._update_connection(
             server_profile_uuid,
-            neutron_oneview_port.oneview_connection_id, port_boot_priority,
-            server_hardware.generate_connection_port_for_mac(port_mac_address)
+            neutron_oneview_port.oneview_connection_id,
+            self._generate_connection_port_for_mac(
+                server_hardware, port_mac_address
+            ),
+            port_boot_priority
         )
+
+    def _update_connection(
+        self, server_profile_id, connection_id, port_id, boot_priority
+    ):
+        server_profile = self.oneview_client.server_profiles.get(
+            server_profile_id
+        ).copy()
+
+        for connection in server_profile.get('connections'):
+            if int(connection.get('id')) == int(connection_id):
+                connection['portId'] = port_id
+                connection['boot'] = {'priority': boot_priority}
+
+        self.oneview_client.server_profiles.update(
+            resource=server_profile,
+            id_or_uri=server_profile.get('uri')
+        )
+
+        return connection_id
 
     def delete(self, session, neutron_port_uuid):
         neutron_oneview_port = db_manager.get_neutron_oneview_port(
@@ -366,7 +393,7 @@ class Port(ResourceManager):
 
         connections = []
         for connection in server_profile.get('connections'):
-            if connection.get('id') != connection_id:
+            if int(connection.get('id')) != int(connection_id):
                 connections.append(connection)
 
         server_profile['connections'] = connections
