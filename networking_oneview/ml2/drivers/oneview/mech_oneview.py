@@ -14,37 +14,25 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from neutron._i18n import _, _LW
+from hpOneView.oneview_client import OneViewClient
+from neutron._i18n import _
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.ml2.drivers.oneview import common
-from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
 from neutron.plugins.ml2.drivers.oneview import resources_sync
 from neutron.plugins.ml2.drivers.oneview import init_sync
-from oneview_client import client
-from oneview_client import exceptions
-from oneview_client import utils
 from oslo_config import cfg
 from oslo_log import log
 
 
 opts = [
-    cfg.StrOpt('manager_url',
+    cfg.StrOpt('oneview_ip',
                help=_('URL where OneView is available')),
     cfg.StrOpt('username',
                help=_('OneView username to be used')),
     cfg.StrOpt('password',
                secret=True,
                help=_('OneView password to be used')),
-    cfg.BoolOpt('allow_insecure_connections',
-                default=False,
-                help=_('Option to allow insecure connection with OneView')),
-    cfg.StrOpt('tls_cacert_file',
-               default=None,
-               help=_('Path to CA certificate')),
-    cfg.IntOpt('max_polling_attempts',
-               default=12,
-               help=_('Max connection retries to check changes on OneView')),
     cfg.StrOpt('uplinkset_mapping',
                help=_('UplinkSets to be used')),
     cfg.StrOpt('flat_net_mappings',
@@ -64,11 +52,19 @@ LOG = log.getLogger(__name__)
 
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
-        self.oneview_client = client.ClientV2(
-            CONF.oneview.manager_url,
-            CONF.oneview.username,
-            CONF.oneview.password,
-            allow_insecure_connections=True)
+        self._initialize_driver()
+
+        self._start_resource_sync_periodic_task()
+        self._start_initial_sync_periodic_task()
+
+    def _initialize_driver(self):
+        self.oneview_client = OneViewClient({
+            "ip": CONF.oneview.oneview_ip,
+            "credentials": {
+                "userName": CONF.oneview.username,
+                "password": CONF.oneview.password
+            }
+        })
         self.neutron_oneview_client = Client(self.oneview_client)
 
         self.uplinkset_mappings_dict = (
@@ -79,9 +75,6 @@ class OneViewDriver(driver_api.MechanismDriver):
                 CONF.oneview.flat_net_mappings
             )
         )
-
-        self._start_resource_sync_periodic_task()
-        self._start_initial_sync_periodic_task()
 
     def _start_resource_sync_periodic_task(self):
         task = resources_sync.ResourcesSyncService(
@@ -106,7 +99,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         provider_network = neutron_network_dict.get('provider:network_type')
 
         uplinkset_id_list = (
-            self.neutron_oneview_client.uplinkset.get_uplinkset_by_type(
+            self.neutron_oneview_client.uplinkset.filter_by_type(
                 self.uplinkset_mappings_dict.get(physical_network),
                 provider_network
             )
