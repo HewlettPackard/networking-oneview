@@ -59,9 +59,6 @@ class Network(ResourceManager):
         )
 
         if oneview_network_uuid is None:
-            # kwargs = common.prepare_oneview_network_args(
-            #     neutron_network_name, neutron_network_seg_id
-            # )
             net_type = 'Untagged' if neutron_network_seg_id == '' else 'Tagged'
             options = {
                 'name': neutron_network_name,
@@ -154,9 +151,6 @@ class Network(ResourceManager):
                 sp_id = neutron_oneview_port.oneview_server_profile_uuid
                 conn_id = neutron_oneview_port.oneview_connection_id
 
-                # self.oneview_client.server_profile.remove_connection(
-                #     sp_id, conn_id
-                # )
                 self._remove_connection(sp_id, conn_id)
 
                 db_manager.delete_neutron_oneview_port(session, port.id)
@@ -250,12 +244,6 @@ class Port(ResourceManager):
             ), boot_priority
         )
 
-        # connection = self.oneview_client.server_profile.add_connection(
-        #     server_profile_uri,
-        #     neutron_oneview_network.oneview_network_uuid, boot_priority,
-        #     server_hardware.generate_connection_port_for_mac(mac_address)
-        # )
-
         db_manager.insert_neutron_oneview_port(
             session, neutron_port_uuid, server_profile_uri, connection_id
         )
@@ -340,11 +328,6 @@ class Port(ResourceManager):
             server_hardware.get('serverProfileUri')
         )
 
-        # return self.oneview_client.server_profile.update_connection(
-        #     server_profile_uuid,
-        #     neutron_oneview_port.oneview_connection_id, port_boot_priority,
-        #     server_hardware.generate_connection_port_for_mac(port_mac_address)
-        # )
         return self._update_connection(
             server_profile_uuid,
             neutron_oneview_port.oneview_connection_id,
