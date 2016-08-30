@@ -137,7 +137,7 @@ class InitSync(object):
             db_manager.list_networks_and_segments_with_physnet(self.session)
         ):
             physnet_compatible_uplinkset_list = (
-                self.client.uplinkset.filter_uplinkset_id_by_type(
+                self.client.uplinkset.filter_by_type(
                     self.uplinkset_mappings_dict.get(
                         segment.physical_network
                     ),

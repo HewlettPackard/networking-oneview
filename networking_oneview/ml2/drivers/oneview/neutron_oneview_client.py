@@ -59,7 +59,7 @@ class Network(ResourceManager):
         )
 
         if oneview_network_uuid is None:
-            net_type = 'Untagged' if neutron_network_seg_id == '' else 'Tagged'
+            net_type = 'Tagged' if neutron_network_seg_id else 'Untagged'
             options = {
                 'name': neutron_network_name,
                 'ethernetNetworkType': net_type,
@@ -68,6 +68,8 @@ class Network(ResourceManager):
                 "smartLink": False,
                 "privateNetwork": False,
             }
+            if net_type == 'Tagged':
+                options['vlanId'] = neutron_network_seg_id
             oneview_network = self.oneview_client.ethernet_networks.create(
                 options
             )
