@@ -54,8 +54,8 @@ class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
         self._initialize_driver()
 
-        self._start_resource_sync_periodic_task()
-        self._start_initial_sync_periodic_task()
+        # self._start_resource_sync_periodic_task()
+        # self._start_initial_sync_periodic_task()
 
     def _initialize_driver(self):
         self.oneview_client = OneViewClient({
@@ -76,18 +76,18 @@ class OneViewDriver(driver_api.MechanismDriver):
             )
         )
 
-    def _start_resource_sync_periodic_task(self):
-        task = resources_sync.ResourcesSyncService(
-            self.oneview_client, CONF.database.connection
-        )
-        task.start(CONF.oneview.ov_refresh_interval)
-
-    def _start_initial_sync_periodic_task(self):
-        task = init_sync.InitSync(
-            self.oneview_client, CONF.database.connection
-        )
-        task.check_mapped_networks_on_db_and_create_on_oneview()
-        task.check_and_sync_mapped_uplinksets_on_db()
+    # def _start_resource_sync_periodic_task(self):
+    #     task = resources_sync.ResourcesSyncService(
+    #         self.oneview_client, CONF.database.connection
+    #     )
+    #     task.start(CONF.oneview.ov_refresh_interval)
+    #
+    # def _start_initial_sync_periodic_task(self):
+    #     task = init_sync.InitSync(
+    #         self.oneview_client, CONF.database.connection
+    #     )
+    #     task.check_mapped_networks_on_db_and_create_on_oneview()
+    #     task.check_and_sync_mapped_uplinksets_on_db()
 
     def create_network_postcommit(self, context):
         session = context._plugin_context._session
@@ -201,8 +201,24 @@ class OneViewDriver(driver_api.MechanismDriver):
 
         if vnic_type != 'baremetal':
             return
+        local_link_information_list = common.\
+            local_link_information_from_context(
+                context._port
+                )
+        if local_link_information_list is None or\
+                len(local_link_information_list) == 0:
+            return
+        elif len(local_link_information_list) > 1:
+            raise exception.ValueError(
+                "'local_link_information' must have only one value"
+            )
 
-        self.neutron_oneview_client.port.delete(session, neutron_port_uuid)
+        local_link_information_dict = local_link_information_list[0]
+        switch_info_dict = local_link_information_dict.get('switch_info')
+        server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
+        self.neutron_oneview_client.port.delete(
+            session, neutron_port_uuid, server_hardware_uuid
+            )
 
     def delete_port_postcommit(self, context):
         self._delete_port_from_context(context)

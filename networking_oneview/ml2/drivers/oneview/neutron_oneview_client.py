@@ -232,6 +232,10 @@ class Port(ResourceManager):
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, neutron_network_id
         )
+        previous_power_state = self.get_server_hardware_power_state(
+            server_hardware_uuid
+        )
+        self.update_server_hardware_power_state(server_hardware_uuid, "Off")
 
         connection_id = self._add_connection(
             server_profile_uri,
@@ -247,6 +251,27 @@ class Port(ResourceManager):
         db_manager.insert_neutron_oneview_port(
             session, neutron_port_uuid, server_profile_uri, connection_id
         )
+
+        self.update_server_hardware_power_state(
+            server_hardware_uuid, previous_power_state
+        )
+
+    def get_server_hardware_power_state(self, server_hardware_id):
+        server_hardware_dict = self.oneview_client.server_hardware.get(
+            server_hardware_id
+        )
+        return server_hardware_dict.get('powerState')
+
+    def update_server_hardware_power_state(self, server_hardware_id, state):
+            configuration = {
+                "powerState": state,
+                "powerControl": "MomentaryPress"
+            }
+            server_power = (
+                self.oneview_client.server_hardware.update_power_state(
+                    configuration, server_hardware_id
+                )
+            )
 
     def _generate_connection_port_for_mac(self, server_hardware, mac_address):
         port_info = self._get_connection_port_info(
@@ -356,18 +381,28 @@ class Port(ResourceManager):
 
         return connection_id
 
-    def delete(self, session, neutron_port_uuid):
+    def delete(self, session, neutron_port_uuid, server_hardware_uuid):
         neutron_oneview_port = db_manager.get_neutron_oneview_port(
             session, neutron_port_uuid
         )
+        server_hardware = self.oneview_client.server_hardware.get(
+            server_hardware_uuid
+        )
+        previous_power_state = self.get_server_hardware_power_state(
+            server_hardware_uuid
+        )
+        self.update_server_hardware_power_state(server_hardware_uuid, "Off")
 
         if neutron_oneview_port:
             self._delete_connection(
                 neutron_oneview_port.oneview_server_profile_uuid,
                 neutron_oneview_port.oneview_connection_id
             )
-
             db_manager.delete_neutron_oneview_port(session, neutron_port_uuid)
+
+        self.update_server_hardware_power_state(
+            server_hardware_uuid, previous_power_state
+        )
 
     def _delete_connection(self, server_profile_id, connection_id):
         server_profile = self.oneview_client.server_profiles.get(
@@ -385,6 +420,8 @@ class Port(ResourceManager):
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
         )
+
+
 
 
 class UplinkSet(ResourceManager):

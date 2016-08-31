@@ -238,3 +238,12 @@ def get_neutron_oneview_port(session, neutron_port_uuid):
         ).filter_by(
             neutron_port_uuid=neutron_port_uuid
         ).first()
+
+
+def get_ml2_port_binding(session, neutron_port_uuid):
+    with session.begin(subtransactions=True):
+        return session.query(
+            PortBinding
+        ).filter_by(
+            port_id=neutron_port_uuid
+        ).first()
