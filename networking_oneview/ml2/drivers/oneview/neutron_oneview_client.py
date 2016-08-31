@@ -1,12 +1,10 @@
 import abc
 import six
+import utils
 
 from neutron._i18n import _LW
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
-from oneview_client import exceptions
-from oneview_client import models
-from oneview_client import utils
 from oslo_config import cfg
 
 
@@ -80,7 +78,7 @@ class Network(ResourceManager):
 
         self.map_add_neutron_network_to_oneview_network_in_database(
             session, neutron_network_id,
-            utils.get_uuid_from_uri(oneview_network.get('uri')),
+            utils.id_from_uri(oneview_network.get('uri')),
             uplinkset_id_list
         )
 
@@ -206,7 +204,7 @@ class Network(ResourceManager):
             #     neutron_oneview_network.oneview_network_uuid,
             #     new_network_name
             # )
-        except exceptions.OneViewResourceNotFoundError:
+        except:
             self._remove_inconsistence_from_db(
                 session, neutron_network_id,
                 neutron_oneview_network.oneview_network_uuid
@@ -227,7 +225,7 @@ class Port(ResourceManager):
             server_hardware_uuid
         )
 
-        server_profile_uri = utils.get_uuid_from_uri(
+        server_profile_uri = utils.id_from_uri(
             server_hardware.get('serverProfileUri')
         )
 
@@ -240,7 +238,7 @@ class Port(ResourceManager):
             self._generate_connection_port_for_mac(
                 server_hardware, mac_address
             ),
-            utils.get_uri_from_uuid(
+            utils.uri_from_id(
                 '/rest/ethernet-networks/',
                 neutron_oneview_network.oneview_network_uuid
             ), boot_priority
@@ -326,7 +324,7 @@ class Port(ResourceManager):
         server_hardware = self.oneview_client.server_hardware.get(
             common.server_hardware_from_local_link_information(lli_dict)
         )
-        server_profile_uuid = utils.get_uuid_from_uri(
+        server_profile_uuid = utils.id_from_uri(
             server_hardware.get('serverProfileUri')
         )
 

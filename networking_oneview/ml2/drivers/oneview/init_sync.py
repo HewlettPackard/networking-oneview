@@ -25,9 +25,6 @@ from oslo_log import log
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import requests
-requests.packages.urllib3.disable_warnings()
-
 CONF = cfg.CONF
 LOG = log.getLogger(__name__)
 
