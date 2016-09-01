@@ -27,55 +27,61 @@ Install
 
 - This script copy some folders to neutron's work directory: /opt/stack/neutron
 
-2. Install python-oneviewclient:
 
-- Clone the python-oneviewclient:
+2. Install python-hpOneViewclient:
 
-    *$ git clone https://github.com/openstack/python-oneviewclient.git*
+- Follow the instructions at:
 
-- Access the <python-oneviewclient>
-
-- Run the following command:
-
-    *$ git review -d "334119"*
-    
-- Install python-oneviewclient:
-
-    *$ sudo python setup.py install*
+    *https://github.com/HewlettPackard/python-hpOneView*
 
 
-3. Making neutron.conf file configurations: 
+3. Making ML2_conf.ini file configurations: 
 
-- Edit the /etc/neutron/neutron.conf file. Copy the following lines to the end of this file:
+- Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
+
+    *mechanism_drivers = openvswitch,linuxbridge,genericswitch,oneview*
+
+- Find the correspondent line and insert the flat physical networks:
+    *[ml2_type_flat]*
+    *flat_networks = public,<flat-physical-network>,<flat-physical-network>*
+
+- Find the correspondent line and insert the vlan physical networks:
+    *[ml2_type_vlan]*
+    *network_vlan_ranges = public,<physical-network>,<physical-network>*
+
+- Copy the following lines to the end of this file:
 
         *[oneview]*
 
-        *manager_url=<url_to_OneView>*
+        *oneview_ip=<OneView IP>*
 
         *username=<username>*
 
         *password=<password>*
 
-        *allow_insecure_connections=<boolean>*
-
-        *tls_cacert_file=<filepath>*
-
         *uplinkset_mapping=<physical-network>:<uplinkset_uuid>,<physical-network>:<uplinkset_uuid>,...*
        
-        *flat_net_mappings=???*
+        *flat_net_mappings=<physical-network>:<oneview-network-id>,<physical-network>:<oneview-network-id>,...*
         
-        *ov_refresh_interval=<ov_refresh_interval>*
+        *ov_refresh_interval=<ov_refresh_interval>* (ov_refresh_interval is used in seconds and is optional)
 
 
 - Examples of the lines are:
 
-    *manager_url=https://10.5.0.20*
-    
+    *oneview_ip=10.5.0.33*
+    *username=admin*
+    *password=password*
     *uplinkset_mapping=physnet1:8b4d1932-2528-4f32-8b00-3879cfa1de28,physnet2:f0be6758-4b4b-4596-8aa1-6c38d2422d4f*
+    *flat_net_mappings=net-provider3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,net-provider1:66666666-ba2e-490a-81f9-2226c240f3d9*
+    *ov_refresh_interval=3600*
+
+
+    *[ml2_type_flat]*
+    *flat_networks = public,net-provider3,net-provider1*
     
-    *network_mapping=neutron-prov:f0be6758-4b4b-4596-8aa1-6c38d2422d4f*
-    
-    *ov_refresh_interval=4*
+    *[ml2_type_vlan]*
+    *network_vlan_ranges = public,physnet1,physnet2*
+
 
 4. Making setup.cfg file configurations:
 
@@ -88,23 +94,16 @@ Install
  
 5. Starting python:
 
-- Start the python:
+- At directory /opt/stack/neutron run:
     *$ sudo python setup.py install*
 
 
-6. Making ML2_conf.ini file configurations: 
-
-- Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
-
-    *mechanism_drivers = openvswitch,linuxbridge,genericswitch,oneview*
-
-
-7. Restart Neutron:
+6. Restart Neutron:
 
 - Restart the neutron service. If everything is well, the mechanism driver is working.
 
 
-8. Creating the database tables:
+7. Creating the database tables:
 
 - Run the migration script to create the database tables necessary for the mechanism driver function.
 
