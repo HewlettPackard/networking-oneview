@@ -19,6 +19,7 @@ from neutron.db.models_v2 import Port
 from neutron.db import oneview_network_db
 from neutron.db.segments_db import NetworkSegment
 from neutron.plugins.ml2.models import PortBinding
+from sqlalchemy import event
 
 
 # Neutron Network
@@ -53,6 +54,15 @@ def get_neutron_network_with_segment(session, id):
         ).filter(
             Network.id == id,
             Network.id == NetworkSegment.network_id
+        ).first()
+
+
+def get_manegement_neutron_network(session, network_id):
+    with session.begin(subtransactions=True):
+        return session.query(
+            oneview_network_db.NeutronOneviewNetwork
+        ).filter_by(
+            neutron_network_uuid=network_id,
         ).first()
 
 
@@ -105,14 +115,31 @@ def list_neutron_oneview_network(session):
         ).all()
 
 
+def list_neutron_oneview_network_manageable(session):
+    with session.begin(subtransactions=True):
+        return session.query(
+            oneview_network_db.NeutronOneviewNetwork
+        ).filter_by(
+            manageable=False
+        ).all()
+
+
 def insert_neutron_oneview_network(
-    session, neutron_network_uuid, oneview_network_uuid, manageable=True
+    session, neutron_network_uuid, oneview_network_uuid,
+    commit, manageable=True
 ):
+    # commit variable is used temporarily
+    # commit is True when the call insert comes from init_sync.py
+    # commit is False when the call insert comes from mech_oneview.py
+    # TODO
+
     with session.begin(subtransactions=True):
         net = oneview_network_db.NeutronOneviewNetwork(
             neutron_network_uuid, oneview_network_uuid, manageable
         )
         session.add(net)
+    if commit:
+        session.commit()
 
 
 def update_neutron_oneview_network(session, neutron_uuid, new_oneview_uuid):

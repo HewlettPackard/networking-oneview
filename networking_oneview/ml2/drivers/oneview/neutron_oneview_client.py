@@ -59,9 +59,9 @@ class Network(ResourceManager):
 
     def create(
         self, session, neutron_network_dict, uplinkset_id_list,
-        oneview_network_mapping_dict, uplinkset_mappings_dict
+        oneview_network_mapping_dict, uplinkset_mappings_dict,
+        commit, manageable=True
     ):
-
         """Create a Network resource on OneView and populates the database.
 
         This function will create a Ethernet Network resource on OneView using
@@ -90,15 +90,10 @@ class Network(ResourceManager):
             oneview_network_mapping_dict
         )
 
-        # oneview_network_uuid = self.get_mapped_oneview_network_uuid(
-        #     oneview_network_mapping_dict, provider_network, physical_network,
-        #     neutron_network_name
-        # )
-
         if verify_mapping is FLAT_NET:
             return self.map_add_neutron_network_to_oneview_network_in_database(
                 session, neutron_network_id, oneview_network_id,
-                uplinkset_id_list, manageable=False
+                uplinkset_id_list, commit, manageable=False
             )
 
         kwargs = common.prepare_oneview_network_args(
@@ -116,7 +111,7 @@ class Network(ResourceManager):
 
         self.map_add_neutron_network_to_oneview_network_in_database(
             session, neutron_network_id, oneview_network_id,
-            uplinkset_id_list
+            uplinkset_id_list, commit, manageable=True
         )
 
     # def get_mapped_oneview_network_uuid(
@@ -130,11 +125,12 @@ class Network(ResourceManager):
 
     def map_add_neutron_network_to_oneview_network_in_database(
         self, session, neutron_network_id, oneview_network_id,
-        uplinksets_id_list, manageable=True
+        uplinksets_id_list, commit, manageable=True
     ):
         db_manager.insert_neutron_oneview_network(
-            session, neutron_network_id, oneview_network_id, manageable
+            session, neutron_network_id, oneview_network_id, commit, manageable
         )
+
         for uplinkset_id in uplinksets_id_list:
             db_manager.insert_oneview_network_uplinkset(
                 session, oneview_network_id, uplinkset_id
@@ -146,13 +142,13 @@ class Network(ResourceManager):
         db_manager.delete_neutron_oneview_network(
             session, neutron_network_uuid
         )
+        fail()
         db_manager.delete_oneview_network_uplinkset_by_uplinkset(
             session, oneview_network_uuid
         )
 
     def delete(
-        self, session, neutron_network_dict, uplinkset_mappings_dict,
-        oneview_network_mapping_dict
+        self, session, neutron_network_dict, oneview_network_mapping_dict
     ):
         neutron_network_id = neutron_network_dict.get('id')
         neutron_network_name = neutron_network_dict.get('name')
@@ -169,16 +165,12 @@ class Network(ResourceManager):
             oneview_network_mapping_dict
         )
 
-        verify_mapping = self.verify_mapping_type(
-            physical_network, uplinkset_mappings_dict,
-            oneview_network_mapping_dict
-        )
-        # oneview_network_id = self.get_mapped_oneview_network_uuid(
-        #     oneview_network_mapping_list, provider_network, physical_network,
-        #     neutron_network_name
-        # )
+        check_manageable = db_manager.get_manegement_neutron_network(
+            session, neutron_network_id
+            )
 
-        if verify_mapping is not FLAT_NET:
+        if check_manageable.manageable:
+
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 session, neutron_network_id
             )
@@ -203,9 +195,9 @@ class Network(ResourceManager):
 
                 db_manager.delete_neutron_oneview_port(session, port.id)
 
-            self.map_remove_neutron_network_to_oneview_network_in_database(
-                session, neutron_network_id, oneview_network_id
-            )
+        self.map_remove_neutron_network_to_oneview_network_in_database(
+            session, neutron_network_id, oneview_network_id
+        )
 
     def map_remove_neutron_network_to_oneview_network_in_database(
         self, session, neutron_network_id, oneview_network_id

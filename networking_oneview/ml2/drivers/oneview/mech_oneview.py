@@ -85,7 +85,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
 
         # self._start_resource_sync_periodic_task()
-        # self._start_initial_sync_periodic_task()
+        self._start_initial_sync_periodic_task()
 
     def _start_resource_sync_periodic_task(self):
         task = resources_sync.ResourcesSyncService(
@@ -97,8 +97,10 @@ class OneViewDriver(driver_api.MechanismDriver):
         task = init_sync.InitSync(
            self.oneview_client, CONF.database.connection
         )
-        task.check_mapped_networks_on_db_and_create_on_oneview()
-        task.check_and_sync_mapped_uplinksets_on_db()
+        task.check_flat_mapped_networks_on_db()
+        task.check_changed_ids_flat_mapped_networks()
+        #task.check_and_sync_mapped_uplinksets_on_db()
+        #task.sync_mapped_uplinksets_on_db()
 
     def create_network_postcommit(self, context):
         session = context._plugin_context._session
@@ -127,13 +129,14 @@ class OneViewDriver(driver_api.MechanismDriver):
                 self.neutron_oneview_client.network.create(
                     session, neutron_network_dict, uplinkset_id_list,
                     self.oneview_network_mapping_dict,
-                    self.uplinkset_mappings_dict
+                    self.uplinkset_mappings_dict, commit=False
                 )
 
         elif verify_mapping is FLAT_NET:
             self.neutron_oneview_client.network.create(
                 session, neutron_network_dict, uplinkset_id_list,
-                self.oneview_network_mapping_dict, self.uplinkset_mappings_dict
+                self.oneview_network_mapping_dict,
+                self.uplinkset_mappings_dict, commit=False
             )
 
     def delete_network_postcommit(self, context):
@@ -141,8 +144,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         neutron_network_dict = context._network
 
         self.neutron_oneview_client.network.delete(
-            session, neutron_network_dict, self.uplinkset_mappings_dict,
-            self.oneview_network_mapping_dict
+            session, neutron_network_dict, self.oneview_network_mapping_dict
         )
 
     def update_network_postcommit(self, context):
