@@ -13,7 +13,7 @@ automatizes some operations previously required to be manual.
 Install
 =============================
 
-1. The ML2 Mechanism Driver:
+1. The ML2 Mechanism Driver:*
 
 - Make the git clone of the mechdriver files for a folder of your choice <download_directory>:
 
