@@ -20,9 +20,11 @@ Install
     *$ git clone git@git.lsd.ufcg.edu.br:ironic-neutron-oneview/networking-oneview.git*
     
 - Access the folder <networking-oneview>:
+
     *$ cd networking-oneview*
     
 - Run the script install-deriver.sh:
+
     *$ ./install-driver.sh*
 
 - This script copy some folders to neutron's work directory: /opt/stack/neutron
@@ -42,11 +44,15 @@ Install
     *mechanism_drivers = openvswitch,linuxbridge,genericswitch,oneview*
 
 - Find the correspondent line and insert the flat physical networks:
+
     *[ml2_type_flat]*
+
     *flat_networks = public,<flat-physical-network1-name>,<flat-physical-network2-name>*
 
 - Find the correspondent line and insert the vlan physical networks:
+
     *[ml2_type_vlan]*
+
     *network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>*
 
 - Copy the following lines to the end of this file:
@@ -93,15 +99,18 @@ Install
 4. Making setup.cfg file configurations:
 
 - Edit the /opt/stack/neutron/setup.cfg file. Under: 
+
     *neutron.ml2.mechanism_drivers =*
 
     in this file, insert the following:
+
     *oneview = neutron.plugins.ml2.drivers.oneview.mech_oneview:OneViewDriver*
 
  
 5. Starting python:
 
 - At directory /opt/stack/neutron run:
+
     *$ sudo python setup.py install*
 
 
@@ -115,11 +124,15 @@ Install
 - Run the migration script to create the database tables necessary for the mechanism driver function.
 
 - Go to the mechanism driver download folder in the following path:
+
     *$ cd <download_directory>/networking-oneview/networking_oneview/db*
 
 - Then run:
+
     *$ sudo python oneview_network_db.py install*
 
 - If any error related to db log occurs, execute:
+
     *$ cd /opt/stack/neutron/*
+
     *$ neutron-db-manage upgrade head*
