@@ -310,29 +310,3 @@ class InitSync(object):
                 )
 
         self.check_flat_mapped_networks_on_db()
-
-    # def check_changed_ids_flat_mapped_networks(self):
-    #     for oneview_network_mapped in [
-    #         db_manager.list_neutron_oneview_network_manageable(
-    #             self.session
-    #         )
-    #     ]:
-    #
-    #         oneview_network_id = oneview_network_mapped.oneview_network_uuid
-    #         neutron_network_id = oneview_network_mapped.neutron_network_uuid
-    #
-    #         segment = db_manager.get_network_segment(
-    #             self.session, neutron_network_id
-    #         )
-    #
-    #         if oneview_network_id in [
-    #             self.oneview_network_mapping_dict.values()
-    #         ]:
-    #             if neutron_network_id == segment.network_id:
-    #                 continue
-    #
-    #         db_manager.delete_neutron_oneview_network(
-    #             self.session, neutron_network_id
-    #         )
-    #
-    #     self.check_flat_mapped_networks_on_db()
