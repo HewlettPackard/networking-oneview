@@ -43,25 +43,25 @@ Install
 
 - Find the correspondent line and insert the flat physical networks:
     *[ml2_type_flat]*
-    *flat_networks = public,<flat-physical-network>,<flat-physical-network>*
+    *flat_networks = public,<flat-physical-network1-name>,<flat-physical-network2-name>*
 
 - Find the correspondent line and insert the vlan physical networks:
     *[ml2_type_vlan]*
-    *network_vlan_ranges = public,<physical-network>,<physical-network>*
+    *network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>*
 
 - Copy the following lines to the end of this file:
 
         *[oneview]*
 
-        *oneview_ip=<OneView IP>*
+        *oneview_ip=<OneView server IP address>*
 
-        *username=<username>*
+        *username=<OneView username>*
 
-        *password=<password>*
+        *password=<OneView password>*
 
-        *uplinkset_mapping=<physical-network>:<uplinkset_uuid>,<physical-network>:<uplinkset_uuid>,...*
+        *uplinkset_mapping=<physical-network1-name>:<oneview-uplinkset1_uuid>,<physical-network2-name>:<uplinkset2_uuid>,...*
        
-        *flat_net_mappings=<physical-network>:<oneview-network-id>,<physical-network>:<oneview-network-id>,...*
+        *flat_net_mappings=<flat-physical-network1-name>:<oneview-network1-id>,<flat-physical-network2-name>:<oneview-network2-id>,...*
         
         *ov_refresh_interval=<ov_refresh_interval>* (ov_refresh_interval is used in seconds and is optional)
 
@@ -72,12 +72,12 @@ Install
     *username=admin*
     *password=password*
     *uplinkset_mapping=physnet1:8b4d1932-2528-4f32-8b00-3879cfa1de28,physnet2:f0be6758-4b4b-4596-8aa1-6c38d2422d4f*
-    *flat_net_mappings=net-provider3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,net-provider1:66666666-ba2e-490a-81f9-2226c240f3d9*
+    *flat_net_mappings=physnet3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,physnet4:66666666-ba2e-490a-81f9-2226c240f3d9*
     *ov_refresh_interval=3600*
 
 
     *[ml2_type_flat]*
-    *flat_networks = public,net-provider3,net-provider1*
+    *flat_networks = public,physnet3,physnet4*
     
     *[ml2_type_vlan]*
     *network_vlan_ranges = public,physnet1,physnet2*
