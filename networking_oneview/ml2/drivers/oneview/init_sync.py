@@ -260,7 +260,7 @@ class InitSync(object):
             )
 
             uplinkset_id_list = ()
-            #TODO Fixed
+            '#TODO Fixed'
 
             if verify_mapping is FLAT_NET:
                 if db_manager.get_neutron_oneview_network(

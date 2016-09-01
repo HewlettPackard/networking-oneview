@@ -1,5 +1,6 @@
 import abc
 import six
+import utils
 
 
 from neutron._i18n import _LW
@@ -24,12 +25,12 @@ class ResourceManager:
 
 class Network(ResourceManager):
     def add_network_to_uplinksets(
-        self, uplinksets_id_list, oneview_network_id
+        self, uplinksets_id_list, oneview_network_uri
     ):
         for uplinkset_id in uplinksets_id_list:
-            self.oneview_client.uplinkset.add_network(
-                uplinkset_id, oneview_network_id
-            )
+            uplinkset = self.oneview_client.uplink_sets.get(uplinkset_id)
+            uplinkset['networkUris'].append(oneview_network_uri)
+            self.oneview_client.uplink_sets.update(uplinkset)
 
     def get_network_oneview_id(
         self, session, neutron_network_id, physical_network,
@@ -79,7 +80,7 @@ class Network(ResourceManager):
 
         provider_network = neutron_network_dict.get('provider:network_type')
 
-        oneview_network_id = self.get_network_oneview_id(
+        oneview_network_uuid = self.get_network_oneview_id(
             session, neutron_network_id, physical_network,
             oneview_network_mapping_dict
         )
@@ -90,27 +91,33 @@ class Network(ResourceManager):
 
         if verify_mapping is FLAT_NET:
             return self.map_add_neutron_network_to_oneview_network_in_database(
-                session, neutron_network_id, oneview_network_id,
+                session, neutron_network_id, oneview_network_uuid,
                 uplinkset_id_list, commit, manageable=False
             )
 
-        kwargs = common.prepare_oneview_network_args(
-            neutron_network_name, neutron_network_seg_id
-        )
-        oneview_network_uri = (
-            self.oneview_client.network.create(
-                **kwargs
+        if oneview_network_uuid is None:
+            net_type = 'Tagged' if neutron_network_seg_id else 'Untagged'
+            options = {
+                'name': neutron_network_name,
+                'ethernetNetworkType': net_type,
+                'vlanId': neutron_network_seg_id,
+                "purpose": "General",
+                "smartLink": False,
+                "privateNetwork": False,
+            }
+            if net_type == 'Tagged':
+                options['vlanId'] = neutron_network_seg_id
+            oneview_network = self.oneview_client.ethernet_networks.create(
+                options
             )
-        )
-
-        oneview_network_id = utils.get_uuid_from_uri(oneview_network_uri)
 
         self.add_network_to_uplinksets(
-            uplinkset_id_list, oneview_network_id
+            uplinkset_id_list, oneview_network.get('uri')
         )
 
         self.map_add_neutron_network_to_oneview_network_in_database(
-            session, neutron_network_id, oneview_network_id,
+            session, neutron_network_id,
+            utils.id_from_uri(oneview_network.get('uri')),
             uplinkset_id_list, commit, manageable=True
         )
 
@@ -133,7 +140,7 @@ class Network(ResourceManager):
         db_manager.delete_neutron_oneview_network(
             session, neutron_network_uuid
         )
-        fail()
+
         db_manager.delete_oneview_network_uplinkset_by_uplinkset(
             session, oneview_network_uuid
         )
@@ -160,20 +167,16 @@ class Network(ResourceManager):
             session, neutron_network_id
             )
 
-        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-        print check_manageable
         if check_manageable.manageable:
-
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 session, neutron_network_id
             )
 
             oneview_network_id = neutron_oneview_network.oneview_network_uuid
-            self.oneview_client.network.delete(
-                neutron_oneview_network.oneview_network_uuid
+            self.oneview_client.ethernet_networks.delete(
+                self.oneview_client.ethernet_networks.get(
+                    neutron_oneview_network.oneview_network_uuid
+                )
             )
 
             for port in db_manager.list_port_with_network(
@@ -185,9 +188,7 @@ class Network(ResourceManager):
                 sp_id = neutron_oneview_port.oneview_server_profile_uuid
                 conn_id = neutron_oneview_port.oneview_connection_id
 
-                self.oneview_client.server_profile.remove_connection(
-                    sp_id, conn_id
-                )
+                self._remove_connection(sp_id, conn_id)
 
                 db_manager.delete_neutron_oneview_port(session, port.id)
 
@@ -240,11 +241,14 @@ class Network(ResourceManager):
         )
 
         try:
+
             if verify_mapping is not FLAT_NET:
-                self.oneview_client.network.update_name(
-                    neutron_oneview_network.oneview_network_uuid,
-                    new_network_name
+                network = self.oneview_client.ethernet_networks.get(
+                    neutron_oneview_network.oneview_network_uuid
                 )
+                network['name'] = new_network_name
+                self.oneview_client.ethernet_networks.update(network)
+
         except exceptions.OneViewResourceNotFoundError:
             self._remove_inconsistence_from_db(
                 session, neutron_network_id,
@@ -406,30 +410,29 @@ class Port(ResourceManager):
     def _update_connection(
         self, server_profile_id, connection_id, port_id, boot_priority
     ):
-        server_profile = self.oneview_client.server_profiles.get(
+        server_profile=self.oneview_client.server_profiles.get(
             server_profile_id
         ).copy()
 
         for connection in server_profile.get('connections'):
             if int(connection.get('id')) == int(connection_id):
-                connection['portId'] = port_id
-                connection['boot'] = {'priority': boot_priority}
+                connection['portId']=port_id
+                connection['boot']={'priority': boot_priority}
 
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
         )
-
         return connection_id
 
     def delete(self, session, neutron_port_uuid, server_hardware_uuid):
-        neutron_oneview_port = db_manager.get_neutron_oneview_port(
+        neutron_oneview_port=db_manager.get_neutron_oneview_port(
             session, neutron_port_uuid
         )
-        server_hardware = self.oneview_client.server_hardware.get(
+        server_hardware=self.oneview_client.server_hardware.get(
             server_hardware_uuid
         )
-        previous_power_state = self.get_server_hardware_power_state(
+        previous_power_state=self.get_server_hardware_power_state(
             server_hardware_uuid
         )
         self.update_server_hardware_power_state(server_hardware_uuid, "Off")
@@ -446,16 +449,16 @@ class Port(ResourceManager):
         )
 
     def _delete_connection(self, server_profile_id, connection_id):
-        server_profile = self.oneview_client.server_profiles.get(
+        server_profile=self.oneview_client.server_profiles.get(
             server_profile_id
         ).copy()
 
-        connections = []
+        connections=[]
         for connection in server_profile.get('connections'):
             if int(connection.get('id')) != int(connection_id):
                 connections.append(connection)
 
-        server_profile['connections'] = connections
+        server_profile['connections']=connections
 
         self.oneview_client.server_profiles.update(
             resource=server_profile,
@@ -480,16 +483,12 @@ class UplinkSet(ResourceManager):
         )
 
         for uplinkset_uuid in uplinkset_list:
-            uplinkset = self.oneview_client.uplinkset.get(
-                uplinkset_uuid
-            )
-            if uplinkset.ethernet_network_type == oneview_net_type:
+            uplinkset = self.oneview_client.uplink_sets.get(uplinkset_uuid)
+            if uplinkset.get('ethernetNetworkType') == oneview_net_type:
                 uplinkset_by_type.append(uplinkset_uuid)
 
         return uplinkset_by_type
 
-        #TODO
-        # remove_network it was not created in new HPOneView
     def remove_network(self, session, uplinkset_id, network_id):
         self.oneview_client.uplinkset.remove_network(
             uplinkset_id, network_id

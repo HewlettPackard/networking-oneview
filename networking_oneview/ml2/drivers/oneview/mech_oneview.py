@@ -59,7 +59,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         self._initialize_driver()
 
         # self._start_resource_sync_periodic_task()
-        # self._start_initial_sync_periodic_task()
+        self._start_initial_sync_periodic_task()
 
     def _initialize_driver(self):
         self.oneview_client = OneViewClient({
@@ -92,8 +92,8 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
         task.check_flat_mapped_networks_on_db()
         task.check_changed_ids_flat_mapped_networks()
-        #task.check_and_sync_mapped_uplinksets_on_db()
-        #task.sync_mapped_uplinksets_on_db()
+        # task.check_and_sync_mapped_uplinksets_on_db()
+        # task.sync_mapped_uplinksets_on_db()
 
     def create_network_postcommit(self, context):
         session = context._plugin_context._session
