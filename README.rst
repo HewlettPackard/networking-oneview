@@ -69,17 +69,24 @@ Install
 - Examples of the lines are:
 
     *oneview_ip=10.5.0.33*
+
     *username=admin*
+
     *password=password*
+
     *uplinkset_mapping=physnet1:8b4d1932-2528-4f32-8b00-3879cfa1de28,physnet2:f0be6758-4b4b-4596-8aa1-6c38d2422d4f*
+
     *flat_net_mappings=physnet3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,physnet4:66666666-ba2e-490a-81f9-2226c240f3d9*
+
     *ov_refresh_interval=3600*
 
 
     *[ml2_type_flat]*
+ 
     *flat_networks = public,physnet3,physnet4*
     
     *[ml2_type_vlan]*
+ 
     *network_vlan_ranges = public,physnet1,physnet2*
 
 
