@@ -10,19 +10,74 @@ these operations it's possible to a OneView administrator to know what is
 happening in OpenStack System which is running in the Data Center and also
 automatizes some operations previously required to be manual.
 
+
+The diagram below provides an overview of how Neutron and OneView will
+interact using the Neutron-OneView Mechanism Driver. OneView Mechanism
+Driver uses the python-oneviewclient to provide communication between
+Neutron and OneView through OneView's Rest API.
+
+
+Flows:
+::
+
+    +---------------------------------+
+    |                                 |
+    |       Neutron Server            |
+    |      (with ML2 plugin)          |
+    |                                 |
+    |           +---------------------+
+    |           |       OneView       |  Ironic API  +----------------+
+    |           |      Mechanism      +--------------+     Ironic     |
+    |           |       Driver        |              +----------------+
+    +-----------+----------+----------+
+                           |
+                 REST API  |
+                           |
+                 +---------+---------+
+                 |     OneView       |
+                 +-------------------+
+
+
+The Neutron-OneView Mechanism Driver aims at having the Ironic-Neutron 
+integration for multi-tenancy working with nodes driven by the OneView 
+drivers for Ironic.
+
+To achieve this, the driver:
+
+    > creates a network in OneView for each network in Neutron
+    > adds networks to Uplink Sets in OneView according to physical 
+      provider-network --> Uplink Set mappings, as defined in the 
+      driver config file
+        - "Ethernet" Uplink Sets are used with "vlan" typed provider
+          networks
+        - "Untagged" Uplink Sets are used with "flat" typed provider 
+          networks
+        - other kinds of Uplink Sets neither other types of provider 
+          networks are used
+    > manual mapping of Neutron flat networks onto specified pre-existing 
+      networks of OneView
+        - this covers migration from the flat model to the multi-tenant 
+          model
+    > creates, removes and updates connections in Server Profiles, 
+      implementing Neutron port binding
+        - works only with vif_type = baremetal
+        - expects Server Hardware UUID and boot priority in the 
+          local_link_information of the port
+
+
 Install
 =============================
 
-1. The ML2 Mechanism Driver:*
+1. The ML2 Mechanism Driver:
 
 - Make the git clone of the mechdriver files for a folder of your choice <download_directory>:
 
     *$ git clone git@git.lsd.ufcg.edu.br:ironic-neutron-oneview/networking-oneview.git*
-    
+
 - Access the folder <networking-oneview>:
 
     *$ cd networking-oneview*
-    
+
 - Run the script install-deriver.sh:
 
     *$ ./install-driver.sh*
@@ -106,7 +161,7 @@ Install
 
     *oneview = neutron.plugins.ml2.drivers.oneview.mech_oneview:OneViewDriver*
 
- 
+
 5. Starting python:
 
 - At directory /opt/stack/neutron run:
@@ -136,3 +191,25 @@ Install
     *$ cd /opt/stack/neutron/*
 
     *$ neutron-db-manage upgrade head*
+
+
+License
+=============================
+
+Apache License: Version 2.0, January 2004
+
+
+Contributing
+=============================
+
+- If you would like to contribute to the development of OpenStack, you must follow the steps in this page:
+
+    *http://docs.openstack.org/infra/manual/developers.html*
+
+- Once those steps have been completed, changes to OpenStack should be submitted for review via the Gerrit 
+  tool, following the workflow documented at:
+
+    http://docs.openstack.org/infra/manual/developers.html#development-workflow
+
+
+
