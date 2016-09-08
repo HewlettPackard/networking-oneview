@@ -49,12 +49,16 @@ CONF.register_opts(opts, group='oneview')
 
 LOG = log.getLogger(__name__)
 
+FLAT_NET = '0'
+UPLINKSET = '1'
+NETWORK_IS_NONE = '2'
+
 
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
         self._initialize_driver()
 
-        self._start_resource_sync_periodic_task()
+        # self._start_resource_sync_periodic_task()
         self._start_initial_sync_periodic_task()
 
     def _initialize_driver(self):
@@ -84,10 +88,12 @@ class OneViewDriver(driver_api.MechanismDriver):
 
     def _start_initial_sync_periodic_task(self):
         task = init_sync.InitSync(
-            self.oneview_client, CONF.database.connection
+           self.oneview_client, CONF.database.connection
         )
-        task.check_mapped_networks_on_db_and_create_on_oneview()
-        task.check_and_sync_mapped_uplinksets_on_db()
+        task.check_flat_mapped_networks_on_db()
+        task.check_changed_ids_flat_mapped_networks()
+        # task.check_and_sync_mapped_uplinksets_on_db()
+        # task.sync_mapped_uplinksets_on_db()
 
     def create_network_postcommit(self, context):
         session = context._plugin_context._session
@@ -98,17 +104,32 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
         provider_network = neutron_network_dict.get('provider:network_type')
 
+        verify_mapping = self.neutron_oneview_client.\
+            network.verify_mapping_type(
+                physical_network, self.uplinkset_mappings_dict,
+                self.oneview_network_mapping_dict
+                )
+
         uplinkset_id_list = (
             self.neutron_oneview_client.uplinkset.filter_by_type(
                 self.uplinkset_mappings_dict.get(physical_network),
                 provider_network
-            )
+                )
         )
 
-        if len(uplinkset_id_list) > 0:
+        if verify_mapping is not FLAT_NET:
+            if len(uplinkset_id_list) > 0:
+                self.neutron_oneview_client.network.create(
+                    session, neutron_network_dict, uplinkset_id_list,
+                    self.oneview_network_mapping_dict,
+                    self.uplinkset_mappings_dict, commit=False
+                )
+
+        elif verify_mapping is FLAT_NET:
             self.neutron_oneview_client.network.create(
                 session, neutron_network_dict, uplinkset_id_list,
-                self.oneview_network_mapping_dict
+                self.oneview_network_mapping_dict,
+                self.uplinkset_mappings_dict, commit=False
             )
 
     def delete_network_postcommit(self, context):
@@ -124,8 +145,13 @@ class OneViewDriver(driver_api.MechanismDriver):
         neutron_network_id = context._network.get("id")
         new_network_name = context._network.get('name')
 
+        physical_network = context._network.get(
+            'provider:physical_network'
+        )
+
         self.neutron_oneview_client.network.update(
-            session, neutron_network_id, new_network_name
+            session, neutron_network_id, new_network_name, physical_network,
+            self.uplinkset_mappings_dict, self.oneview_network_mapping_dict
         )
 
     def create_port_postcommit(self, context):
@@ -201,8 +227,24 @@ class OneViewDriver(driver_api.MechanismDriver):
 
         if vnic_type != 'baremetal':
             return
+        local_link_information_list = common.\
+            local_link_information_from_context(
+                context._port
+                )
+        if local_link_information_list is None or\
+                len(local_link_information_list) == 0:
+            return
+        elif len(local_link_information_list) > 1:
+            raise exception.ValueError(
+                "'local_link_information' must have only one value"
+            )
 
-        self.neutron_oneview_client.port.delete(session, neutron_port_uuid)
+        local_link_information_dict = local_link_information_list[0]
+        switch_info_dict = local_link_information_dict.get('switch_info')
+        server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
+        self.neutron_oneview_client.port.delete(
+            session, neutron_port_uuid, server_hardware_uuid
+            )
 
     def delete_port_postcommit(self, context):
         self._delete_port_from_context(context)

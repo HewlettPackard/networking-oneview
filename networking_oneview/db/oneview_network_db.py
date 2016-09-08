@@ -22,10 +22,14 @@ class NeutronOneviewNetwork(model_base.BASEV2):
     __tablename__ = 'neutron_oneview_network'
     neutron_network_uuid = sa.Column(sa.String(36), primary_key=True)
     oneview_network_uuid = sa.Column(sa.String(36), nullable=False)
+    manageable = sa.Column(sa.Boolean)
 
-    def __init__(self, neutron_network_uuid, oneview_network_uuid):
+    def __init__(
+        self, neutron_network_uuid, oneview_network_uuid, manageable=True
+    ):
         self.neutron_network_uuid = neutron_network_uuid
         self.oneview_network_uuid = oneview_network_uuid
+        self.manageable = manageable
 
 
 class OneviewNetworkUplinkset(model_base.BASEV2):
