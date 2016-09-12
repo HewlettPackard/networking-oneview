@@ -45,24 +45,21 @@ drivers for Ironic.
 To achieve this, the driver:
 
 - Creates a network in OneView for each network in Neutron
-- Adds networks to Uplink Sets in OneView according to physical 
-      provider-network --> Uplink Set mappings, as defined in the 
-      driver config file
-        - "Ethernet" Uplink Sets are used with "vlan" typed provider
-          networks
-        - "Untagged" Uplink Sets are used with "flat" typed provider 
-          networks
-        - other kinds of Uplink Sets neither other types of provider 
-          networks are used
-    > manual mapping of Neutron flat networks onto specified pre-existing 
-      networks of OneView
-        - this covers migration from the flat model to the multi-tenant 
-          model
-    > creates, removes and updates connections in Server Profiles, 
-      implementing Neutron port binding
-        - works only with vif_type = baremetal
-        - expects Server Hardware UUID and boot priority in the 
-          local_link_information of the port
+
+- Adds networks to Uplink Sets in OneView according to physical provider-network --> Uplink Set mappings, as defined in the driver config file
+
+    - "Ethernet" Uplink Sets are used with "vlan" typed provider networks
+    - "Untagged" Uplink Sets are used with "flat" typed provider networks
+    - other kinds of Uplink Sets neither other types of provider networks are used
+
+- Manual mapping of Neutron flat networks onto specified pre-existing networks of OneView
+
+    - this covers migration from the flat model to the multi-tenant model
+
+- Creates, removes and updates connections in Server Profiles, implementing Neutron port binding
+
+    - works only with vif_type = baremetal
+    - expects Server Hardware UUID and boot priority in the local_link_information of the port
 
 
 Install
