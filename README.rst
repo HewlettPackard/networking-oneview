@@ -4,7 +4,7 @@ HP OneView Mechanism Driver for Neutron ML2 plugin
 
 Overview
 =============================
-The mechanism driver will interact with Neutron and OneView to
+The mechanism driver interacts with Neutron and OneView to
 dynamically reflect networking operations made by OpenStack on OneView. With
 these operations it's possible to a OneView administrator to know what is
 happening in OpenStack System which is running in the Data Center and also
@@ -13,8 +13,8 @@ automatizes some operations previously required to be manual.
 
 The diagram below provides an overview of how Neutron and OneView will
 interact using the Neutron-OneView Mechanism Driver. OneView Mechanism
-Driver uses the python-oneviewclient to provide communication between
-Neutron and OneView through OneView's Rest API.
+Driver uses HPE Oneview SDK for Python to provide communication between
+Neutron and OneView through OneView's REST API.
 
 
 Flows:
@@ -44,8 +44,8 @@ drivers for Ironic.
 
 To achieve this, the driver:
 
-    > creates a network in OneView for each network in Neutron
-    > adds networks to Uplink Sets in OneView according to physical 
+- Creates a network in OneView for each network in Neutron
+- Adds networks to Uplink Sets in OneView according to physical 
       provider-network --> Uplink Set mappings, as defined in the 
       driver config file
         - "Ethernet" Uplink Sets are used with "vlan" typed provider
