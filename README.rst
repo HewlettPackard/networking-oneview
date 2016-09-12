@@ -46,7 +46,7 @@ To achieve this, the driver:
 
 - Creates a network in OneView for each network in Neutron to physical provider-networks configured in the driver config file
 
-- Adds networks to Uplink Sets in OneView according to physical provider-network --> Uplink Set mappings, as defined in the driver config file
+- Adds networks to Uplink Sets in OneView according to Uplink Set mappings defined to the physical provider-network in the driver config file
 
     - "Ethernet" Uplink Sets are used with "vlan" typed provider networks
     - "Untagged" Uplink Sets are used with "flat" typed provider networks
