@@ -241,7 +241,6 @@ class Network(ResourceManager):
         )
 
         try:
-
             if verify_mapping is not FLAT_NET:
                 network = self.oneview_client.ethernet_networks.get(
                     neutron_oneview_network.oneview_network_uuid
@@ -249,7 +248,7 @@ class Network(ResourceManager):
                 network['name'] = new_network_name
                 self.oneview_client.ethernet_networks.update(network)
 
-        except exceptions.OneViewResourceNotFoundError:
+        except Exception:
             self._remove_inconsistence_from_db(
                 session, neutron_network_id,
                 neutron_oneview_network.oneview_network_uuid
@@ -410,14 +409,14 @@ class Port(ResourceManager):
     def _update_connection(
         self, server_profile_id, connection_id, port_id, boot_priority
     ):
-        server_profile=self.oneview_client.server_profiles.get(
+        server_profile = self.oneview_client.server_profiles.get(
             server_profile_id
         ).copy()
 
         for connection in server_profile.get('connections'):
             if int(connection.get('id')) == int(connection_id):
-                connection['portId']=port_id
-                connection['boot']={'priority': boot_priority}
+                connection['portId'] = port_id
+                connection['boot'] = {'priority': boot_priority}
 
         self.oneview_client.server_profiles.update(
             resource=server_profile,

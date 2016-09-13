@@ -88,7 +88,7 @@ class OneViewDriver(driver_api.MechanismDriver):
 
     def _start_initial_sync_periodic_task(self):
         task = init_sync.InitSync(
-           self.oneview_client, CONF.database.connection
+            self.oneview_client, CONF.database.connection
         )
         task.check_flat_mapped_networks_on_db()
         task.check_changed_ids_flat_mapped_networks()
@@ -148,11 +148,17 @@ class OneViewDriver(driver_api.MechanismDriver):
         physical_network = context._network.get(
             'provider:physical_network'
         )
-
-        self.neutron_oneview_client.network.update(
-            session, neutron_network_id, new_network_name, physical_network,
-            self.uplinkset_mappings_dict, self.oneview_network_mapping_dict
-        )
+        verify_mapping = self.neutron_oneview_client.\
+            network.verify_mapping_type(
+                physical_network, self.uplinkset_mappings_dict,
+                self.oneview_network_mapping_dict
+                )
+        if verify_mapping is not NETWORK_IS_NONE:
+            self.neutron_oneview_client.network.update(
+                session, neutron_network_id, new_network_name,
+                physical_network, self.uplinkset_mappings_dict,
+                self.oneview_network_mapping_dict
+            )
 
     def create_port_postcommit(self, context):
         self._create_port_from_context(context)
