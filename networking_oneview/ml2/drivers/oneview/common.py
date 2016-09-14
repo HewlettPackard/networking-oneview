@@ -14,8 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oneview_client import models
-
 
 def load_oneview_network_mapping_conf_to_dict(oneview_network_mapping):
     oneview_network_mapping_dict = {}

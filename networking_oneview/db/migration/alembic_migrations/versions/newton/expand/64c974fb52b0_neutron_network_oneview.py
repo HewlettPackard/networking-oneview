@@ -34,6 +34,7 @@ def upgrade():
         'neutron_oneview_network',
         sa.Column('neutron_network_uuid', sa.String(length=36)),
         sa.Column('oneview_network_uuid', sa.String(length=36)),
+        sa.Column('manageable', sa.Boolean),
         sa.PrimaryKeyConstraint('neutron_network_uuid')
     )
 

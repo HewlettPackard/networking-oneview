@@ -6,6 +6,6 @@ def id_from_uri(uri):
         return uri.split("/")[-1]
 
 
-def uri_from_uuid(resource_prefix, uuid):
-    if uuid:
-        return str(resource_prefix) + str(uuid)
+def uri_from_id(resource_prefix, id):
+    if id:
+        return str(resource_prefix) + str(id)
