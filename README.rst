@@ -159,19 +159,12 @@ Install
     *oneview = neutron.plugins.ml2.drivers.oneview.mech_oneview:OneViewDriver*
 
 
-5. Starting python:
-
-- At directory /opt/stack/neutron run:
-
-    *$ sudo python setup.py install*
-
-
-6. Restart Neutron:
+5. Restart Neutron:
 
 - Restart the neutron service. If everything is well, the mechanism driver is working.
 
 
-7. Creating the database tables:
+6. Creating the database tables:
 
 - Run the migration script to create the database tables necessary for the mechanism driver function.
 
@@ -201,7 +194,7 @@ Contributing
 
 - If you would like to contribute to the development of OpenStack, you must follow the steps in this page:
 
-    *http://docs.openstack.org/infra/manual/developers.html*
+    http://docs.openstack.org/infra/manual/developers.html
 
 - Once those steps have been completed, changes to OpenStack should be submitted for review via the Gerrit 
   tool, following the workflow documented at:
