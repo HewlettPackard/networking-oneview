@@ -134,14 +134,14 @@ class Network(ResourceManager):
             )
 
     def _remove_inconsistence_from_db(
-        self, session, neutron_network_uuid, oneview_network_uuid
+        self, session, neutron_network_uuid, oneview_network_uuid, commit=False
     ):
         db_manager.delete_neutron_oneview_network(
-            session, neutron_network_uuid
+            session, neutron_network_uuid, commit
         )
 
-        db_manager.delete_oneview_network_uplinkset_by_uplinkset(
-            session, oneview_network_uuid
+        db_manager.delete_oneview_network_uplinkset_by_network(
+            session, oneview_network_uuid, commit
         )
 
     def delete(
@@ -191,7 +191,7 @@ class Network(ResourceManager):
 
                 db_manager.delete_neutron_oneview_port(session, port.id)
 
-        self.remove_network_from_oneview_database(
+        self._remove_inconsistence_from_db(
             session, neutron_network_id, oneview_network_id
         )
 
@@ -211,17 +211,6 @@ class Network(ResourceManager):
         self.oneview_client.server_profile.update(
             resource=server_profile_to_update,
             id_or_uri=server_profile_to_update.get('uri')
-        )
-
-    def remove_network_from_oneview_database(
-        self, session, neutron_network_id, oneview_network_id
-    ):
-        db_manager.delete_neutron_oneview_network(
-            session, neutron_network_id
-        )
-
-        db_manager.delete_oneview_network_uplinkset_by_network(
-            session, oneview_network_id
         )
 
     def update(

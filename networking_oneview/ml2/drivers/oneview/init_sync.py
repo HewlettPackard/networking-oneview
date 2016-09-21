@@ -15,7 +15,7 @@
 #    under the License.
 
 import json
-
+import utils
 from neutron._i18n import _LW
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from neutron.plugins.ml2.drivers.oneview import neutron_oneview_client
@@ -365,16 +365,13 @@ class InitSync(object):
 
     def check_and_sync_deleted_neutron_networks_on_db_and_oneview(self):
         neutron_networks_list = db_manager.list_neutron_networks(self.session)
-        print neutron_networks_list
         for neutron_oneview in (
             db_manager.list_neutron_oneview_network(self.session)
                 ):
                 if not neutron_oneview.manageable:
                     continue
                 isDeleted = True
-                print neutron_oneview
                 neutron_id = neutron_oneview.neutron_network_uuid
-                print neutron_id
                 for network in neutron_networks_list:
                     print network.id
                     if network.id == neutron_id:
@@ -385,12 +382,13 @@ class InitSync(object):
                     oneview_network = self.get_oneview_network(
                         neutron_oneview.oneview_network_uuid
                     )
+                    print oneview_network
                     if oneview_network is None:
-                        self.client.network.\
-                            remove_network_from_oneview_database(
-                                self.session, neutron_id,
-                                neutron_oneview.oneview_network_uuid
-                                )
+                        print "Tentando remover"
+                        self.client.network._remove_inconsistence_from_db(
+                            self.session, neutron_id,
+                            neutron_oneview.oneview_network_uuid, commit=True
+                            )
                         continue
                     self.oneview_client.ethernet_networks.delete(
                         oneview_network
@@ -411,7 +409,28 @@ class InitSync(object):
                         self._remove_connection(sp_id, conn_id)
                         db_manager.delete_neutron_oneview_port(
                             session, port.id)
-                    self.client.network.remove_network_from_oneview_database(
+                    self.client.network._remove_inconsistence_from_db(
                         self.session, neutron_id,
-                        neutron_oneview.oneview_network_uuid
+                        neutron_oneview.oneview_network_uuid, commit=True
                     )
+
+    def recreate_mapping_between_neutron_and_oneview(self):
+        for neutron_network in (
+            db_manager.list_neutron_networks(self.session)
+                ):
+            oneview_network = self.oneview_client.ethernet_networks.get_by(
+                'name', 'Neutron['+neutron_network.id+']')
+            if len(oneview_network) > 0:
+                oneview_network = oneview_network[0]
+                oneview_network_id = utils.id_from_uri(
+                    oneview_network.get('uri')
+                )
+                print oneview_network_id
+                try:
+                    db_manager.insert_neutron_oneview_network(
+                        self.session, neutron_network.id, oneview_network_id,
+                        commit=True
+                        )
+                except Exception:
+                    self.session.rollback()
+                    print "The network " + oneview_network_id + " is already mapped."
