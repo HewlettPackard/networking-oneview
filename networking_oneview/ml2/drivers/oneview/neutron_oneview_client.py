@@ -110,7 +110,6 @@ class Network(ResourceManager):
             oneview_network = self.oneview_client.ethernet_networks.create(
                 options
             )
-
         self.add_network_to_uplinksets(
             uplinkset_id_list, oneview_network.get('uri')
         )
@@ -192,7 +191,7 @@ class Network(ResourceManager):
 
                 db_manager.delete_neutron_oneview_port(session, port.id)
 
-        self.map_remove_neutron_network_to_oneview_network_in_database(
+        self.remove_network_from_oneview_database(
             session, neutron_network_id, oneview_network_id
         )
 
@@ -214,7 +213,7 @@ class Network(ResourceManager):
             id_or_uri=server_profile_to_update.get('uri')
         )
 
-    def map_remove_neutron_network_to_oneview_network_in_database(
+    def remove_network_from_oneview_database(
         self, session, neutron_network_id, oneview_network_id
     ):
         db_manager.delete_neutron_oneview_network(
@@ -489,7 +488,7 @@ class UplinkSet(ResourceManager):
         return uplinkset_by_type
 
     def remove_network(self, session, uplinkset_id, network_id):
-        self.oneview_client.uplinkset.remove_network(
+        self.oneview_client.uplink_sets.remove_ethernet_networks(
             uplinkset_id, network_id
         )
         db_manager.delete_oneview_network_uplinkset(
@@ -497,12 +496,18 @@ class UplinkSet(ResourceManager):
         )
 
     def add_network(self, session, uplinkset_id, network_id):
-        self.oneview_client.uplinkset.add_network(
-            uplinkset_id, network_id
-        )
-        db_manager.insert_oneview_network_uplinkset(
-            session, network_id, uplinkset_id
-        )
+        uplinkset = self.oneview_client.uplink_sets.get(uplinkset_id)
+        network_uri = "/rest/ethernet-networks/" + network_id
+        print "################NETWORK URIS###########################"
+        print uplinkset['networkUris']
+        print "###########################NETWORKURI##################"
+
+        if network_uri not in uplinkset['networkUris']:
+            uplinkset['networkUris'].append(network_uri)
+            self.oneview_client.uplink_sets.update(uplinkset)
+            db_manager.insert_oneview_network_uplinkset(
+                session, network_id, uplinkset_id
+            )
 
 
 class Client:

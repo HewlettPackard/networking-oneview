@@ -92,6 +92,8 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
         task.check_flat_mapped_networks_on_db()
         task.check_changed_ids_flat_mapped_networks()
+        task.check_and_sync_deleted_neutron_networks_on_db_and_oneview()
+        task.check_mapped_networks_on_db_and_create_on_oneview()
         task.check_and_sync_mapped_uplinksets_on_db()
         task.sync_mapped_uplinksets_on_db()
 

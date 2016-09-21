@@ -54,6 +54,14 @@ class InitSync(object):
             )
         )
 
+    def get_oneview_network(self, oneview_network_id):
+        try:
+            return self.oneview_client.ethernet_networks.get(
+                oneview_network_id
+            )
+        except Exception:
+            return None
+
     def sync_ports(self, network_id):
         for port, port_binding in db_manager.get_port_with_binding_profile(
             self.session, network_id
@@ -138,7 +146,6 @@ class InitSync(object):
                         )
 
     def check_and_sync_mapped_uplinksets_on_db(self):
-        i = 0
         for neutron_network, segment in (
             db_manager.list_networks_and_segments_with_physnet(self.session)
         ):
@@ -150,6 +157,12 @@ class InitSync(object):
                     segment.network_type
                 )
             )
+
+            print "#####Neutron network##############"
+            print neutron_network
+            print "#####SEGMENT############################################"
+            print segment
+
             if physnet_compatible_uplinkset_list is None:
                 continue
 
@@ -192,7 +205,11 @@ class InitSync(object):
             else:
                 oneview_network_id = (
                     neutron_oneview_network.oneview_network_uuid)
-
+                print oneview_network_id
+                oneview_network = self.get_oneview_network(
+                    oneview_network_id
+                )
+                print oneview_network
                 oneview_network_uplink_list = (
                     db_manager.get_network_uplinksets(
                         self.session, oneview_network_id
@@ -216,17 +233,37 @@ class InitSync(object):
                         )
 
     def check_mapped_networks_on_db_and_create_on_oneview(self):
-        for neutron_network in db_manager.list_neutron_networks(
-            self.session
-        ):
-            segment = db_manager.get_network_segment(
+        for neutron_network, segment in (
+            db_manager.list_networks_and_segments_with_physnet(self.session)
+                ):
+            uplinkset_id_list = (
+                self.client.uplinkset.filter_by_type(
+                    self.uplinkset_mappings_dict.get(
+                        segment.physical_network
+                    ),
+                    segment.network_type
+                )
+            )
+            neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 self.session, neutron_network.id
             )
-
-            if db_manager.get_neutron_oneview_network(
-                self.session, neutron_network.id
-            ) is not None or segment.physical_network is None:
-                continue
+            print neutron_oneview_network
+            if (
+                neutron_oneview_network is not None or
+                    segment.physical_network is None
+                    ):
+                if neutron_oneview_network.manageable is False:
+                    continue
+                print neutron_oneview_network.oneview_network_uuid
+                oneview_network = self.get_oneview_network(
+                    neutron_oneview_network.oneview_network_uuid
+                )
+                if oneview_network is not None:
+                    continue
+                else:
+                    db_manager.delete_neutron_oneview_network(
+                        self.session,
+                        neutron_oneview_network.neutron_network_uuid)
 
             neutron_network_dict = {
                 'id': neutron_network.id,
@@ -248,7 +285,9 @@ class InitSync(object):
             if len(uplinkset_id_list) > 0:
                 self.client.network.create(
                     self.session, neutron_network_dict, uplinkset_id_list,
-                    self.oneview_network_mapping_dict
+                    self.oneview_network_mapping_dict,
+                    self.uplinkset_mappings_dict, commit=True,
+                    manageable=True
                 )
             else:
                 LOG.warning(_LW(
@@ -323,3 +362,56 @@ class InitSync(object):
                 )
 
         self.check_flat_mapped_networks_on_db()
+
+    def check_and_sync_deleted_neutron_networks_on_db_and_oneview(self):
+        neutron_networks_list = db_manager.list_neutron_networks(self.session)
+        print neutron_networks_list
+        for neutron_oneview in (
+            db_manager.list_neutron_oneview_network(self.session)
+                ):
+                if not neutron_oneview.manageable:
+                    continue
+                isDeleted = True
+                print neutron_oneview
+                neutron_id = neutron_oneview.neutron_network_uuid
+                print neutron_id
+                for network in neutron_networks_list:
+                    print network.id
+                    if network.id == neutron_id:
+                        isDeleted = False
+                        break
+                print isDeleted
+                if isDeleted:
+                    oneview_network = self.get_oneview_network(
+                        neutron_oneview.oneview_network_uuid
+                    )
+                    if oneview_network is None:
+                        self.client.network.\
+                            remove_network_from_oneview_database(
+                                self.session, neutron_id,
+                                neutron_oneview.oneview_network_uuid
+                                )
+                        continue
+                    self.oneview_client.ethernet_networks.delete(
+                        oneview_network
+                        )
+
+                    for port in db_manager.list_port_with_network(
+                        self.session, neutron_id
+                    ):
+                        neutron_oneview_port = (
+                            db_manager.get_neutron_oneview_port(
+                                session, port.id
+                            )
+                            )
+                        sp_id = (
+                            neutron_oneview_port.oneview_server_profile_uuid)
+                        conn_id = neutron_oneview_port.oneview_connection_id
+
+                        self._remove_connection(sp_id, conn_id)
+                        db_manager.delete_neutron_oneview_port(
+                            session, port.id)
+                    self.client.network.remove_network_from_oneview_database(
+                        self.session, neutron_id,
+                        neutron_oneview.oneview_network_uuid
+                    )
