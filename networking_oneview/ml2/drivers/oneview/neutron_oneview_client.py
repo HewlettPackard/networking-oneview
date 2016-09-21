@@ -487,9 +487,6 @@ class UplinkSet(ResourceManager):
     def add_network(self, session, uplinkset_id, network_id):
         uplinkset = self.oneview_client.uplink_sets.get(uplinkset_id)
         network_uri = "/rest/ethernet-networks/" + network_id
-        print "################NETWORK URIS###########################"
-        print uplinkset['networkUris']
-        print "###########################NETWORKURI##################"
 
         if network_uri not in uplinkset['networkUris']:
             uplinkset['networkUris'].append(network_uri)

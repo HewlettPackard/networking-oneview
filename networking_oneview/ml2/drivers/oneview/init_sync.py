@@ -373,18 +373,14 @@ class InitSync(object):
                 isDeleted = True
                 neutron_id = neutron_oneview.neutron_network_uuid
                 for network in neutron_networks_list:
-                    print network.id
                     if network.id == neutron_id:
                         isDeleted = False
                         break
-                print isDeleted
                 if isDeleted:
                     oneview_network = self.get_oneview_network(
                         neutron_oneview.oneview_network_uuid
                     )
-                    print oneview_network
                     if oneview_network is None:
-                        print "Tentando remover"
                         self.client.network._remove_inconsistence_from_db(
                             self.session, neutron_id,
                             neutron_oneview.oneview_network_uuid, commit=True
@@ -425,7 +421,6 @@ class InitSync(object):
                 oneview_network_id = utils.id_from_uri(
                     oneview_network.get('uri')
                 )
-                print oneview_network_id
                 try:
                     db_manager.insert_neutron_oneview_network(
                         self.session, neutron_network.id, oneview_network_id,
@@ -433,4 +428,5 @@ class InitSync(object):
                         )
                 except Exception:
                     self.session.rollback()
-                    print "The network " + oneview_network_id + " is already mapped."
+                    print "The network " + oneview_network_id + \
+                        " is already mapped."
