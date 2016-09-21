@@ -15,6 +15,7 @@
 #    under the License.
 
 from oneview_client import models
+import json 
 
 
 def load_oneview_network_mapping_conf_to_dict(oneview_network_mapping):
@@ -83,15 +84,19 @@ def first_local_link_information_from_port_context(port_context):
 
 def boot_priority_from_local_link_information(local_link_information):
     if local_link_information:
-        switch_info_dict = local_link_information.get('switch_info')
-        if switch_info_dict:
+        switch_info_string = local_link_information.get('switch_info')
+        if switch_info_string:
+            switch_info_string = switch_info_string.replace("'", '"')
+            switch_info_dict = json.loads(switch_info_string)
             return switch_info_dict.get('boot_priority')
 
 
 def server_hardware_from_local_link_information(local_link_information):
     if local_link_information:
-        switch_info_dict = local_link_information.get('switch_info')
-        if switch_info_dict:
+        switch_info_string = local_link_information.get('switch_info')
+        if switch_info_string:
+            switch_info_string = switch_info_string.replace("'", '"')
+            switch_info_dict = json.loads(switch_info_string)
             return switch_info_dict.get('server_hardware_uuid')
 
 
@@ -105,3 +110,5 @@ def server_hardware_from_local_link_information(local_link_information):
 #         kwargs['vlan'] = seg_id
 #
 #     return kwargs
+
+

@@ -13,9 +13,13 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+import json
 
 from hpOneView.oneview_client import OneViewClient
 from neutron._i18n import _
+from neutron._i18n import _LW
+from neutron.extensions import portbindings
+from neutron.plugins.common import constants as p_const
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
@@ -128,6 +132,41 @@ class OneViewDriver(driver_api.MechanismDriver):
             session, neutron_network_id, new_network_name
         )
 
+    def bind_port(self, context):
+        """Bind baremetal port to a network.
+        Provisioning request to Arista Hardware to plug a host
+        into appropriate network is done when the port is created
+        this simply tells the ML2 Plugin that we are binding the port
+        """
+        port = context.current
+        vnic_type = port['binding:vnic_type']
+        if vnic_type != portbindings.VNIC_BAREMETAL:
+            # We are only interested in bining baremetal ports.
+            return
+
+        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+        print vnic_type
+
+	vif_type = portbindings.VIF_TYPE_OTHER
+        vif_details = {portbindings.VIF_DETAILS_VLAN: True}
+        for segment in context.segments_to_bind:
+            vif_details[portbindings.VIF_DETAILS_VLAN] = (
+                str(segment[driver_api.SEGMENTATION_ID]))
+            context.set_binding(segment[driver_api.ID],
+                                vif_type,
+                                vif_details,
+                                p_const.ACTIVE)
+            LOG.debug("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@AristaDriver: bound port info- port ID %(id)s "
+                      "on network %(network)s",
+                      {'id': port['id'],
+                       'network': context.network.current['id']})
+
     def create_port_postcommit(self, context):
         self._create_port_from_context(context)
 
@@ -139,6 +178,12 @@ class OneViewDriver(driver_api.MechanismDriver):
         neutron_network_dict = common.get_network_from_port_context(context)
         neutron_network_id = neutron_network_dict.get('id')
         vnic_type = common.get_vnic_type_from_port_context(context)
+	port = context.current
+        vnic_type = port['binding:vnic_type']
+        print portbindings.VNIC_BAREMETAL
+        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+        print vnic_type
 
         if vnic_type != 'baremetal':
             return
@@ -156,6 +201,7 @@ class OneViewDriver(driver_api.MechanismDriver):
                 "'local_link_information' must have only one value"
             )
 
+	
         local_link_information_dict = local_link_information_list[0]
 
         self.neutron_oneview_client.port.create(
@@ -175,8 +221,9 @@ class OneViewDriver(driver_api.MechanismDriver):
 
         original_port_mac = original_port.get('mac_address')
         port_mac = port.get('mac_address')
-
-        port_boot_priority =\
+	print "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
+	print common.boot_priority_from_local_link_information(port_lli)
+	port_boot_priority =\
             common.boot_priority_from_local_link_information(port_lli)
         original_port_boot_priority =\
             common.boot_priority_from_local_link_information(original_port_lli)
@@ -200,25 +247,45 @@ class OneViewDriver(driver_api.MechanismDriver):
         vnic_type = common.get_vnic_type_from_port_context(context)
 
         if vnic_type != 'baremetal':
+            LOG.debug(_("Port %s is not baremetal. Skipping."), neutron_port_uuid)
             return
         local_link_information_list = common.\
             local_link_information_from_context(
                 context._port
                 )
-        if local_link_information_list is None or\
-                len(local_link_information_list) == 0:
+        if (local_link_information_list is None or
+                len(local_link_information_list) == 0):
+            LOG.debug(_(
+                "Port %s does not have local_link_information. Skipping."),
+                neutron_port_uuid)
             return
         elif len(local_link_information_list) > 1:
             raise exception.ValueError(
                 "'local_link_information' must have only one value"
             )
-
+ 
         local_link_information_dict = local_link_information_list[0]
-        switch_info_dict = local_link_information_dict.get('switch_info')
-        server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
-        self.neutron_oneview_client.port.delete(
-            session, neutron_port_uuid, server_hardware_uuid
-            )
+        switch_info_string = local_link_information_dict.get('switch_info')
+        switch_info_string = switch_info_string.replace("'", '"')
+        switch_info_dict = json.loads(switch_info_string)
+
+        if switch_info_dict:
+            server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
+            if server_hardware_uuid:
+                LOG.debug(_(
+                    "Deleting port %s from OneView."),
+                    neutron_port_uuid)
+                self.neutron_oneview_client.port.delete(
+                    session, neutron_port_uuid, server_hardware_uuid
+                )
+            else:
+                LOG.debug(_(
+                    "Port %s switch_info does not contain server_hardware_uuid. Skipping."),
+                    neutron_port_uuid)
+        else:
+            LOG.warning(_LW(
+                "Port %s local_link_information does not contain switch_info. Skipping."),
+                neutron_port_uuid)
 
     def delete_port_postcommit(self, context):
         self._delete_port_from_context(context)
