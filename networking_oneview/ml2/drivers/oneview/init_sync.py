@@ -138,6 +138,11 @@ class InitSync(object):
                         self.client.uplinkset.remove_network(
                             self.session, uplinkset_id, oneview_network_id
                         )
+                        db_manager.delete_neutron_oneview_network(
+                            self.session,
+                            neutron_oneview_network.neutron_network_uuid,
+                            commit=True
+                            )
 
                 for uplinkset_id in physnet_compatible_uplinkset_list:
                     if uplinkset_id not in network_uplinkset_list:
@@ -157,11 +162,6 @@ class InitSync(object):
                     segment.network_type
                 )
             )
-
-            print "#####Neutron network##############"
-            print neutron_network
-            print "#####SEGMENT############################################"
-            print segment
 
             if physnet_compatible_uplinkset_list is None:
                 continue
@@ -192,7 +192,7 @@ class InitSync(object):
                         self.session, neutron_network_dict, uplinkset_id_list,
                         self.oneview_network_mapping_dict,
                         self.uplinkset_mappings_dict, commit=True,
-                        manageable=False
+                        manageable=True
                     )
                 else:
                     LOG.warning(_LW(
@@ -205,11 +205,9 @@ class InitSync(object):
             else:
                 oneview_network_id = (
                     neutron_oneview_network.oneview_network_uuid)
-                print oneview_network_id
                 oneview_network = self.get_oneview_network(
                     oneview_network_id
                 )
-                print oneview_network
                 oneview_network_uplink_list = (
                     db_manager.get_network_uplinksets(
                         self.session, oneview_network_id
@@ -219,17 +217,23 @@ class InitSync(object):
                     network_uplinkset.oneview_uplinkset_uuid
                     for network_uplinkset in oneview_network_uplink_list
                 ]
-
+                # Remove network from uplink set and also remove from uplinkset
+                # oneview mapping
                 for uplinkset_id in network_uplinkset_list:
                     if uplinkset_id not in physnet_compatible_uplinkset_list:
                         self.client.uplinkset.remove_network(
-                            self.session, uplinkset_id, oneview_network_id
+                            self.session, uplinkset_id, oneview_network_id,
+                            _commit=True
                         )
 
                 for uplinkset_id in physnet_compatible_uplinkset_list:
+                    print uplinkset_id
+                    print "network = " + oneview_network_id
                     if uplinkset_id not in network_uplinkset_list:
+                        print "Tentou adicionar redes no uplinkset acima"
                         self.client.uplinkset.add_network(
-                            self.session, uplinkset_id, oneview_network_id
+                            self.session, uplinkset_id, oneview_network_id,
+                            _commit=True
                         )
 
     def check_mapped_networks_on_db_and_create_on_oneview(self):
@@ -247,14 +251,12 @@ class InitSync(object):
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 self.session, neutron_network.id
             )
-            print neutron_oneview_network
             if (
                 neutron_oneview_network is not None or
                     segment.physical_network is None
                     ):
                 if neutron_oneview_network.manageable is False:
                     continue
-                print neutron_oneview_network.oneview_network_uuid
                 oneview_network = self.get_oneview_network(
                     neutron_oneview_network.oneview_network_uuid
                 )

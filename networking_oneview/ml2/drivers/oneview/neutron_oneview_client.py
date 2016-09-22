@@ -130,7 +130,7 @@ class Network(ResourceManager):
 
         for uplinkset_id in uplinksets_id_list:
             db_manager.insert_oneview_network_uplinkset(
-                session, oneview_network_id, uplinkset_id
+                session, oneview_network_id, uplinkset_id, commit
             )
 
     def _remove_inconsistence_from_db(
@@ -172,25 +172,28 @@ class Network(ResourceManager):
             )
 
             oneview_network_id = neutron_oneview_network.oneview_network_uuid
-            self.oneview_client.ethernet_networks.delete(
-                self.oneview_client.ethernet_networks.get(
-                    neutron_oneview_network.oneview_network_uuid
+            try:
+                self.oneview_client.ethernet_networks.delete(
+                    self.oneview_client.ethernet_networks.get(
+                        neutron_oneview_network.oneview_network_uuid
+                    )
                 )
-            )
 
-            for port in db_manager.list_port_with_network(
-                session, neutron_network_id
-            ):
-                neutron_oneview_port = db_manager.get_neutron_oneview_port(
-                    session, port.id
-                )
-                sp_id = neutron_oneview_port.oneview_server_profile_uuid
-                conn_id = neutron_oneview_port.oneview_connection_id
+                for port in db_manager.list_port_with_network(
+                    session, neutron_network_id
+                ):
+                    neutron_oneview_port = db_manager.get_neutron_oneview_port(
+                        session, port.id
+                    )
+                    sp_id = neutron_oneview_port.oneview_server_profile_uuid
+                    conn_id = neutron_oneview_port.oneview_connection_id
 
-                self._remove_connection(sp_id, conn_id)
+                    self._remove_connection(sp_id, conn_id)
 
-                db_manager.delete_neutron_oneview_port(session, port.id)
-
+                    db_manager.delete_neutron_oneview_port(session, port.id)
+            except Exception:
+                print "Oneview Network " + oneview_network_id\
+                    + " doesn't exist."
         self._remove_inconsistence_from_db(
             session, neutron_network_id, oneview_network_id
         )
@@ -476,15 +479,16 @@ class UplinkSet(ResourceManager):
 
         return uplinkset_by_type
 
-    def remove_network(self, session, uplinkset_id, network_id):
+    def remove_network(self, session, uplinkset_id, network_id, _commit=False):
+        uplinkset_uri = "/rest/uplink-sets/" + uplinkset_id
         self.oneview_client.uplink_sets.remove_ethernet_networks(
-            uplinkset_id, network_id
+            uplinkset_uri, network_id
         )
         db_manager.delete_oneview_network_uplinkset(
-            session, uplinkset_id, network_id
+            session, uplinkset_id, network_id, commit=_commit
         )
 
-    def add_network(self, session, uplinkset_id, network_id):
+    def add_network(self, session, uplinkset_id, network_id, _commit=False):
         uplinkset = self.oneview_client.uplink_sets.get(uplinkset_id)
         network_uri = "/rest/ethernet-networks/" + network_id
 
@@ -492,7 +496,7 @@ class UplinkSet(ResourceManager):
             uplinkset['networkUris'].append(network_uri)
             self.oneview_client.uplink_sets.update(uplinkset)
             db_manager.insert_oneview_network_uplinkset(
-                session, network_id, uplinkset_id
+                session, network_id, uplinkset_id, commit=_commit
             )
 
 
