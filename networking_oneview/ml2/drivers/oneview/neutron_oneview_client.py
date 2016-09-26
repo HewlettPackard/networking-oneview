@@ -254,7 +254,7 @@ class Port(ResourceManager):
     ):
         switch_info_dict = local_link_information_dict.get('switch_info')
         server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
-        boot_priority = switch_info_dict.get('boot_priority')
+        bootable = switch_info_dict.get('bootable')
 
         server_hardware = self.oneview_client.server_hardware.get(
             server_hardware_uuid
@@ -271,7 +271,8 @@ class Port(ResourceManager):
             server_hardware_uuid
         )
         self.update_server_hardware_power_state(server_hardware_uuid, "Off")
-
+        print server_hardware
+        print mac_address
         connection_id = self._add_connection(
             server_profile_uri,
             self._generate_connection_port_for_mac(
@@ -280,7 +281,7 @@ class Port(ResourceManager):
             utils.uri_from_id(
                 '/rest/ethernet-networks/',
                 neutron_oneview_network.oneview_network_uuid
-            ), boot_priority
+            ), bootable
         )
 
         db_manager.insert_neutron_oneview_port(
@@ -345,7 +346,7 @@ class Port(ResourceManager):
                         return info_dict
 
     def _add_connection(
-        self, server_profile_id, port_id, network_uri, boot_priority
+        self, server_profile_id, port_id, network_uri, bootable
     ):
         def get_next_connection_id(server_profile):
             next_id = 0
@@ -354,9 +355,32 @@ class Port(ResourceManager):
                     next_id = connection.get('id')
             return next_id + 1
 
+        def is_boot_priority_available(server_profile, boot_priority):
+            for connection in server_profile.get('connections'):
+                print connection.get('boot').get('priority')
+                if connection.get('boot').get('priority') == boot_priority:
+                    return False
+            return True
+
         server_profile = self.oneview_client.server_profiles.get(
             server_profile_id
         ).copy()
+
+        if bootable:
+            if (is_boot_priority_available(server_profile, 'Primary')):
+                boot_priority = 'Primary'
+            elif (is_boot_priority_available(server_profile, 'Secondary')):
+                boot_priority = 'Secondary'
+            else:
+                raise Exception(
+                    "Couldn't create a bootable connection. There already are"
+                    " Primary and Secondary connections in the Server Profile"
+                    " %(server_profile_uri)s." % {
+                        'server_profile_uri': server_profile.get('uri')
+                    }
+                )
+        else:
+            boot_priority = 'NotBootable'
 
         connection_id = get_next_connection_id(server_profile)
         server_profile['connections'].append({

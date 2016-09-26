@@ -62,6 +62,36 @@ class InitSync(object):
         except Exception:
             return None
 
+    def sync_mapped_ports(self, network_id):
+        ports_to_be_updated = []
+        oneview_id = db_manager.get_neutron_oneview_network(
+            self.session,
+            network_id).oneview_network_uuid
+        for port, port_binding in db_manager.get_port_with_binding_profile(
+            self.session, network_id
+        ):
+            ports_to_be_updated.append(port_binding)
+            profile = json.loads(port_binding.get('profile'))
+            local_link_information_list = profile.get('local_link_information')
+            lli_dict = local_link_information_list[0]
+            server_hardware = self.oneview_client.server_hardware.get(
+                common.server_hardware_from_local_link_information(lli_dict)
+            )
+            server_profile_id = utils.id_from_uri(
+                server_hardware.get('serverProfileUri')
+            )
+            server_profile = self.oneview_client.server_profiles.get(
+                server_profile_id
+            ).copy()
+            for connection in server_profile.get('connections'):
+                if connection.get('mac') == port.get('mac_address'):
+                    connection['networkUri'] = "/rest/ethernet-networks/"\
+                        + oneview_id
+                    self.oneview_client.server_profiles.update(
+                        resource=server_profile,
+                        id_or_uri=server_profile.get('uri')
+                    )
+
     def sync_ports(self, network_id):
         for port, port_binding in db_manager.get_port_with_binding_profile(
             self.session, network_id
@@ -74,7 +104,6 @@ class InitSync(object):
                 continue
 
             local_link_information_dict = local_link_information_list[0]
-
             self.client.port.create(
                 self.session, port.id, port.network_id, port.mac_address,
                 local_link_information_dict
@@ -227,10 +256,7 @@ class InitSync(object):
                         )
 
                 for uplinkset_id in physnet_compatible_uplinkset_list:
-                    print uplinkset_id
-                    print "network = " + oneview_network_id
                     if uplinkset_id not in network_uplinkset_list:
-                        print "Tentou adicionar redes no uplinkset acima"
                         self.client.uplinkset.add_network(
                             self.session, uplinkset_id, oneview_network_id,
                             _commit=True
@@ -312,9 +338,9 @@ class InitSync(object):
                 segment.physical_network, self.uplinkset_mappings_dict,
                 self.oneview_network_mapping_dict
             )
-
-            uplinkset_id_list = ()
-            '#TODO Fixed'
+            # The uplinkset_id_list is empty because flat_net_mapping doesn't
+            # need to have a mapped uplinkset on database.
+            uplinkset_id_list = []
 
             if verify_mapping is FLAT_NET_MAPPING:
                 if db_manager.get_neutron_oneview_network(
@@ -335,6 +361,7 @@ class InitSync(object):
                     self.uplinkset_mappings_dict, commit=True,
                     manageable=False
                 )
+                self.sync_mapped_ports(neutron_network.id)
 
     def check_changed_ids_flat_mapped_networks(self):
         for oneview_network_mapped in (
