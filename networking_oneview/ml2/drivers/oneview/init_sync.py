@@ -74,9 +74,12 @@ class InitSync(object):
             profile = json.loads(port_binding.get('profile'))
             local_link_information_list = profile.get('local_link_information')
             lli_dict = local_link_information_list[0]
+            switch_info_dict = lli_dict.get('switch_info')
+            server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
             server_hardware = self.oneview_client.server_hardware.get(
                 common.server_hardware_from_local_link_information(lli_dict)
             )
+            print server_hardware_uuid
             server_profile_id = utils.id_from_uri(
                 server_hardware.get('serverProfileUri')
             )
@@ -85,12 +88,21 @@ class InitSync(object):
             ).copy()
             for connection in server_profile.get('connections'):
                 if connection.get('mac') == port.get('mac_address'):
+                    previous_power_state = self.client.port\
+                        .get_server_hardware_power_state(
+                            server_hardware_uuid
+                            )
+                    self.client.port.update_server_hardware_power_state(
+                        server_hardware_uuid, "Off")
                     connection['networkUri'] = "/rest/ethernet-networks/"\
                         + oneview_id
                     self.oneview_client.server_profiles.update(
                         resource=server_profile,
                         id_or_uri=server_profile.get('uri')
                     )
+                    self.client.port.update_server_hardware_power_state(
+                        server_hardware_uuid, previous_power_state
+                        )
 
     def sync_ports(self, network_id):
         for port, port_binding in db_manager.get_port_with_binding_profile(
