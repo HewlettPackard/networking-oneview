@@ -446,11 +446,14 @@ class Port(ResourceManager):
         server_hardware = self.oneview_client.server_hardware.get(
             server_hardware_uuid
         )
+
+	if not server_hardware.get('serverProfileUri'):
+	    return
+
         while True:
-            print "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
-            print self.get_server_hardware_power_lock_state(server_hardware_uuid)
             if not self.get_server_hardware_power_lock_state(server_hardware_uuid):
                 break
+	    time.sleep(5)
 
         previous_power_state = self.get_server_hardware_power_state(
             server_hardware_uuid
