@@ -7,10 +7,11 @@ from neutron._i18n import _LW
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from oslo_config import cfg
+from oslo_log import log
 
 
 CONF = cfg.CONF
-
+LOG = log.getLogger(__name__)
 NETWORK_TYPE_FLAT = 'flat'
 FLAT_NET = '0'
 UPLINKSET = '1'
@@ -25,12 +26,19 @@ class ResourceManager:
 
 class Network(ResourceManager):
     def add_network_to_uplinksets(
-        self, uplinksets_id_list, oneview_network_uri
+        self, uplinksets_id_list, oneview_network_uri, commit
     ):
         for uplinkset_id in uplinksets_id_list:
             uplinkset = self.oneview_client.uplink_sets.get(uplinkset_id)
             uplinkset['networkUris'].append(oneview_network_uri)
-            self.oneview_client.uplink_sets.update(uplinkset)
+            try:
+                self.oneview_client.uplink_sets.update(uplinkset)
+                db_manager.insert_oneview_network_uplinkset(
+                    session, oneview_network_id, uplinkset_id, commit
+                    )
+            except Exception:
+                LOG.warning(_LW("The uplink " + uplinkset_id + " does not support \
+                 more networks"))
 
     def get_network_oneview_id(
         self, session, neutron_network_id, physical_network,
@@ -97,6 +105,9 @@ class Network(ResourceManager):
 
         if oneview_network_uuid is None:
             net_type = 'Tagged' if neutron_network_seg_id else 'Untagged'
+            print net_type
+            print neutron_network_seg_id
+            print neutron_network_id
             options = {
                 'name': "Neutron["+neutron_network_id+"]",
                 'ethernetNetworkType': net_type,
@@ -111,7 +122,7 @@ class Network(ResourceManager):
                 options
             )
         self.add_network_to_uplinksets(
-            uplinkset_id_list, oneview_network.get('uri')
+            uplinkset_id_list, oneview_network.get('uri'), commit
         )
 
         self.map_add_neutron_network_to_oneview_network_in_database(
@@ -145,7 +156,8 @@ class Network(ResourceManager):
         )
 
     def delete(
-        self, session, neutron_network_dict, oneview_network_mapping_dict
+        self, session, neutron_network_dict, oneview_network_mapping_dict,
+        commit=False
     ):
         neutron_network_id = neutron_network_dict.get('id')
         neutron_network_name = neutron_network_dict.get('name')
@@ -165,6 +177,7 @@ class Network(ResourceManager):
         check_manageable = db_manager.get_manegement_neutron_network(
             session, neutron_network_id
             )
+
 
         if check_manageable.manageable:
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
@@ -195,7 +208,7 @@ class Network(ResourceManager):
                 print "Oneview Network " + oneview_network_id\
                     + " doesn't exist."
         self._remove_inconsistence_from_db(
-            session, neutron_network_id, oneview_network_id
+            session, neutron_network_id, oneview_network_id, commit
         )
 
     def _remove_connection(self, server_profile_id, connection_id):
@@ -242,7 +255,7 @@ class Network(ResourceManager):
         except Exception:
             self._remove_inconsistence_from_db(
                 session, neutron_network_id,
-                neutron_oneview_network.oneview_network_uuid
+                neutron_oneview_network.oneview_network_uuid, commit=True
             )
             LOG.warning(_LW("No mapped Network in Oneview"))
 
@@ -518,7 +531,11 @@ class UplinkSet(ResourceManager):
 
         if network_uri not in uplinkset['networkUris']:
             uplinkset['networkUris'].append(network_uri)
-            self.oneview_client.uplink_sets.update(uplinkset)
+            try:
+                self.oneview_client.uplink_sets.update(uplinkset)
+            except Exception:
+                LOG.warning(_LW("The uplink " + uplinkset_id + " does not support \
+                 more networks"))
             db_manager.insert_oneview_network_uplinkset(
                 session, network_id, uplinkset_id, commit=_commit
             )

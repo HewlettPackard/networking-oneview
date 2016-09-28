@@ -17,10 +17,12 @@
 import json
 import utils
 from neutron._i18n import _LW
+from neutron._i18n import _LI
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from neutron.plugins.ml2.drivers.oneview import neutron_oneview_client
 from neutron.plugins.ml2.drivers.oneview import common
 from oslo_config import cfg
+from oslo_service import loopingcall
 from oslo_log import log
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -53,6 +55,34 @@ class InitSync(object):
                 CONF.oneview.flat_net_mappings
             )
         )
+
+    def start(self, interval):
+        heartbeat = loopingcall.FixedIntervalLoopingCall(self.task)
+        heartbeat.start(interval=interval, initial_delay=0)
+
+    def task(self):
+        LOG.info(_LI("Starting periodic task"))
+        print "StartPeriodicTask"
+        print "StartPeriodicTask##############################################"
+        print "StartPeriodicTask##############################################"
+        self.check_flat_mapped_networks_on_db()
+        print "StartPeriodicTask##############################################"
+        self.check_changed_ids_flat_mapped_networks()
+        print "StartPeriodicTask##############################################"
+        self.check_and_sync_deleted_neutron_networks_on_db_and_oneview()
+        print "StartPeriodicTask##############################################"
+        self.recreate_mapping_between_neutron_and_oneview()
+        print "StartPeriodicTask##############################################"
+        self.check_mapped_networks_on_db_and_create_on_oneview()
+        print "StartPeriodicTask##############################################"
+        self.check_and_sync_mapped_uplinksets_on_db()
+        print "StartPeriodicTask##############################################"
+        self.sync_mapped_uplinksets_on_db()
+        print "StartPeriodicTask#############################################"
+        print "StartPeriodicTask##############################################"
+        print "StartPeriodicTask##############################################"
+        print "StartPeriodicTask##############################################"
+        print "StartPeriodicTask##############################################"
 
     def get_oneview_network(self, oneview_network_id):
         try:
@@ -206,7 +236,7 @@ class InitSync(object):
 
             if physnet_compatible_uplinkset_list is None:
                 continue
-
+            print neutron_network.id
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 self.session, neutron_network.id
             )
@@ -268,6 +298,7 @@ class InitSync(object):
                         )
 
                 for uplinkset_id in physnet_compatible_uplinkset_list:
+                    print uplinkset_id
                     if uplinkset_id not in network_uplinkset_list:
                         self.client.uplinkset.add_network(
                             self.session, uplinkset_id, oneview_network_id,
