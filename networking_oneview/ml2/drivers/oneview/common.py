@@ -15,7 +15,7 @@
 #    under the License.
 
 from oneview_client import models
-import json 
+import json
 
 
 def load_oneview_network_mapping_conf_to_dict(oneview_network_mapping):
@@ -110,5 +110,3 @@ def server_hardware_from_local_link_information(local_link_information):
 #         kwargs['vlan'] = seg_id
 #
 #     return kwargs
-
-

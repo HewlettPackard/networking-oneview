@@ -12,10 +12,11 @@ from oslo_log import log
 
 
 CONF = cfg.CONF
-
 LOG = log.getLogger(__name__)
-
 NETWORK_TYPE_FLAT = 'flat'
+FLAT_NET = '0'
+UPLINKSET = '1'
+NETWORK_IS_NONE = '2'
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -26,16 +27,41 @@ class ResourceManager:
 
 class Network(ResourceManager):
     def add_network_to_uplinksets(
-        self, uplinksets_id_list, oneview_network_uri
+        self, uplinksets_id_list, oneview_network_uri, commit
     ):
         for uplinkset_id in uplinksets_id_list:
             uplinkset = self.oneview_client.uplink_sets.get(uplinkset_id)
             uplinkset['networkUris'].append(oneview_network_uri)
             self.oneview_client.uplink_sets.update(uplinkset)
 
+    def get_network_oneview_id(
+        self, session, neutron_network_id, physical_network,
+        oneview_network_mapping_dict
+    ):
+        network_id = oneview_network_mapping_dict.get(physical_network)
+        if network_id:
+            return network_id
+
+        return db_manager.get_neutron_oneview_network(
+            session, neutron_network_id
+        )
+
+    def verify_mapping_type(
+        self, physical_network, uplinkset_mappings_dict,
+        oneview_network_mapping_dict
+    ):
+        if physical_network in oneview_network_mapping_dict:
+            return FLAT_NET
+
+        if physical_network in uplinkset_mappings_dict:
+            return UPLINKSET
+
+        return NETWORK_IS_NONE
+
     def create(
         self, session, neutron_network_dict, uplinkset_id_list,
-        oneview_network_mapping_dict
+        oneview_network_mapping_dict, uplinkset_mappings_dict,
+        commit, manageable=True
     ):
         """Create a Network resource on OneView and populates the database.
 
@@ -56,15 +82,25 @@ class Network(ResourceManager):
 
         provider_network = neutron_network_dict.get('provider:network_type')
 
-        oneview_network_uuid = self.get_mapped_oneview_network_uuid(
-            oneview_network_mapping_dict, provider_network, physical_network,
-            neutron_network_name
+        oneview_network_uuid = self.get_network_oneview_id(
+            session, neutron_network_id, physical_network,
+            oneview_network_mapping_dict
         )
+        verify_mapping = self.verify_mapping_type(
+            physical_network, uplinkset_mappings_dict,
+            oneview_network_mapping_dict
+        )
+
+        if verify_mapping is FLAT_NET:
+            return self.map_add_neutron_network_to_oneview_network_in_database(
+                session, neutron_network_id, oneview_network_uuid,
+                uplinkset_id_list, commit, manageable=False
+            )
 
         if oneview_network_uuid is None:
             net_type = 'Tagged' if neutron_network_seg_id else 'Untagged'
             options = {
-                'name': neutron_network_name,
+                'name': "Neutron["+neutron_network_id+"]",
                 'ethernetNetworkType': net_type,
                 'vlanId': neutron_network_seg_id,
                 "purpose": "General",
@@ -76,50 +112,43 @@ class Network(ResourceManager):
             oneview_network = self.oneview_client.ethernet_networks.create(
                 options
             )
-
-            self.add_network_to_uplinksets(
-                uplinkset_id_list, oneview_network.get('uri')
-            )
+        self.add_network_to_uplinksets(
+            uplinkset_id_list, oneview_network.get('uri'), commit
+        )
 
         self.map_add_neutron_network_to_oneview_network_in_database(
             session, neutron_network_id,
             utils.id_from_uri(oneview_network.get('uri')),
-            uplinkset_id_list
+            uplinkset_id_list, commit, manageable=True
         )
-
-    def get_mapped_oneview_network_uuid(
-        self, oneview_network_mapping_dict, provider_network, physical_network,
-        neutron_network_name
-    ):
-        if provider_network != NETWORK_TYPE_FLAT or physical_network is None:
-            return None
-
-        return oneview_network_mapping_dict.get(neutron_network_name)
 
     def map_add_neutron_network_to_oneview_network_in_database(
         self, session, neutron_network_id, oneview_network_id,
-        uplinksets_id_list
+        uplinksets_id_list, commit, manageable=True
     ):
         db_manager.insert_neutron_oneview_network(
-            session, neutron_network_id, oneview_network_id
+            session, neutron_network_id, oneview_network_id, commit, manageable
         )
+
         for uplinkset_id in uplinksets_id_list:
             db_manager.insert_oneview_network_uplinkset(
-                session, oneview_network_id, uplinkset_id
+                session, oneview_network_id, uplinkset_id, commit
             )
 
     def _remove_inconsistence_from_db(
-        self, session, neutron_network_uuid, oneview_network_uuid
+        self, session, neutron_network_uuid, oneview_network_uuid, commit=False
     ):
         db_manager.delete_neutron_oneview_network(
-            session, neutron_network_uuid
+            session, neutron_network_uuid, commit
         )
-        db_manager.delete_oneview_network_uplinkset_by_uplinkset(
-            session, oneview_network_uuid
+
+        db_manager.delete_oneview_network_uplinkset_by_network(
+            session, oneview_network_uuid, commit
         )
 
     def delete(
-        self, session, neutron_network_dict, oneview_network_mapping_list
+        self, session, neutron_network_dict, oneview_network_mapping_dict,
+        commit=False
     ):
         neutron_network_id = neutron_network_dict.get('id')
         neutron_network_name = neutron_network_dict.get('name')
@@ -131,37 +160,46 @@ class Network(ResourceManager):
         )
         provider_network = neutron_network_dict.get('provider:network_type')
 
-        oneview_network_id = self.get_mapped_oneview_network_uuid(
-            oneview_network_mapping_list, provider_network, physical_network,
-            neutron_network_name
+        oneview_network_id = self.get_network_oneview_id(
+            session, neutron_network_id, physical_network,
+            oneview_network_mapping_dict
         )
 
-        if oneview_network_id is None:
+        check_manageable = db_manager.get_manegement_neutron_network(
+            session, neutron_network_id
+            )
+
+
+        if check_manageable.manageable:
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 session, neutron_network_id
             )
+
             oneview_network_id = neutron_oneview_network.oneview_network_uuid
-            self.oneview_client.ethernet_networks.delete(
-                self.oneview_client.ethernet_networks.get(
-                    neutron_oneview_network.oneview_network_uuid
+            try:
+                self.oneview_client.ethernet_networks.delete(
+                    self.oneview_client.ethernet_networks.get(
+                        neutron_oneview_network.oneview_network_uuid
+                    )
                 )
-            )
 
-            for port in db_manager.list_port_with_network(
-                session, neutron_network_id
-            ):
-                neutron_oneview_port = db_manager.get_neutron_oneview_port(
-                    session, port.id
-                )
-                sp_id = neutron_oneview_port.oneview_server_profile_uuid
-                conn_id = neutron_oneview_port.oneview_connection_id
+                for port in db_manager.list_port_with_network(
+                    session, neutron_network_id
+                ):
+                    neutron_oneview_port = db_manager.get_neutron_oneview_port(
+                        session, port.id
+                    )
+                    sp_id = neutron_oneview_port.oneview_server_profile_uuid
+                    conn_id = neutron_oneview_port.oneview_connection_id
 
-                self._remove_connection(sp_id, conn_id)
+                    self._remove_connection(sp_id, conn_id)
 
-                db_manager.delete_neutron_oneview_port(session, port.id)
-
-        self.map_remove_neutron_network_to_oneview_network_in_database(
-            session, neutron_network_id, oneview_network_id
+                    db_manager.delete_neutron_oneview_port(session, port.id)
+            except Exception:
+                print "Oneview Network " + oneview_network_id\
+                    + " doesn't exist."
+        self._remove_inconsistence_from_db(
+            session, neutron_network_id, oneview_network_id, commit
         )
 
     def _remove_connection(self, server_profile_id, connection_id):
@@ -182,37 +220,33 @@ class Network(ResourceManager):
             id_or_uri=server_profile_to_update.get('uri')
         )
 
-    def map_remove_neutron_network_to_oneview_network_in_database(
-        self, session, neutron_network_id, oneview_network_id
+    def update(
+        self, session, neutron_network_id, new_network_name, physical_network,
+        uplinkset_mappings_dict, oneview_network_mapping_dict
     ):
-        db_manager.delete_neutron_oneview_network(
-            session, neutron_network_id
-        )
-        db_manager.delete_oneview_network_uplinkset_by_network(
-            session, oneview_network_id
-        )
-
-    def update(self, session, neutron_network_id, new_network_name):
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, neutron_network_id
         )
         if neutron_oneview_network is None:
             return
 
+        verify_mapping = self.verify_mapping_type(
+            physical_network, uplinkset_mappings_dict,
+            oneview_network_mapping_dict
+        )
+
         try:
-            network = self.oneview_client.ethernet_networks.get(
-                neutron_oneview_network.oneview_network_uuid
-            )
-            network['name'] = new_network_name
-            self.oneview_client.ethernet_networks.update(network)
-            # self.oneview_client.ethernet_network.update_name(
-            #     neutron_oneview_network.oneview_network_uuid,
-            #     new_network_name
-            # )
-        except:
+            if verify_mapping is not FLAT_NET:
+                network = self.oneview_client.ethernet_networks.get(
+                    neutron_oneview_network.oneview_network_uuid
+                )
+                network['name'] = new_network_name
+                self.oneview_client.ethernet_networks.update(network)
+
+        except Exception:
             self._remove_inconsistence_from_db(
                 session, neutron_network_id,
-                neutron_oneview_network.oneview_network_uuid
+                neutron_oneview_network.oneview_network_uuid, commit=True
             )
             LOG.warning(_LW("No mapped Network in Oneview"))
 
@@ -222,52 +256,46 @@ class Port(ResourceManager):
         self, session, neutron_port_uuid, neutron_network_id, mac_address,
         local_link_information_dict
     ):
-	
-	switch_info_string = local_link_information_dict.get('switch_info')
+
+        switch_info_string = local_link_information_dict.get('switch_info')
         if not switch_info_string:
             LOG.warning(_LW(
-                "Port %s local_link_information does not contain switch_info. Skipping."),
+                "Port %s local_link_information does not contain switch_info. \
+                    Skipping."),
                 neutron_port_uuid)
             return
-	
+
         switch_info_string = switch_info_string.replace("'", '"')
         switch_info_dict = json.loads(switch_info_string)
-	#@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-	#TODO extract string to dict function in delete port and create port
+        bootable = switch_info_dict.get('bootable')
+        # TODO extract string to dict function in delete port and create port
         server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
         if not server_hardware_uuid:
             LOG.warning(_LW(
-                "Port %s switch_info does not contain server_hardware_uuid. Skipping."),
+                "Port %s switch_info does not contain server_hardware_uuid. \
+                    Skipping."),
                 neutron_port_uuid)
             return
-
-        boot_priority = switch_info_dict.get('boot_priority')
-        if not boot_priority:
-            LOG.error(_LE(
-                "Port %s switch_info does contains server_hardware_uuid but not boot_priority. Skipping."),
-                neutron_port_uuid)
-            raise ValueError("Port has server_hardware_uuid but not boot_priority")
-
         server_hardware = self.oneview_client.server_hardware.get(
             server_hardware_uuid
         )
 
         server_profile_uri = utils.id_from_uri(
             server_hardware.get('serverProfileUri')
-       )
+        )
 
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, neutron_network_id
         )
-	while True:
-	    if not self.get_server_hardware_power_lock_state(server_hardware_uuid):
-	        break
-	   
+        while True:
+            if not self.get_server_hardware_power_lock_state(
+                    server_hardware_uuid):
+                break
+
         previous_power_state = self.get_server_hardware_power_state(
             server_hardware_uuid
         )
         self.update_server_hardware_power_state(server_hardware_uuid, "Off")
-
         connection_id = self._add_connection(
             server_profile_uri,
             self._generate_connection_port_for_mac(
@@ -276,7 +304,7 @@ class Port(ResourceManager):
             utils.uri_from_id(
                 '/rest/ethernet-networks/',
                 neutron_oneview_network.oneview_network_uuid
-            ), boot_priority
+            ), bootable, mac_address
         )
         db_manager.insert_neutron_oneview_port(
             session, neutron_port_uuid, server_profile_uri, connection_id
@@ -343,11 +371,10 @@ class Port(ResourceManager):
                                 'location'
                             ),
                         }
-			print physical_port.get('portNumber')
-                        return info_dict
+        return info_dict
 
     def _add_connection(
-        self, server_profile_id, port_id, network_uri, boot_priority
+        self, server_profile_id, port_id, network_uri, bootable, mac_address
     ):
 
         def get_next_connection_id(server_profile):
@@ -357,26 +384,47 @@ class Port(ResourceManager):
                     next_id = connection.get('id')
             return next_id + 1
 
-
         # TODO verify if server_profile.get('connections') is none - Rack server
+        def is_boot_priority_available(server_profile, boot_priority):
+            for connection in server_profile.get('connections'):
+                if connection.get('boot').get('priority') == boot_priority:
+                    return False
+            return True
+
         server_profile = self.oneview_client.server_profiles.get(
             server_profile_id
-        ).copy()	
-        
-        existing_connections = [c for c in server_profile['connections'] if c['portId'] == port_id]
+        ).copy()
+
+        cons = server_profile.get('connections')
+        existing_connections = [c for c in cons if c.get('portId') == port_id]
         for connection in existing_connections:
-            server_profile['connections'].remove(connection)
+            if connection.get('mac') == mac_address:
+                server_profile['connections'].remove(connection)
 
-	connection_id = get_next_connection_id(server_profile)
+        if bootable:
+            if (is_boot_priority_available(server_profile, 'Primary')):
+                boot_priority = 'Primary'
+            elif (is_boot_priority_available(server_profile, 'Secondary')):
+                boot_priority = 'Secondary'
+            else:
+                raise Exception(
+                    "Couldn't create a bootable connection. There already are"
+                    " Primary and Secondary connections in the Server Profile"
+                    " %(server_profile_uri)s." % {
+                        'server_profile_uri': server_profile.get('uri')
+                    }
+                )
+        else:
+            boot_priority = 'NotBootable'
 
-	server_profile['connections'].append({
+        connection_id = get_next_connection_id(server_profile)
+        server_profile['connections'].append({
             'portId': port_id,
             'networkUri': network_uri,
             'boot': {'priority': boot_priority},
             'functionType': 'Ethernet',
-	    'id': connection_id
+            'id': connection_id
         })
-
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
@@ -423,7 +471,6 @@ class Port(ResourceManager):
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
         )
-
         return connection_id
 
     def delete(self, session, neutron_port_uuid, server_hardware_uuid):
@@ -433,13 +480,14 @@ class Port(ResourceManager):
         server_hardware = self.oneview_client.server_hardware.get(
             server_hardware_uuid
         )
-
-	if not server_hardware.get('serverProfileUri'):
-	    return
+        if not server_hardware.get('serverProfileUri'):
+            return
 
         while True:
-            if not self.get_server_hardware_power_lock_state(server_hardware_uuid):
+            if not self.get_server_hardware_power_lock_state(
+                    server_hardware_uuid):
                 break
+            time.sleep(5)
 
         previous_power_state = self.get_server_hardware_power_state(
             server_hardware_uuid
@@ -475,8 +523,6 @@ class Port(ResourceManager):
         )
 
 
-
-
 class UplinkSet(ResourceManager):
     neutron_net_type_to_oneview_net_type = {
         'vxlan': 'Tagged',
@@ -500,21 +546,29 @@ class UplinkSet(ResourceManager):
 
         return uplinkset_by_type
 
-    def remove_network(self, session, uplinkset_id, network_id):
-        self.oneview_client.uplinkset.remove_network(
-            uplinkset_id, network_id
+    def remove_network(self, session, uplinkset_id, network_id, _commit=False):
+        uplinkset_uri = "/rest/uplink-sets/" + uplinkset_id
+        self.oneview_client.uplink_sets.remove_ethernet_networks(
+            uplinkset_uri, network_id
         )
         db_manager.delete_oneview_network_uplinkset(
-            session, uplinkset_id, network_id
+            session, uplinkset_id, network_id, commit=_commit
         )
 
-    def add_network(self, session, uplinkset_id, network_id):
-        self.oneview_client.uplinkset.add_network(
-            uplinkset_id, network_id
-        )
-        db_manager.insert_oneview_network_uplinkset(
-            session, network_id, uplinkset_id
-        )
+    def add_network(self, session, uplinkset_id, network_id, _commit=False):
+        uplinkset = self.oneview_client.uplink_sets.get(uplinkset_id)
+        network_uri = "/rest/ethernet-networks/" + network_id
+
+        if network_uri not in uplinkset['networkUris']:
+            uplinkset['networkUris'].append(network_uri)
+            try:
+                self.oneview_client.uplink_sets.update(uplinkset)
+            except Exception:
+                LOG.warning(_LW("The uplink " + uplinkset_id + " does not support \
+                 more networks"))
+            db_manager.insert_oneview_network_uplinkset(
+                session, network_id, uplinkset_id, commit=_commit
+            )
 
 
 class Client:

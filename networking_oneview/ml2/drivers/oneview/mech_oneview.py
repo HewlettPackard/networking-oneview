@@ -53,11 +53,14 @@ CONF.register_opts(opts, group='oneview')
 
 LOG = log.getLogger(__name__)
 
+FLAT_NET = '0'
+UPLINKSET = '1'
+NETWORK_IS_NONE = '2'
+
 
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
         self._initialize_driver()
-
         self._start_resource_sync_periodic_task()
         self._start_initial_sync_periodic_task()
 
@@ -80,18 +83,11 @@ class OneViewDriver(driver_api.MechanismDriver):
             )
         )
 
-    # def _start_resource_sync_periodic_task(self):
-    #     task = resources_sync.ResourcesSyncService(
-    #         self.oneview_client, CONF.database.connection
-    #     )
-    #     task.start(CONF.oneview.ov_refresh_interval)
-    #
-    # def _start_initial_sync_periodic_task(self):
-    #     task = init_sync.InitSync(
-    #         self.oneview_client, CONF.database.connection
-    #     )
-    #     task.check_mapped_networks_on_db_and_create_on_oneview()
-    #     task.check_and_sync_mapped_uplinksets_on_db()
+    def _start_initial_and_periodic_sync_task(self):
+        task = init_sync.InitSync(
+            self.oneview_client, CONF.database.connection
+        )
+        task.start(CONF.oneview.ov_refresh_interval)
 
     def create_network_postcommit(self, context):
         session = context._plugin_context._session
@@ -102,17 +98,32 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
         provider_network = neutron_network_dict.get('provider:network_type')
 
+        verify_mapping = self.neutron_oneview_client.\
+            network.verify_mapping_type(
+                physical_network, self.uplinkset_mappings_dict,
+                self.oneview_network_mapping_dict
+                )
+
         uplinkset_id_list = (
             self.neutron_oneview_client.uplinkset.filter_by_type(
                 self.uplinkset_mappings_dict.get(physical_network),
                 provider_network
-            )
+                )
         )
 
-        if len(uplinkset_id_list) > 0:
+        if verify_mapping is not FLAT_NET:
+            if len(uplinkset_id_list) > 0:
+                self.neutron_oneview_client.network.create(
+                    session, neutron_network_dict, uplinkset_id_list,
+                    self.oneview_network_mapping_dict,
+                    self.uplinkset_mappings_dict, commit=False
+                )
+
+        elif verify_mapping is FLAT_NET:
             self.neutron_oneview_client.network.create(
                 session, neutron_network_dict, uplinkset_id_list,
-                self.oneview_network_mapping_dict
+                self.oneview_network_mapping_dict,
+                self.uplinkset_mappings_dict, commit=False
             )
 
     def delete_network_postcommit(self, context):
@@ -128,9 +139,20 @@ class OneViewDriver(driver_api.MechanismDriver):
         neutron_network_id = context._network.get("id")
         new_network_name = context._network.get('name')
 
-        self.neutron_oneview_client.network.update(
-            session, neutron_network_id, new_network_name
+        physical_network = context._network.get(
+            'provider:physical_network'
         )
+        verify_mapping = self.neutron_oneview_client.\
+            network.verify_mapping_type(
+                physical_network, self.uplinkset_mappings_dict,
+                self.oneview_network_mapping_dict
+                )
+        if verify_mapping is not NETWORK_IS_NONE:
+            self.neutron_oneview_client.network.update(
+                session, neutron_network_id, new_network_name,
+                physical_network, self.uplinkset_mappings_dict,
+                self.oneview_network_mapping_dict
+            )
 
     def bind_port(self, context):
         """Bind baremetal port to a network.
@@ -144,7 +166,7 @@ class OneViewDriver(driver_api.MechanismDriver):
             # We are only interested in bining baremetal ports.
             return
 
-	vif_type = portbindings.VIF_TYPE_OTHER
+        vif_type = portbindings.VIF_TYPE_OTHER
         vif_details = {portbindings.VIF_DETAILS_VLAN: True}
         for segment in context.segments_to_bind:
             vif_details[portbindings.VIF_DETAILS_VLAN] = (
@@ -188,7 +210,7 @@ class OneViewDriver(driver_api.MechanismDriver):
                 "'local_link_information' must have only one value"
             )
 
-	
+
         local_link_information_dict = local_link_information_list[0]
 
         self.neutron_oneview_client.port.create(
@@ -248,7 +270,7 @@ class OneViewDriver(driver_api.MechanismDriver):
             raise exception.ValueError(
                 "'local_link_information' must have only one value"
             )
- 
+
         local_link_information_dict = local_link_information_list[0]
         switch_info_string = local_link_information_dict.get('switch_info')
         switch_info_string = switch_info_string.replace("'", '"')
