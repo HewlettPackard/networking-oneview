@@ -31,14 +31,7 @@ class Network(ResourceManager):
         for uplinkset_id in uplinksets_id_list:
             uplinkset = self.oneview_client.uplink_sets.get(uplinkset_id)
             uplinkset['networkUris'].append(oneview_network_uri)
-            try:
-                self.oneview_client.uplink_sets.update(uplinkset)
-                db_manager.insert_oneview_network_uplinkset(
-                    session, oneview_network_id, uplinkset_id, commit
-                    )
-            except Exception:
-                LOG.warning(_LW("The uplink " + uplinkset_id + " does not support \
-                 more networks"))
+            self.oneview_client.uplink_sets.update(uplinkset)
 
     def get_network_oneview_id(
         self, session, neutron_network_id, physical_network,
@@ -105,9 +98,6 @@ class Network(ResourceManager):
 
         if oneview_network_uuid is None:
             net_type = 'Tagged' if neutron_network_seg_id else 'Untagged'
-            print net_type
-            print neutron_network_seg_id
-            print neutron_network_id
             options = {
                 'name': "Neutron["+neutron_network_id+"]",
                 'ethernetNetworkType': net_type,
@@ -284,8 +274,6 @@ class Port(ResourceManager):
             server_hardware_uuid
         )
         self.update_server_hardware_power_state(server_hardware_uuid, "Off")
-        print server_hardware
-        print mac_address
         connection_id = self._add_connection(
             server_profile_uri,
             self._generate_connection_port_for_mac(
@@ -294,7 +282,7 @@ class Port(ResourceManager):
             utils.uri_from_id(
                 '/rest/ethernet-networks/',
                 neutron_oneview_network.oneview_network_uuid
-            ), bootable
+            ), bootable, mac_address
         )
 
         db_manager.insert_neutron_oneview_port(
@@ -359,7 +347,7 @@ class Port(ResourceManager):
                         return info_dict
 
     def _add_connection(
-        self, server_profile_id, port_id, network_uri, bootable
+        self, server_profile_id, port_id, network_uri, bootable, mac_address
     ):
         def get_next_connection_id(server_profile):
             next_id = 0
@@ -370,7 +358,6 @@ class Port(ResourceManager):
 
         def is_boot_priority_available(server_profile, boot_priority):
             for connection in server_profile.get('connections'):
-                print connection.get('boot').get('priority')
                 if connection.get('boot').get('priority') == boot_priority:
                     return False
             return True
@@ -378,6 +365,11 @@ class Port(ResourceManager):
         server_profile = self.oneview_client.server_profiles.get(
             server_profile_id
         ).copy()
+
+        existing_connections = [c for c in server_profile['connections'] if c['portId'] == port_id]
+        for connection in existing_connections:
+            if connection.get('mac') == mac_address:
+                server_profile['connections'].remove(connection)
 
         if bootable:
             if (is_boot_priority_available(server_profile, 'Primary')):
@@ -403,7 +395,6 @@ class Port(ResourceManager):
             'functionType': 'Ethernet',
             'id': connection_id
         })
-
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
