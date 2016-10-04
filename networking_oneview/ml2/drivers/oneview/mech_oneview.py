@@ -57,9 +57,7 @@ NETWORK_IS_NONE = '2'
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
         self._initialize_driver()
-
-        # self._start_resource_sync_periodic_task()
-        self._start_initial_sync_periodic_task()
+        self._start_initial_and_periodic_sync_task()
 
     def _initialize_driver(self):
         self.oneview_client = OneViewClient({
@@ -80,23 +78,11 @@ class OneViewDriver(driver_api.MechanismDriver):
             )
         )
 
-    def _start_resource_sync_periodic_task(self):
-        task = resources_sync.ResourcesSyncService(
-            self.oneview_client, CONF.database.connection
-        )
-        task.start(CONF.oneview.ov_refresh_interval)
-
-    def _start_initial_sync_periodic_task(self):
+    def _start_initial_and_periodic_sync_task(self):
         task = init_sync.InitSync(
             self.oneview_client, CONF.database.connection
         )
-        task.check_flat_mapped_networks_on_db()
-        task.check_changed_ids_flat_mapped_networks()
-        task.check_and_sync_deleted_neutron_networks_on_db_and_oneview()
-        task.recreate_mapping_between_neutron_and_oneview()
-        task.check_mapped_networks_on_db_and_create_on_oneview()
-        task.check_and_sync_mapped_uplinksets_on_db()
-        task.sync_mapped_uplinksets_on_db()
+        task.start(CONF.oneview.ov_refresh_interval)
 
     def create_network_postcommit(self, context):
         session = context._plugin_context._session

@@ -7,10 +7,11 @@ from neutron._i18n import _LW
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from oslo_config import cfg
+from oslo_log import log
 
 
 CONF = cfg.CONF
-
+LOG = log.getLogger(__name__)
 NETWORK_TYPE_FLAT = 'flat'
 FLAT_NET = '0'
 UPLINKSET = '1'
@@ -25,7 +26,7 @@ class ResourceManager:
 
 class Network(ResourceManager):
     def add_network_to_uplinksets(
-        self, uplinksets_id_list, oneview_network_uri
+        self, uplinksets_id_list, oneview_network_uri, commit
     ):
         for uplinkset_id in uplinksets_id_list:
             uplinkset = self.oneview_client.uplink_sets.get(uplinkset_id)
@@ -111,7 +112,7 @@ class Network(ResourceManager):
                 options
             )
         self.add_network_to_uplinksets(
-            uplinkset_id_list, oneview_network.get('uri')
+            uplinkset_id_list, oneview_network.get('uri'), commit
         )
 
         self.map_add_neutron_network_to_oneview_network_in_database(
@@ -145,7 +146,8 @@ class Network(ResourceManager):
         )
 
     def delete(
-        self, session, neutron_network_dict, oneview_network_mapping_dict
+        self, session, neutron_network_dict, oneview_network_mapping_dict,
+        commit=False
     ):
         neutron_network_id = neutron_network_dict.get('id')
         neutron_network_name = neutron_network_dict.get('name')
@@ -165,6 +167,7 @@ class Network(ResourceManager):
         check_manageable = db_manager.get_manegement_neutron_network(
             session, neutron_network_id
             )
+
 
         if check_manageable.manageable:
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
@@ -195,7 +198,7 @@ class Network(ResourceManager):
                 print "Oneview Network " + oneview_network_id\
                     + " doesn't exist."
         self._remove_inconsistence_from_db(
-            session, neutron_network_id, oneview_network_id
+            session, neutron_network_id, oneview_network_id, commit
         )
 
     def _remove_connection(self, server_profile_id, connection_id):
@@ -242,7 +245,7 @@ class Network(ResourceManager):
         except Exception:
             self._remove_inconsistence_from_db(
                 session, neutron_network_id,
-                neutron_oneview_network.oneview_network_uuid
+                neutron_oneview_network.oneview_network_uuid, commit=True
             )
             LOG.warning(_LW("No mapped Network in Oneview"))
 
@@ -271,8 +274,6 @@ class Port(ResourceManager):
             server_hardware_uuid
         )
         self.update_server_hardware_power_state(server_hardware_uuid, "Off")
-        print server_hardware
-        print mac_address
         connection_id = self._add_connection(
             server_profile_uri,
             self._generate_connection_port_for_mac(
@@ -281,7 +282,7 @@ class Port(ResourceManager):
             utils.uri_from_id(
                 '/rest/ethernet-networks/',
                 neutron_oneview_network.oneview_network_uuid
-            ), bootable
+            ), bootable, mac_address
         )
 
         db_manager.insert_neutron_oneview_port(
@@ -346,7 +347,7 @@ class Port(ResourceManager):
                         return info_dict
 
     def _add_connection(
-        self, server_profile_id, port_id, network_uri, bootable
+        self, server_profile_id, port_id, network_uri, bootable, mac_address
     ):
         def get_next_connection_id(server_profile):
             next_id = 0
@@ -357,7 +358,6 @@ class Port(ResourceManager):
 
         def is_boot_priority_available(server_profile, boot_priority):
             for connection in server_profile.get('connections'):
-                print connection.get('boot').get('priority')
                 if connection.get('boot').get('priority') == boot_priority:
                     return False
             return True
@@ -365,6 +365,11 @@ class Port(ResourceManager):
         server_profile = self.oneview_client.server_profiles.get(
             server_profile_id
         ).copy()
+
+        existing_connections = [c for c in server_profile['connections'] if c['portId'] == port_id]
+        for connection in existing_connections:
+            if connection.get('mac') == mac_address:
+                server_profile['connections'].remove(connection)
 
         if bootable:
             if (is_boot_priority_available(server_profile, 'Primary')):
@@ -390,7 +395,6 @@ class Port(ResourceManager):
             'functionType': 'Ethernet',
             'id': connection_id
         })
-
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
@@ -518,7 +522,11 @@ class UplinkSet(ResourceManager):
 
         if network_uri not in uplinkset['networkUris']:
             uplinkset['networkUris'].append(network_uri)
-            self.oneview_client.uplink_sets.update(uplinkset)
+            try:
+                self.oneview_client.uplink_sets.update(uplinkset)
+            except Exception:
+                LOG.warning(_LW("The uplink " + uplinkset_id + " does not support \
+                 more networks"))
             db_manager.insert_oneview_network_uplinkset(
                 session, network_id, uplinkset_id, commit=_commit
             )
