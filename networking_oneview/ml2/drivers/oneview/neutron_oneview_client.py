@@ -260,21 +260,14 @@ class Port(ResourceManager):
             session, neutron_network_id
         )
 	while True:
-            print "#####################@@@@@@@@@@@@@@@@@@@@################%%%%"
-            print self.get_server_hardware_power_lock_state(server_hardware_uuid)
 	    if not self.get_server_hardware_power_lock_state(server_hardware_uuid):
 	        break
 	   
         previous_power_state = self.get_server_hardware_power_state(
             server_hardware_uuid
         )
-	print neutron_network_id
-	print neutron_oneview_network
-	print "NETWORK #########################################################"
-	print "NETWORK #########################################################"
         self.update_server_hardware_power_state(server_hardware_uuid, "Off")
 
-	print "AKIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII111111111111111"
         connection_id = self._add_connection(
             server_profile_uri,
             self._generate_connection_port_for_mac(
@@ -285,25 +278,20 @@ class Port(ResourceManager):
                 neutron_oneview_network.oneview_network_uuid
             ), boot_priority
         )
-	print "AKIIIIIIIIIIIIIIIIIIIIIIIIIIIIII222222222222222222"
         db_manager.insert_neutron_oneview_port(
             session, neutron_port_uuid, server_profile_uri, connection_id
         )
-	print "###+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++#"
         self.update_server_hardware_power_state(
             server_hardware_uuid, previous_power_state
         )
-	print "++++++++++++++++++++++++++++++++++++++++++=================="
 
     def get_server_hardware_power_lock_state(self, server_hardware_id):
-#       time.sleep(50)
         server_hardware_dict = self.oneview_client.server_hardware.get(
             server_hardware_id
         )
         return server_hardware_dict.get('powerLock')
 
     def get_server_hardware_power_state(self, server_hardware_id):
-#	time.sleep(50)
         server_hardware_dict = self.oneview_client.server_hardware.get(
             server_hardware_id
         )
@@ -314,7 +302,6 @@ class Port(ResourceManager):
                 "powerState": state,
                 "powerControl": "MomentaryPress"
             }
-#	    time.sleep(29)
             server_power = (
                 self.oneview_client.server_hardware.update_power_state(
                     configuration, server_hardware_id
@@ -453,7 +440,6 @@ class Port(ResourceManager):
         while True:
             if not self.get_server_hardware_power_lock_state(server_hardware_uuid):
                 break
-	    time.sleep(5)
 
         previous_power_state = self.get_server_hardware_power_state(
             server_hardware_uuid

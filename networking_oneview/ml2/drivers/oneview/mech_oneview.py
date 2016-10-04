@@ -58,8 +58,8 @@ class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
         self._initialize_driver()
 
-        # self._start_resource_sync_periodic_task()
-        # self._start_initial_sync_periodic_task()
+        self._start_resource_sync_periodic_task()
+        self._start_initial_sync_periodic_task()
 
     def _initialize_driver(self):
         self.oneview_client = OneViewClient({
@@ -144,10 +144,6 @@ class OneViewDriver(driver_api.MechanismDriver):
             # We are only interested in bining baremetal ports.
             return
 
-        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-        print vnic_type
-
 	vif_type = portbindings.VIF_TYPE_OTHER
         vif_details = {portbindings.VIF_DETAILS_VLAN: True}
         for segment in context.segments_to_bind:
@@ -157,7 +153,7 @@ class OneViewDriver(driver_api.MechanismDriver):
                                 vif_type,
                                 vif_details,
                                 p_const.ACTIVE)
-            LOG.debug("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@AristaDriver: bound port info- port ID %(id)s "
+            LOG.debug("OneViewDriver: bound port info- port ID %(id)s "
                       "on network %(network)s",
                       {'id': port['id'],
                        'network': context.network.current['id']})
@@ -175,10 +171,6 @@ class OneViewDriver(driver_api.MechanismDriver):
         vnic_type = common.get_vnic_type_from_port_context(context)
 	port = context.current
         vnic_type = port['binding:vnic_type']
-        print portbindings.VNIC_BAREMETAL
-        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-        print "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
-        print vnic_type
 
         if vnic_type != 'baremetal':
             return
@@ -216,8 +208,6 @@ class OneViewDriver(driver_api.MechanismDriver):
 
         original_port_mac = original_port.get('mac_address')
         port_mac = port.get('mac_address')
-	print "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%"
-	print common.boot_priority_from_local_link_information(port_lli)
 	port_boot_priority =\
             common.boot_priority_from_local_link_information(port_lli)
         original_port_boot_priority =\
