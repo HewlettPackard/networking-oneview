@@ -4,5 +4,5 @@ test:
 
 pep8:
  script:
-  - pep8
+  - tox -e pep8
 
