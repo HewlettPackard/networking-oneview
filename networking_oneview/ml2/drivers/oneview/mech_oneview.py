@@ -61,8 +61,7 @@ NETWORK_IS_NONE = '2'
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
         self._initialize_driver()
-        self._start_resource_sync_periodic_task()
-        self._start_initial_sync_periodic_task()
+        self._start_initial_and_periodic_sync_task()
 
     def _initialize_driver(self):
         self.oneview_client = OneViewClient({
@@ -191,7 +190,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         neutron_network_dict = common.get_network_from_port_context(context)
         neutron_network_id = neutron_network_dict.get('id')
         vnic_type = common.get_vnic_type_from_port_context(context)
-	port = context.current
+	    port = context.current
         vnic_type = port['binding:vnic_type']
 
         if vnic_type != 'baremetal':
@@ -230,7 +229,7 @@ class OneViewDriver(driver_api.MechanismDriver):
 
         original_port_mac = original_port.get('mac_address')
         port_mac = port.get('mac_address')
-	port_boot_priority =\
+	    port_boot_priority =\
             common.boot_priority_from_local_link_information(port_lli)
         original_port_boot_priority =\
             common.boot_priority_from_local_link_information(original_port_lli)
