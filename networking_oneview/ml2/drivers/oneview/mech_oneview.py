@@ -154,15 +154,10 @@ class OneViewDriver(driver_api.MechanismDriver):
             )
 
     def bind_port(self, context):
-        """Bind baremetal port to a network.
-        Provisioning request to Arista Hardware to plug a host
-        into appropriate network is done when the port is created
-        this simply tells the ML2 Plugin that we are binding the port
-        """
+        """Bind baremetal port to a network."""
         port = context.current
         vnic_type = port['binding:vnic_type']
         if vnic_type != portbindings.VNIC_BAREMETAL:
-            # We are only interested in bining baremetal ports.
             return
 
         vif_type = portbindings.VIF_TYPE_OTHER
@@ -184,7 +179,6 @@ class OneViewDriver(driver_api.MechanismDriver):
 
     def _create_port_from_context(self, context):
         session = context._plugin_context._session
-        neutron_port_uuid = context._port.get('id')
         mac_address = context._port.get('mac_address')
 
         neutron_network_dict = common.get_network_from_port_context(context)
@@ -209,11 +203,10 @@ class OneViewDriver(driver_api.MechanismDriver):
                 "'local_link_information' must have only one value"
             )
 
-
         local_link_information_dict = local_link_information_list[0]
 
         self.neutron_oneview_client.port.create(
-            session, neutron_port_uuid, neutron_network_id, mac_address,
+            session, neutron_network_id, mac_address,
             local_link_information_dict
         )
 
@@ -242,18 +235,16 @@ class OneViewDriver(driver_api.MechanismDriver):
             return self._delete_port_from_context(context)
         if original_port_mac != port_mac or\
            original_port_boot_priority != port_boot_priority:
-            self.neutron_oneview_client.port.update(
-                session, neutron_port_uuid, port_lli, port_boot_priority,
-                port_mac
-            )
+            return self._create_port_from_context(context)
 
     def _delete_port_from_context(self, context):
-        session = context._plugin_context._session
-        neutron_port_uuid = context._port.get('id')
+        mac_address = context._port.get('mac_address')
         vnic_type = common.get_vnic_type_from_port_context(context)
 
         if vnic_type != 'baremetal':
-            LOG.debug(_("Port %s is not baremetal. Skipping."), neutron_port_uuid)
+            LOG.debug(
+                _("Port %s is not baremetal. Skipping."), neutron_port_uuid
+            )
             return
         local_link_information_list = common.\
             local_link_information_from_context(
@@ -285,13 +276,21 @@ class OneViewDriver(driver_api.MechanismDriver):
                     session, neutron_port_uuid, server_hardware_uuid
                 )
             else:
-                LOG.debug(_(
-                    "Port %s switch_info does not contain server_hardware_uuid. Skipping."),
-                    neutron_port_uuid)
+                LOG.debug(
+                    _(
+                        "Port %s switch_info does not contain "
+                        "server_hardware_uuid. Skipping."
+                    ),
+                    neutron_port_uuid
+                )
         else:
-            LOG.warning(_LW(
-                "Port %s local_link_information does not contain switch_info. Skipping."),
-                neutron_port_uuid)
+            LOG.warning(
+                _LW(
+                    "Port %s local_link_information does not contain "
+                    "switch_info. Skipping."
+                ),
+                neutron_port_uuid
+            )
 
     def delete_port_postcommit(self, context):
         self._delete_port_from_context(context)

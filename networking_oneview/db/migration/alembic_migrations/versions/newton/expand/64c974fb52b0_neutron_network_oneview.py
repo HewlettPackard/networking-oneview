@@ -46,11 +46,3 @@ def upgrade():
             'oneview_network_uuid', 'oneview_uplinkset_uuid'
         )
     )
-
-    op.create_table(
-        'neutron_oneview_port',
-        sa.Column('neutron_port_uuid', sa.String(length=36)),
-        sa.Column('oneview_server_profile_uuid', sa.String(length=36)),
-        sa.Column('oneview_connection_id', sa.String(length=36)),
-        sa.PrimaryKeyConstraint('neutron_port_uuid')
-    )

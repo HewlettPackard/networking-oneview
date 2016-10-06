@@ -62,27 +62,13 @@ class InitSync(object):
 
     def task(self):
         LOG.info(_LI("Starting periodic task"))
-        print "StartPeriodicTask"
-        print "StartPeriodicTask##############################################"
-        print "StartPeriodicTask##############################################"
         self.check_flat_mapped_networks_on_db()
-        print "StartPeriodicTask##############################################"
         self.check_changed_ids_flat_mapped_networks()
-        print "StartPeriodicTask##############################################"
         self.check_and_sync_deleted_neutron_networks_on_db_and_oneview()
-        print "StartPeriodicTask##############################################"
         self.recreate_mapping_between_neutron_and_oneview()
-        print "StartPeriodicTask##############################################"
         self.check_mapped_networks_on_db_and_create_on_oneview()
-        print "StartPeriodicTask##############################################"
         self.check_and_sync_mapped_uplinksets_on_db()
-        print "StartPeriodicTask##############################################"
         self.sync_mapped_uplinksets_on_db()
-        print "StartPeriodicTask#############################################"
-        print "StartPeriodicTask##############################################"
-        print "StartPeriodicTask##############################################"
-        print "StartPeriodicTask##############################################"
-        print "StartPeriodicTask##############################################"
 
     def get_oneview_network(self, oneview_network_id):
         try:
@@ -109,7 +95,6 @@ class InitSync(object):
             server_hardware = self.oneview_client.server_hardware.get(
                 common.server_hardware_from_local_link_information(lli_dict)
             )
-            print server_hardware_uuid
             server_profile_id = utils.id_from_uri(
                 server_hardware.get('serverProfileUri')
             )
@@ -236,7 +221,6 @@ class InitSync(object):
 
             if physnet_compatible_uplinkset_list is None:
                 continue
-            print neutron_network.id
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 self.session, neutron_network.id
             )
@@ -298,7 +282,6 @@ class InitSync(object):
                         )
 
                 for uplinkset_id in physnet_compatible_uplinkset_list:
-                    print uplinkset_id
                     if uplinkset_id not in network_uplinkset_list:
                         self.client.uplinkset.add_network(
                             self.session, uplinkset_id, oneview_network_id,
@@ -500,5 +483,5 @@ class InitSync(object):
                         )
                 except Exception:
                     self.session.rollback()
-                    print "The network " + oneview_network_id + \
-                        " is already mapped."
+                    # print "The network " + oneview_network_id + \
+                    #     " is already mapped."

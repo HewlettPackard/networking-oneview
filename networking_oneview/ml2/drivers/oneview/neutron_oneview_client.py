@@ -169,7 +169,6 @@ class Network(ResourceManager):
             session, neutron_network_id
             )
 
-
         if check_manageable.manageable:
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 session, neutron_network_id
@@ -220,64 +219,33 @@ class Network(ResourceManager):
             id_or_uri=server_profile_to_update.get('uri')
         )
 
-    def update(
-        self, session, neutron_network_id, new_network_name, physical_network,
-        uplinkset_mappings_dict, oneview_network_mapping_dict
-    ):
-        neutron_oneview_network = db_manager.get_neutron_oneview_network(
-            session, neutron_network_id
-        )
-        if neutron_oneview_network is None:
-            return
-
-        verify_mapping = self.verify_mapping_type(
-            physical_network, uplinkset_mappings_dict,
-            oneview_network_mapping_dict
-        )
-
-        try:
-            if verify_mapping is not FLAT_NET:
-                network = self.oneview_client.ethernet_networks.get(
-                    neutron_oneview_network.oneview_network_uuid
-                )
-                network['name'] = new_network_name
-                self.oneview_client.ethernet_networks.update(network)
-
-        except Exception:
-            self._remove_inconsistence_from_db(
-                session, neutron_network_id,
-                neutron_oneview_network.oneview_network_uuid, commit=True
-            )
-            LOG.warning(_LW("No mapped Network in Oneview"))
-
 
 class Port(ResourceManager):
     def create(
-        self, session, neutron_port_uuid, neutron_network_id, mac_address,
+        self, session, neutron_network_id, mac_address,
         local_link_information_dict
     ):
-
-        switch_info_string = local_link_information_dict.get('switch_info')
-        if not switch_info_string:
+        switch_info_dict = local_link_information_dict.get('switch_info')
+        if not switch_info_dict:
             LOG.warning(_LW(
                 "Port %s local_link_information does not contain switch_info. \
                     Skipping."),
                 neutron_port_uuid)
             return
 
-        switch_info_string = switch_info_string.replace("'", '"')
-        switch_info_dict = json.loads(switch_info_string)
+        # switch_info_string = switch_info_string.replace("'", '"')
+        # switch_info_dict = json.loads(switch_info_string)
         bootable = switch_info_dict.get('bootable')
         # TODO extract string to dict function in delete port and create port
-        server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
-        if not server_hardware_uuid:
+        server_hardware_id = switch_info_dict.get('server_hardware_uuid')
+        if not server_hardware_id:
             LOG.warning(_LW(
                 "Port %s switch_info does not contain server_hardware_uuid. \
                     Skipping."),
                 neutron_port_uuid)
             return
         server_hardware = self.oneview_client.server_hardware.get(
-            server_hardware_uuid
+            server_hardware_id
         )
 
         server_profile_uri = utils.id_from_uri(
@@ -289,13 +257,13 @@ class Port(ResourceManager):
         )
         while True:
             if not self.get_server_hardware_power_lock_state(
-                    server_hardware_uuid):
+                    server_hardware_id):
                 break
 
         previous_power_state = self.get_server_hardware_power_state(
-            server_hardware_uuid
+            server_hardware_id
         )
-        self.update_server_hardware_power_state(server_hardware_uuid, "Off")
+        self.update_server_hardware_power_state(server_hardware_id, "Off")
         connection_id = self._add_connection(
             server_profile_uri,
             self._generate_connection_port_for_mac(
@@ -306,11 +274,8 @@ class Port(ResourceManager):
                 neutron_oneview_network.oneview_network_uuid
             ), bootable, mac_address
         )
-        db_manager.insert_neutron_oneview_port(
-            session, neutron_port_uuid, server_profile_uri, connection_id
-        )
         self.update_server_hardware_power_state(
-            server_hardware_uuid, previous_power_state
+            server_hardware_id, previous_power_state
         )
 
     def get_server_hardware_power_lock_state(self, server_hardware_id):
@@ -376,7 +341,6 @@ class Port(ResourceManager):
     def _add_connection(
         self, server_profile_id, port_id, network_uri, bootable, mac_address
     ):
-
         def get_next_connection_id(server_profile):
             next_id = 0
             for connection in server_profile.get('connections'):
@@ -384,7 +348,6 @@ class Port(ResourceManager):
                     next_id = connection.get('id')
             return next_id + 1
 
-        # TODO verify if server_profile.get('connections') is none - Rack server
         def is_boot_priority_available(server_profile, boot_priority):
             for connection in server_profile.get('connections'):
                 if connection.get('boot').get('priority') == boot_priority:
@@ -402,9 +365,9 @@ class Port(ResourceManager):
                 server_profile['connections'].remove(connection)
 
         if bootable:
-            if (is_boot_priority_available(server_profile, 'Primary')):
+            if is_boot_priority_available(server_profile, 'Primary'):
                 boot_priority = 'Primary'
-            elif (is_boot_priority_available(server_profile, 'Secondary')):
+            elif is_boot_priority_available(server_profile, 'Secondary'):
                 boot_priority = 'Secondary'
             else:
                 raise Exception(
@@ -432,55 +395,31 @@ class Port(ResourceManager):
 
         return connection_id
 
-    def update(
-        self, session, neutron_port_uuid, lli_dict, port_boot_priority,
-        port_mac_address
-    ):
-        neutron_oneview_port = db_manager.get_neutron_oneview_port(
-            session, neutron_port_uuid
-        )
+    def delete(self, local_link_information_dict, mac_address):
+        switch_info_string = local_link_information_dict.get('switch_info')
+        if not switch_info_string:
+            LOG.warning(_LW(
+                "Port %s local_link_information does not contain switch_info. \
+                    Skipping."),
+                neutron_port_uuid)
+            return
+
+        switch_info_string = switch_info_string.replace("'", '"')
+        switch_info_dict = json.loads(switch_info_string)
+        bootable = switch_info_dict.get('bootable')
+        server_hardware_id = switch_info_dict.get('server_hardware_uuid')
+        if not server_hardware_id:
+            LOG.warning(_LW(
+                "Port %s switch_info does not contain server_hardware_uuid. \
+                    Skipping."),
+                neutron_port_uuid)
+            return
         server_hardware = self.oneview_client.server_hardware.get(
-            common.server_hardware_from_local_link_information(lli_dict)
-        )
-        server_profile_uuid = utils.id_from_uri(
-            server_hardware.get('serverProfileUri')
+            server_hardware_id
         )
 
-        return self._update_connection(
-            server_profile_uuid,
-            neutron_oneview_port.oneview_connection_id,
-            self._generate_connection_port_for_mac(
-                server_hardware, port_mac_address
-            ),
-            port_boot_priority
-        )
-
-    def _update_connection(
-        self, server_profile_id, connection_id, port_id, boot_priority
-    ):
-        server_profile = self.oneview_client.server_profiles.get(
-            server_profile_id
-        ).copy()
-
-        for connection in server_profile.get('connections'):
-            if int(connection.get('id')) == int(connection_id):
-                connection['portId'] = port_id
-                connection['boot'] = {'priority': boot_priority}
-
-        self.oneview_client.server_profiles.update(
-            resource=server_profile,
-            id_or_uri=server_profile.get('uri')
-        )
-        return connection_id
-
-    def delete(self, session, neutron_port_uuid, server_hardware_uuid):
-        neutron_oneview_port = db_manager.get_neutron_oneview_port(
-            session, neutron_port_uuid
-        )
-        server_hardware = self.oneview_client.server_hardware.get(
-            server_hardware_uuid
-        )
-        if not server_hardware.get('serverProfileUri'):
+        server_profile_uri = server_hardware.get('serverProfileUri')
+        if not server_profile_uri:
             return
 
         while True:
@@ -494,16 +433,23 @@ class Port(ResourceManager):
         )
         self.update_server_hardware_power_state(server_hardware_uuid, "Off")
 
-        if neutron_oneview_port:
-            self._delete_connection(
-                neutron_oneview_port.oneview_server_profile_uuid,
-                neutron_oneview_port.oneview_connection_id
-            )
-            db_manager.delete_neutron_oneview_port(session, neutron_port_uuid)
+        server_profile_id = utils.id_from_uri(server_profile_uri)
+        self._delete_connection(
+            server_profile_id,
+            self._get_connection_id_with_mac(server_profile_id, mac_address)
+        )
 
         self.update_server_hardware_power_state(
             server_hardware_uuid, previous_power_state
         )
+
+    def _get_connection_id_with_mac(self, server_profile_id, mac_address):
+        connections = self.oneview_client.server_profiles.get(
+            server_profile_id
+        ).get('connections')
+        for connection in connections:
+            if connection.get('mac') == mac_address:
+                return connection.get('id')
 
     def _delete_connection(self, server_profile_id, connection_id):
         server_profile = self.oneview_client.server_profiles.get(
