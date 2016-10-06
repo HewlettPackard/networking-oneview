@@ -57,7 +57,7 @@ def get_neutron_network_with_segment(session, id):
         ).first()
 
 
-def get_manegement_neutron_network(session, network_id):
+def get_management_neutron_network(session, network_id):
     with session.begin(subtransactions=True):
         return session.query(
             oneview_network_db.NeutronOneviewNetwork
