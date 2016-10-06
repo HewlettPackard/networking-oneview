@@ -1,2 +1,1 @@
-print "**** Passing CI test - Neutron ****"
-
+print ("**** Passing CI test - Neutron ****")
