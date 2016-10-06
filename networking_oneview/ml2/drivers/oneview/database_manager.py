@@ -230,41 +230,6 @@ def get_network_uplinksets(session, oneview_network_uuid):
         ).all()
 
 
-# Neutron OneView Port
-def insert_neutron_oneview_port(
-    session, neutron_port_uuid, oneview_server_profile_uuid,
-    oneview_connection_id, commit=False
-):
-    with session.begin(subtransactions=True):
-        port = oneview_network_db.NeutronOneviewPort(
-            neutron_port_uuid, oneview_server_profile_uuid,
-            oneview_connection_id
-        )
-        session.add(port)
-    if commit:
-        session.commit()
-
-
-def delete_neutron_oneview_port(session, neutron_port_uuid, commit=False):
-    with session.begin(subtransactions=True):
-        session.query(
-            oneview_network_db.NeutronOneviewPort
-        ).filter_by(
-            neutron_port_uuid=neutron_port_uuid
-        ).delete()
-    if commit:
-        session.commit()
-
-
-def get_neutron_oneview_port(session, neutron_port_uuid):
-    with session.begin(subtransactions=True):
-        return session.query(
-            oneview_network_db.NeutronOneviewPort
-        ).filter_by(
-            neutron_port_uuid=neutron_port_uuid
-        ).first()
-
-
 def get_ml2_port_binding(session, neutron_port_uuid):
     with session.begin(subtransactions=True):
         return session.query(
