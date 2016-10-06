@@ -229,7 +229,7 @@ class OneViewDriver(driver_api.MechanismDriver):
 
         original_port_mac = original_port.get('mac_address')
         port_mac = port.get('mac_address')
-	    port_boot_priority =\
+        port_boot_priority =\
             common.boot_priority_from_local_link_information(port_lli)
         original_port_boot_priority =\
             common.boot_priority_from_local_link_information(original_port_lli)
