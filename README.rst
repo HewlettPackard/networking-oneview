@@ -84,9 +84,7 @@ Install
 
 2. Install python-hpOneViewclient:
 
-- Follow the instructions at:
-
-    *https://github.com/HewlettPackard/python-hpOneView*
+    *$ pip install hpOneView*
 
 
 3. Making ML2_conf.ini file configurations: 
