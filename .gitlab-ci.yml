@@ -1,4 +1,4 @@
-test
+test:
  script:
   - pip install pep8
 
