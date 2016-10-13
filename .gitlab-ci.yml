@@ -1,8 +1,4 @@
-test:
- script:
-  - python ci_test.py
-
 pep8:
  script:
-  - pep8
+  - pep8 .
 
