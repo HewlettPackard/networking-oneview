@@ -106,8 +106,8 @@ binding_profile = {
                 'server_hardware_uuid': server_hardware_uuid,
                 'bootable': True
             },
-            'port_id':'ovs-node-0',
-            'switch_id':'16:6c:13:c2:03:48'
+            'port_id': 'ovs-node-0',
+            'switch_id': '16:6c:13:c2:03:48'
         }
     ],
 }
