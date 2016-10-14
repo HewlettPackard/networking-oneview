@@ -42,9 +42,12 @@ class Network(ResourceManager):
         if network_id:
             return network_id
 
-        return db_manager.get_neutron_oneview_network(
+        neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, neutron_network_id
         )
+        if neutron_oneview_network:
+            return neutron_oneview_network.oneview_network_uuid
+        return None
 
     def verify_mapping_type(
         self, physical_network, uplinkset_mappings_dict,
@@ -165,9 +168,9 @@ class Network(ResourceManager):
             oneview_network_mapping_dict
         )
 
-        check_manageable = db_manager.get_manegement_neutron_network(
+        check_manageable = db_manager.get_management_neutron_network(
             session, neutron_network_id
-            )
+        )
 
         if check_manageable.manageable:
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
