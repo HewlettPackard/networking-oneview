@@ -68,93 +68,103 @@ Install
 1. The ML2 Mechanism Driver:
 
 - Make the git clone of the mechdriver files for a folder of your choice <download_directory>:
+::
 
-    *$ git clone git@git.lsd.ufcg.edu.br:ironic-neutron-oneview/networking-oneview.git*
+    $ git clone git@git.lsd.ufcg.edu.br:ironic-neutron-oneview/networking-oneview.git
 
 - Access the folder <networking-oneview>:
+::
 
-    *$ cd networking-oneview*
+    $ cd networking-oneview
 
 - Run the script install-deriver.sh:
+::
 
-    *$ ./install-driver.sh*
+    $ ./install-driver.sh
 
 - This script copy some folders to neutron's work directory: /opt/stack/neutron
 
 
 2. Install python-hpOneViewclient:
+::
 
-    *$ pip install hpOneView*
+    $ pip install hpOneView
 
 
 3. Making ML2_conf.ini file configurations: 
 
 - Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
+::
 
-    *mechanism_drivers = openvswitch,linuxbridge,genericswitch,oneview*
+    mechanism_drivers = openvswitch,linuxbridge,genericswitch,oneview
 
 - Find the correspondent line and insert the flat physical networks:
+::
 
-    *[ml2_type_flat]*
+    [ml2_type_flat]
 
-    *flat_networks = public,<flat-physical-network1-name>,<flat-physical-network2-name>*
+    flat_networks = public,<flat-physical-network1-name>,<flat-physical-network2-name>*
 
 - Find the correspondent line and insert the vlan physical networks:
+::
 
-    *[ml2_type_vlan]*
+    [ml2_type_vlan]
 
-    *network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>*
+    network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>
 
 - Copy the following lines to the end of this file:
+::
 
-        *[oneview]*
+        [oneview]
 
-        *oneview_ip=<OneView server IP address>*
+        oneview_ip=<OneView server IP address>
 
-        *username=<OneView username>*
+        username=<OneView username>
 
-        *password=<OneView password>*
+        password=<OneView password>
 
-        *uplinkset_mapping=<physical-network1-name>:<oneview-uplinkset1_uuid>,<physical-network2-name>:<uplinkset2_uuid>,...*
+        uplinkset_mapping=<physical-network1-name>:<oneview-uplinkset1_uuid>,<physical-network2-name>:<uplinkset2_uuid>,...
        
-        *flat_net_mappings=<flat-physical-network1-name>:<oneview-network1-id>,<flat-physical-network2-name>:<oneview-network2-id>,...*
+        flat_net_mappings=<flat-physical-network1-name>:<oneview-network1-id>,<flat-physical-network2-name>:<oneview-network2-id>,...
         
-        *ov_refresh_interval=<ov_refresh_interval>* (ov_refresh_interval is used in seconds and is optional)
+        ov_refresh_interval=<ov_refresh_interval> (ov_refresh_interval is used in seconds and is optional - default valeu is 3600)
 
 
 - Examples of the lines are:
+::
 
-    *oneview_ip=10.5.0.33*
+    oneview_ip=10.5.0.33
 
-    *username=admin*
+    username=admin
 
-    *password=password*
+    password=password
 
-    *uplinkset_mapping=physnet1:8b4d1932-2528-4f32-8b00-3879cfa1de28,physnet2:f0be6758-4b4b-4596-8aa1-6c38d2422d4f*
+    uplinkset_mapping=physnet1:8b4d1932-2528-4f32-8b00-3879cfa1de28,physnet2:f0be6758-4b4b-4596-8aa1-6c38d2422d4f
 
-    *flat_net_mappings=physnet3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,physnet4:66666666-ba2e-490a-81f9-2226c240f3d9*
+    flat_net_mappings=physnet3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,physnet4:66666666-ba2e-490a-81f9-2226c240f3d9
 
-    *ov_refresh_interval=3600*
+    ov_refresh_interval=3600
 
 
-    *[ml2_type_flat]*
+    [ml2_type_flat]
  
-    *flat_networks = public,physnet3,physnet4*
+    flat_networks = public,physnet3,physnet4
     
-    *[ml2_type_vlan]*
+    [ml2_type_vlan]
  
-    *network_vlan_ranges = public,physnet1,physnet2*
+    network_vlan_ranges = public,physnet1,physnet2
 
 
 4. Making setup.cfg file configurations:
 
 - Edit the /opt/stack/neutron/setup.cfg file. Under: 
-
-    *neutron.ml2.mechanism_drivers =*
+::
+    
+    neutron.ml2.mechanism_drivers =
 
     in this file, insert the following:
 
-    *oneview = neutron.plugins.ml2.drivers.oneview.mech_oneview:OneViewDriver*
+    oneview = neutron.plugins.ml2.drivers.oneview.mech_oneview:OneViewDriver
 
 
 5. Restart Neutron:
@@ -167,18 +177,21 @@ Install
 - Run the migration script to create the database tables necessary for the mechanism driver function.
 
 - Go to the mechanism driver download folder in the following path:
+::
 
-    *$ cd <download_directory>/networking-oneview/networking_oneview/db*
+    $ cd <download_directory>/networking-oneview/networking_oneview/db
 
 - Then run:
+::
 
-    *$ sudo python oneview_network_db.py install*
+    $ sudo python oneview_network_db.py install
 
 - If any error related to db log occurs, execute:
+::
 
-    *$ cd /opt/stack/neutron/*
+    $ cd /opt/stack/neutron/
 
-    *$ neutron-db-manage upgrade head*
+    $ neutron-db-manage upgrade head
 
 
 License
