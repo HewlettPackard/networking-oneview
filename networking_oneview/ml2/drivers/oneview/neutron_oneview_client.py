@@ -399,23 +399,24 @@ class Port(ResourceManager):
         return connection_id
 
     def delete(self, local_link_information_dict, mac_address):
-        switch_info_string = local_link_information_dict.get('switch_info')
-        if not switch_info_string:
+        switch_info_dict = local_link_information_dict.get('switch_info')
+        if not switch_info_dict:
             LOG.warning(_LW(
-                "Port %s local_link_information does not contain switch_info. \
+                "Port with MAC %s local_link_information does not contain switch_info. \
                     Skipping."),
-                neutron_port_uuid)
+                mac_address
+            )
             return
 
-        switch_info_string = switch_info_string.replace("'", '"')
-        switch_info_dict = json.loads(switch_info_string)
         bootable = switch_info_dict.get('bootable')
         server_hardware_id = switch_info_dict.get('server_hardware_uuid')
         if not server_hardware_id:
-            LOG.warning(_LW(
-                "Port %s switch_info does not contain server_hardware_uuid. \
-                    Skipping."),
-                neutron_port_uuid)
+            LOG.warning(
+                _LW(
+                    "Port with MAC %s switch_info does not contain "
+                    "server_hardware_uuid. Skipping."
+                ), mac_address
+            )
             return
         server_hardware = self.oneview_client.server_hardware.get(
             server_hardware_id
@@ -427,14 +428,14 @@ class Port(ResourceManager):
 
         while True:
             if not self.get_server_hardware_power_lock_state(
-                    server_hardware_uuid):
+                    server_hardware_id):
                 break
             time.sleep(5)
 
         previous_power_state = self.get_server_hardware_power_state(
-            server_hardware_uuid
+            server_hardware_id
         )
-        self.update_server_hardware_power_state(server_hardware_uuid, "Off")
+        self.update_server_hardware_power_state(server_hardware_id, "Off")
 
         server_profile_id = utils.id_from_uri(server_profile_uri)
         self._delete_connection(
@@ -443,7 +444,7 @@ class Port(ResourceManager):
         )
 
         self.update_server_hardware_power_state(
-            server_hardware_uuid, previous_power_state
+            server_hardware_id, previous_power_state
         )
 
     def _get_connection_id_with_mac(self, server_profile_id, mac_address):
