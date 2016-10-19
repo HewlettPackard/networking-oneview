@@ -243,18 +243,21 @@ class OneViewDriver(driver_api.MechanismDriver):
 
         if vnic_type != 'baremetal':
             LOG.debug(
-                _("Port %s is not baremetal. Skipping."), neutron_port_uuid
+                _("Port with MAC %s is not baremetal. Skipping."), mac_address
             )
             return
         local_link_information_list = common.\
             local_link_information_from_context(
                 context._port
-                )
+            )
         if (local_link_information_list is None or
                 len(local_link_information_list) == 0):
-            LOG.debug(_(
-                "Port %s does not have local_link_information. Skipping."),
-                neutron_port_uuid)
+            LOG.debug(
+                _(
+                    "Port with MAC %s does not have local_link_information. "
+                    "Skipping."
+                ), mac_address
+            )
             return
         elif len(local_link_information_list) > 1:
             raise exception.ValueError(
@@ -262,34 +265,32 @@ class OneViewDriver(driver_api.MechanismDriver):
             )
 
         local_link_information_dict = local_link_information_list[0]
-        switch_info_string = local_link_information_dict.get('switch_info')
-        switch_info_string = switch_info_string.replace("'", '"')
-        switch_info_dict = json.loads(switch_info_string)
+        switch_info_dict = local_link_information_dict.get('switch_info')
 
         if switch_info_dict:
             server_hardware_uuid = switch_info_dict.get('server_hardware_uuid')
             if server_hardware_uuid:
-                LOG.debug(_(
-                    "Deleting port %s from OneView."),
-                    neutron_port_uuid)
+                LOG.debug(
+                    _("Deleting port with MAC %s from OneView."), mac_address
+                )
                 self.neutron_oneview_client.port.delete(
-                    session, neutron_port_uuid, server_hardware_uuid
+                    local_link_information_dict, mac_address
                 )
             else:
                 LOG.debug(
                     _(
-                        "Port %s switch_info does not contain "
+                        "Port with MAC %s switch_info does not contain "
                         "server_hardware_uuid. Skipping."
                     ),
-                    neutron_port_uuid
+                    mac_address
                 )
         else:
             LOG.warning(
                 _LW(
-                    "Port %s local_link_information does not contain "
+                    "Port with MAC %s local_link_information does not contain "
                     "switch_info. Skipping."
                 ),
-                neutron_port_uuid
+                mac_address
             )
 
     def delete_port_postcommit(self, context):
