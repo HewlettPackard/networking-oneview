@@ -1,4 +1,3 @@
-#
 # Copyright 2016 Hewlett Packard Development Company, LP
 # Copyright 2016 Universidade Federal de Campina Grande
 #
@@ -16,19 +15,13 @@
 
 import json
 
+ETHERNET_NETWORK_PREFIX = '/rest/ethernet-networks/'
 
-def load_oneview_network_mapping_conf_to_dict(oneview_network_mapping):
-    oneview_network_mapping_dict = {}
-    if oneview_network_mapping is None or not oneview_network_mapping:
-        return oneview_network_mapping_dict
 
-    oneview_network_mapping_list = oneview_network_mapping.split(',')
-
-    for neutron_oneview in oneview_network_mapping_list:
-        neutron_net_name, oneview_net_id = neutron_oneview.split(':')
-        oneview_network_mapping_dict[neutron_net_name] = oneview_net_id
-
-    return oneview_network_mapping_dict
+# Utils
+def id_from_uri(uri):
+    if uri:
+        return uri.split("/")[-1]
 
 
 def load_conf_option_to_dict(key_value_option):
@@ -46,54 +39,55 @@ def load_conf_option_to_dict(key_value_option):
     return key_value_dict
 
 
-def get_network_from_port_context(context):
-    network_context_dict = context._network_context
-    if network_context_dict is None:
+def network_uri_from_id(network_id):
+    return ETHERNET_NETWORK_PREFIX + network_id
+
+
+# Context
+def session_from_context(context):
+    if context is None:
         return None
-    return network_context_dict._network
 
-
-def get_vnic_type_from_port_context(context):
-    port_context_json = context._port
-    if port_context_json is None:
+    plugin_context = context._plugin_context
+    if plugin_context is None:
         return None
-    return port_context_json.get('binding:vnic_type')
+
+    return plugin_context._session
 
 
-def local_link_information_from_context(port_context):
-    if port_context is None:
+def network_from_context(context):
+    if context is None:
         return None
-    binding_profile_dict = port_context.get('binding:profile')
+
+    return context._network
+
+
+def port_from_context(context):
+    if context is None:
+        return None
+
+    return context._port
+
+
+def local_link_information_from_port(port_dict):
+    binding_profile_dict = port_dict.get('binding:profile')
     if binding_profile_dict is None:
         return None
     return binding_profile_dict.get('local_link_information')
 
 
-def first_local_link_information_from_port_context(port_context):
-    lli_list = local_link_information_from_context(port_context)
-    if lli_list is None or len(lli_list) == 0:
-        return None
-    elif len(lli_list) > 1:
-        raise ValueError(
-            "'local_link_information' must have only one value"
-        )
+def is_local_link_information_valid(local_link_information_list):
+    if len(local_link_information_list) != 1:
+        return False
+    local_link_information = local_link_information_list[0]
+    switch_info = local_link_information.get('switch_info')
+    if switch_info is None:
+        return False
 
-    return lli_list[0]
+    server_hardware_uuid = switch_info.get('server_hardware_id')
+    bootable = switch_info.get('bootable')
 
+    if server_hardware_uuid is None or bootable is None:
+        return False
 
-def boot_priority_from_local_link_information(local_link_information):
-    if local_link_information:
-        switch_info_string = local_link_information.get('switch_info')
-        if switch_info_string:
-            switch_info_string = switch_info_string.replace("'", '"')
-            switch_info_dict = json.loads(switch_info_string)
-            return switch_info_dict.get('boot_priority')
-
-
-def server_hardware_from_local_link_information(local_link_information):
-    if local_link_information:
-        switch_info_string = local_link_information.get('switch_info')
-        if switch_info_string:
-            switch_info_string = switch_info_string.replace("'", '"')
-            switch_info_dict = json.loads(switch_info_string)
-            return switch_info_dict.get('server_hardware_uuid')
+    return type(bootable) == bool
