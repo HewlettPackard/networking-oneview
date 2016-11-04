@@ -74,6 +74,28 @@ class OneViewDriver(driver_api.MechanismDriver):
             )
         )
 
+    def bind_port(self, context):
+        """Bind baremetal port to a network."""
+        port = context.current
+        vnic_type = port['binding:vnic_type']
+        if vnic_type != portbindings.VNIC_BAREMETAL:
+            return
+        vif_type = portbindings.VIF_TYPE_OTHER
+        vif_details = {portbindings.VIF_DETAILS_VLAN: True}
+        for segment in context.segments_to_bind:
+            vif_details[portbindings.VIF_DETAILS_VLAN] = (
+                str(segment[driver_api.SEGMENTATION_ID])
+            )
+            context.set_binding(
+                segment[driver_api.ID], vif_type, vif_details, p_const.ACTIVE
+            )
+            LOG.debug(
+                "OneViewDriver: bound port info- port ID %(id)s "
+                "on network %(network)s", {
+                    'id': port['id'], 'network': context.network.current['id']
+                }
+            )
+
     def create_network_postcommit(self, context):
         session = common.session_from_context(context)
         network_dict = common.network_from_context(context)

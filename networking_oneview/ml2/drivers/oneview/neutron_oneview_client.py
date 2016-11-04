@@ -72,7 +72,7 @@ def is_port_valid_to_reflect_on_oneview(
 ):
     if vnic_type != 'baremetal':
         return False
-    if not neutron_oneview_network:
+    if neutron_oneview_network is None:
         return False
     return validate_local_link_information(local_link_information_list)
 
@@ -205,7 +205,7 @@ class Network(ResourceManager):
             self.oneview_client.ethernet_networks.delete(oneview_network_id)
 
         db_manager.delete_neutron_oneview_network(session, network_id)
-        db_manager.delete_oneview_network_uplinkset(
+        db_manager.delete_oneview_network_uplinkset_by_network(
             session, oneview_network_id
         )
 
