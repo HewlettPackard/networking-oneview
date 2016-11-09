@@ -39,6 +39,7 @@ opts = [
                help=_('OneView password to be used')),
     cfg.StrOpt('uplinkset_mapping',
                help=_('UplinkSets to be used')),
+    cfg.StrOpt('tls_cacert_file', help=_("TLS File Path")),
     cfg.StrOpt('flat_net_mappings',
                default='',
                help=_('-')),
@@ -71,6 +72,7 @@ class OneViewDriver(driver_api.MechanismDriver):
                 "password": CONF.oneview.password
             }
         })
+
         self.neutron_oneview_client = Client(self.oneview_client)
 
         self.uplinkset_mappings_dict = (
@@ -81,6 +83,10 @@ class OneViewDriver(driver_api.MechanismDriver):
                 CONF.oneview.flat_net_mappings
             )
         )
+        if CONF.oneview.tls_cacert_file.strip():
+            self.oneview_client.connection.set_trusted_ssl_bundle(
+                CONF.oneview.tls_cacert_file
+            )
 
     def _start_initial_and_periodic_sync_task(self):
         task = init_sync.InitSync(
