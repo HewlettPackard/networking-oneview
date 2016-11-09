@@ -23,7 +23,7 @@ from neutron.plugins.common import constants as p_const
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
-#from neutron.plugins.ml2.drivers.oneview import resources_sync
+from neutron.plugins.ml2.drivers.oneview import resources_sync
 from neutron.plugins.ml2.drivers.oneview import init_sync
 from oslo_config import cfg
 from oslo_log import log
@@ -62,7 +62,7 @@ NETWORK_IS_NONE = '2'
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
         self._initialize_driver()
-        #self._start_initial_and_periodic_sync_task()
+        self._start_initial_and_periodic_sync_task()
 
     def _initialize_driver(self):
         self.oneview_client = OneViewClient({
