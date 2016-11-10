@@ -67,11 +67,19 @@ How the driver works
 
 The Neutron-OneView Mechanism Driver considers that not all networking operations that
 are performed in OpenStack need to be reflected in OneView. To identify if a certain
-operation should be executed by the driver two information are considered:
+request should be executed by the driver it might check if the networks and ports 
 
-- Network Operations: The driver will check if the physical provider-network the network belongs to is defined as one of the "managed networks" of the driver. The concept of "managed networks" refeers to the networks configured in the driver config file with a mapping to attached it to a Uplink Set in OneView. Operations of Networks with no mappings are just ignored by the driver;
+For Network Operations the driver will check if the physical provider-network 
+the network belongs to is defined as one of the "managed networks" of the
+driver. The concept of "managed networks" refeers to the networks configured in
+the driver config file with a mapping to attached it to a Uplink Set in OneView.
+Operations of Networks with no mappings are just ignored by the driver.
 
-- Port Operations: Only ports related to managed networks and with the "local_link_information" field populated are considered. When the driver identifies that "local_link_information" exists in a given port, it check if . This information can be directly configured in the Neutron port or passed by Ironic port field "local_link_connection".
+In the case of Port Operations, only ports related to managed networks and with
+the "local_link_information" field populated are considered. When the driver
+identifies that "local_link_information" exists in a given port, it check if .
+This information can be directly configured in the Neutron port or passed by
+Ironic port field "local_link_connection".
 
 
 
