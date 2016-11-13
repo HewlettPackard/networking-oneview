@@ -32,9 +32,9 @@ from sqlalchemy import event
 #         ).first()
 
 
-# def list_neutron_networks(session):
-#     with session.begin(subtransactions=True):
-#         return session.query(Network).all()
+def list_neutron_networks(session):
+    with session.begin(subtransactions=True):
+        return session.query(Network).all()
 
 
 # Neutron Network Segments
@@ -47,15 +47,20 @@ from sqlalchemy import event
 #         ).first()
 
 
+def list_networks_segments(session):
+    with session.begin(subtransactions=True):
+        return session.query(NetworkSegment).all()
+
+
 # Neutron Network with Network Segments
-# def list_networks_and_segments_with_physnet(session):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             Network, NetworkSegment
-#         ).filter(
-#             Network.id == NetworkSegment.network_id,
-#             NetworkSegment.physical_network.isnot(None)
-#         ).all()
+def list_networks_and_segments_with_physnet(session):
+    with session.begin(subtransactions=True):
+        return session.query(
+            Network, NetworkSegment
+        ).filter(
+            Network.id == NetworkSegment.network_id,
+            NetworkSegment.physical_network.isnot(None)
+        ).all()
 
 
 # def get_neutron_network_with_segment(session, id):
@@ -105,12 +110,12 @@ def map_neutron_network_to_oneview(
     manageable
 ):
     insert_neutron_oneview_network(
-        session, neutron_network_id, oneview_network_id, False, manageable
+        session, neutron_network_id, oneview_network_id, manageable
     )
 
     for uplinkset_id in uplinksets_id_list:
         insert_oneview_network_uplinkset(
-            session, oneview_network_id, uplinkset_id, False
+            session, oneview_network_id, uplinkset_id
         )
 
 
@@ -132,21 +137,13 @@ def list_neutron_oneview_network(session):
 
 
 def insert_neutron_oneview_network(
-    session, neutron_network_id, oneview_network_id,
-    commit, manageable=True
+    session, neutron_network_id, oneview_network_id, manageable=True
 ):
-    # commit variable is used temporarily
-    # commit is True when the call insert comes from init_sync.py
-    # commit is False when the call insert comes from mech_oneview.py
-    # TODO
-
     with session.begin(subtransactions=True):
         net = oneview_network_db.NeutronOneviewNetwork(
             neutron_network_id, oneview_network_id, manageable
         )
         session.add(net)
-    if commit:
-        session.commit()
 
 
 # def update_neutron_oneview_network(session, neutron_id, new_oneview_id):
@@ -174,17 +171,13 @@ def get_neutron_oneview_network(session, neutron_network_id):
         ).first()
 
 
-def delete_neutron_oneview_network(
-    session, neutron_network_id, commit=False
-):
+def delete_neutron_oneview_network(session, neutron_network_id):
     with session.begin(subtransactions=True):
         session.query(
             oneview_network_db.NeutronOneviewNetwork
         ).filter_by(
             neutron_network_id=neutron_network_id
         ).delete()
-    if commit:
-        session.commit()
 
 
 # OneView Network Uplinkset
@@ -205,16 +198,23 @@ def get_oneview_network_uplinkset(session, network_id, uplinkset_id):
         ).first()
 
 
+def get_network_uplinksets(session, oneview_network_id):
+    with session.begin(subtransactions=True):
+        return session.query(
+            oneview_network_db.OneviewNetworkUplinkset
+        ).filter_by(
+            oneview_network_id=oneview_network_id
+        ).all()
+
+
 def insert_oneview_network_uplinkset(
-    session, oneview_network_id, uplinkset_id, commit=False
+    session, oneview_network_id, uplinkset_id
 ):
     with session.begin(subtransactions=True):
         oneview_network_uplinkset = oneview_network_db.OneviewNetworkUplinkset(
             oneview_network_id, uplinkset_id
         )
         session.add(oneview_network_uplinkset)
-    if commit:
-        session.commit()
 
 
 # def delete_oneview_network_uplinkset(
@@ -231,26 +231,13 @@ def insert_oneview_network_uplinkset(
 #         session.commit()
 
 
-def delete_oneview_network_uplinkset_by_network(
-    session, network_id, commit=False
-):
+def delete_oneview_network_uplinkset_by_network(session, network_id):
     with session.begin(subtransactions=True):
         session.query(
             oneview_network_db.OneviewNetworkUplinkset
         ).filter_by(
             oneview_network_id=network_id
         ).delete()
-    if commit:
-        session.commit()
-
-
-def get_network_uplinksets(session, oneview_network_id):
-    with session.begin(subtransactions=True):
-        return session.query(
-            oneview_network_db.OneviewNetworkUplinkset
-        ).filter_by(
-            oneview_network_id=oneview_network_id
-        ).all()
 #
 #
 # def get_ml2_port_binding(session, neutron_port_id):

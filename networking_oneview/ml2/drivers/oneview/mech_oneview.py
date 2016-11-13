@@ -16,6 +16,7 @@
 from hpOneView.oneview_client import OneViewClient
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.ml2.drivers.oneview import common
+from neutron.plugins.ml2.drivers.oneview import synchronization
 from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
 from oslo_config import cfg
 
@@ -62,6 +63,10 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.flat_physnet_net_mapping
         )
 
+        sync = synchronization.Synchronization(
+            self.neutron_oneview_client, CONF.database.connection
+        )
+
     def _load_network_mappings(self):
         self.physnet_uplinkset_mapping = (
             common.load_conf_option_to_dict(
@@ -99,6 +104,10 @@ class OneViewDriver(driver_api.MechanismDriver):
     def create_network_postcommit(self, context):
         session = common.session_from_context(context)
         network_dict = common.network_from_context(context)
+        print "---------------------------------------------------------------"
+        print "---------------------------------------------------------------"
+        print "---------------------------------------------------------------"
+        print network_dict
 
         self.neutron_oneview_client.network.create(session, network_dict)
 

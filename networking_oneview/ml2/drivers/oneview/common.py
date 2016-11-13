@@ -43,6 +43,17 @@ def network_uri_from_id(network_id):
     return ETHERNET_NETWORK_PREFIX + network_id
 
 
+def network_dict_for_network_creation(
+    physical_network, network_type, id, segmentation_id=None
+):
+    return {
+        'provider:physical_network': physical_network,
+        'provider:network_type': network_type,
+        'provider:segmentation_id': segmentation_id,
+        'id': id,
+    }
+
+
 # Context
 def session_from_context(context):
     if context is None:
