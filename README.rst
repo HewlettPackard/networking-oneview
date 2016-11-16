@@ -48,7 +48,8 @@ How the driver works
 
 The Neutron-OneView Mechanism Driver considers that not all networking operations that
 are performed in OpenStack need to be reflected in OneView. To identify if a certain
-request should be executed by the driver it might check if the networks and ports 
+request should be executed by the driver it might check if the networks and ports are
+related with networks which should be managed by OneView.
 
 - Creates a network in OneView for each network in Neutron to physical provider-networks configured in the driver config file
 
