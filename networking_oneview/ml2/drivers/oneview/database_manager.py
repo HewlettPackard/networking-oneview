@@ -107,6 +107,14 @@ def get_port_with_binding_profile(session, network_id):
         ).all()
 
 
+# OneView Network Uplinkset
+def list_oneview_network_uplinkset(session):
+    with session.begin(subtransactions=True):
+        return session.query(
+            oneview_network_db.OneviewNetworkUplinkset
+        ).all()
+
+
 # Neutron OneView Network
 def list_neutron_oneview_network(session):
     with session.begin(subtransactions=True):

@@ -97,3 +97,8 @@ def server_hardware_from_local_link_information(local_link_information):
             switch_info_string = switch_info_string.replace("'", '"')
             switch_info_dict = json.loads(switch_info_string)
             return switch_info_dict.get('server_hardware_uuid')
+
+
+def id_from_uri(uri):
+    if uri:
+        return uri.split("/")[-1]
