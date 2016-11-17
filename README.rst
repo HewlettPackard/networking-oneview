@@ -234,6 +234,8 @@ You know the drill. Fork it, branch it, change it, commit it, and pull-request
 it. We are passionate about improving this project, and glad to accept help to
 make it better. However, keep the following in mind:
 
+-  Contributed code must have the same license of the repository.
+
 - We reserve the right to reject changes that we feel do not fit the scope of this project, so for feature additions, please open an issue to discuss your ideas before doing the work.
 
 - If you would like to contribute to the development of OpenStack, you must follow the steps in this page:
