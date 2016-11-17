@@ -62,8 +62,11 @@ These mappings configuration can be mabe in the configuration file using the
 
 In the case of Port Operations, only ports related to managed networks and with
 the "local_link_information" field populated are considered. When the driver
-identifies that "local_link_information" exists in a given port, it check if .
-This information can be directly configured in the Neutron port or passed by
+identifies that "local_link_information" exists in a given port, it check if 
+it contains a Server Hardware UUID and boot information. The mech driver also
+uses the information of the MAC address of the requested port to identify the
+specific NIC of the Server Profile where the operation should be executed.
+These information can be directly configured in the Neutron port or passed by
 Ironic port field "local_link_connection".
 
 Considering these restrictions, OneView Mechanism Driver is capable of:
