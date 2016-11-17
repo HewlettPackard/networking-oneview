@@ -222,11 +222,21 @@ Install
 License
 =============================
 
-Apache License: Version 2.0, January 2004
+OneView ML2 Mechanism Driver is distributed under the terms of the Apache
+License, Version 2.0. The full terms and conditions of this license are detailed
+in the LICENSE file.
 
 
 Contributing
 =============================
+
+You know the drill. Fork it, branch it, change it, commit it, and pull-request
+it. We are passionate about improving this project, and glad to accept help to
+make it better. However, keep the following in mind:
+
+- We reserve the right to reject changes that we feel do not fit the scope of
+this project, so for feature additions, please open an issue to discuss your
+ideas before doing the work.
 
 - If you would like to contribute to the development of OpenStack, you must follow the steps in this page:
 
