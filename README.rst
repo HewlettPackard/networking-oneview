@@ -51,25 +51,6 @@ are performed in OpenStack need to be reflected in OneView. To identify if a cer
 request should be executed by the driver it might check if the networks and ports are
 related with networks which should be managed by OneView.
 
-- Creates a network in OneView for each network in Neutron to physical provider-networks configured in the driver config file
-
-- Adds networks to Uplink Sets in OneView according to Uplink Set mappings defined to the physical provider-network in the driver config file
-
-    - "Ethernet" Uplink Sets are used with "vlan" typed provider networks
-    - "Untagged" Uplink Sets are used with "flat" typed provider networks
-    - Other kinds of Uplink Sets neither other types of provider networks are used
-
-- Manual mapping of Neutron flat networks onto specified pre-existing networks of OneView
-
-    - This covers migration from the flat model to the multi-tenant model
-
-- Creates, removes and updates connections in Server Profiles, implementing Neutron port binding
-
-    - Works only with vif_type = baremetal
-    - Expects Server Hardware UUID and boot priority in the local_link_information of the port
-
-
-
 For Network Operations the driver checks if the physical provider-network 
 the network belongs to is defined as one of the "managed networks" of the
 driver. The concept of "managed networks" refeers to the networks configured in
@@ -84,6 +65,29 @@ the "local_link_information" field populated are considered. When the driver
 identifies that "local_link_information" exists in a given port, it check if .
 This information can be directly configured in the Neutron port or passed by
 Ironic port field "local_link_connection".
+
+Considering these restrictions, OneView Mechanism Driver is capable of:
+
+- Create a network in OneView for each network in Neutron to physical provider-networks configured in the driver config file
+
+- Add networks to Uplink Sets in OneView according to Uplink Set mappings defined to the physical provider-network in the driver config file
+
+    - "Ethernet" Uplink Sets are used with "vlan" typed provider networks
+    - "Untagged" Uplink Sets are used with "flat" typed provider networks
+    - Other kinds of Uplink Sets neither other types of provider networks are used
+
+- Manual mapping of Neutron flat networks onto specified pre-existing networks of OneView
+
+    - This covers migration from the flat model to the multi-tenant model
+
+- Create, remove and update connections in Server Profiles, implementing Neutron port binding
+
+    - Works only with vif_type = baremetal
+    - Expects Server Hardware UUID and boot priority in the local_link_information of the port
+
+
+
+
 
 
 
