@@ -89,7 +89,9 @@ Considering these restrictions, OneView Mechanism Driver is capable of:
     - Expects Server Hardware UUID and boot priority in the local_link_information of the port
 
 
-
+OneView Mechanism Driver also implements a fault tolerance process to guarantee
+that all networks and ports that are present in Neutron are correctly reflected
+in OneView.
 
 
 
