@@ -163,9 +163,10 @@ Install
         
         ov_refresh_interval=<ov_refresh_interval> (ov_refresh_interval is used in seconds and is optional - default valeu is 3600)
         
-        tls_cacert_file = <TLS File Path> (To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from the appliance)
+        tls_cacert_file = <TLS File Path>
         
-- 
+
+To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from the appliance. 
 
 
 - Examples of the lines are:
