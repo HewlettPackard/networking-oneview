@@ -23,7 +23,6 @@ from neutron.plugins.common import constants as p_const
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
-#from neutron.plugins.ml2.drivers.oneview import resources_sync
 from neutron.plugins.ml2.drivers.oneview import init_sync
 from oslo_config import cfg
 from oslo_log import log
