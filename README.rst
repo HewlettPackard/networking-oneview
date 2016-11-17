@@ -160,6 +160,10 @@ Install
         flat_net_mappings=<flat-physical-network1-name>:<oneview-network1-id>,<flat-physical-network2-name>:<oneview-network2-id>,...
         
         ov_refresh_interval=<ov_refresh_interval> (ov_refresh_interval is used in seconds and is optional - default valeu is 3600)
+        
+        tls_cacert_file = <TLS File Path> (To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from the appliance)
+        
+- 
 
 
 - Examples of the lines are:
@@ -176,6 +180,8 @@ Install
     flat_net_mappings=physnet3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,physnet4:66666666-ba2e-490a-81f9-2226c240f3d9
 
     ov_refresh_interval=3600
+    
+    tls_cacert_file = /home/ubuntu/certificate/appliance.com.crt
 
 
     [ml2_type_flat]
