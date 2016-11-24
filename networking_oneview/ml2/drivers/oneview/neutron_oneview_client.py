@@ -95,20 +95,35 @@ class Network(ResourceManager):
         'flat': 'untagged',
     }
 
-    def _is_physnet_in_uplinkset_mapping(self, physical_network):
-        if self.physnet_uplinkset_mapping.get(NETWORK_TYPE_TAGGED).get(
+    def _is_physnet_in_uplinkset_mapping(self, physical_network, network_type):
+        network_type = NETWORK_TYPE_UNTAGGED if network_type == 'flat' else (
+            NETWORK_TYPE_TAGGED
+        )
+        print "NETWORK TYPE:", network_type
+        print "PHYSICAL NETWORK:", physical_network
+        if self.physnet_uplinkset_mapping.get(network_type).get(
             physical_network
         ):
             return True
-        return self.physnet_uplinkset_mapping.get(NETWORK_TYPE_UNTAGGED).get(
+        return self.physnet_uplinkset_mapping.get(network_type).get(
             physical_network
         )
 
-    def _is_physical_network_managed(self, physical_network):
-        return (
-            self._is_physnet_in_uplinkset_mapping(physical_network) or
-            self.flat_physnet_net_mapping.get(physical_network)
-        )
+    # def _is_physical_network_managed(self, physical_network):
+    #     return (
+    #         self._is_physnet_in_uplinkset_mapping(physical_network) or
+    #         self.flat_physnet_net_mapping.get(physical_network)
+    #     )
+
+    def is_managed(self, physical_network, network_type):
+        print "physnet_uplinkset_mapping:", self.physnet_uplinkset_mapping
+        if self._is_physnet_in_uplinkset_mapping(
+            physical_network, network_type
+        ) is not None:
+            return True
+        if self.flat_physnet_net_mapping.get(physical_network) is not None:
+            return True
+        return False
 
     def _create_network_on_oneview(self, name, network_type, seg_id):
         options = {
@@ -121,8 +136,12 @@ class Network(ResourceManager):
         }
         return self.oneview_client.ethernet_networks.create(options)
 
-    def _add_network_to_uplink_sets(self, network_id, uplinksets_id_list):
+    def add_network_to_uplink_sets(self, network_id, uplinksets_id_list):
+        if uplinksets_id_list is None:
+            return
+        uplinksets_id_list = list(uplinksets_id_list)
         for uplinkset_id in uplinksets_id_list:
+            print uplinkset_id, network_id
             try:
                 self.oneview_client.uplink_sets.add_ethernet_networks(
                     uplinkset_id, network_id
@@ -137,9 +156,19 @@ class Network(ResourceManager):
                     }
                 )
 
+    def remove_network_from_uplink_sets(self, network_id, uplinksets_id_list):
+        if uplinksets_id_list is None:
+            return
+        uplinksets_id_list = list(uplinksets_id_list)
+        for uplinkset_id in uplinksets_id_list:
+            print uplinkset_id, network_id
+            self.oneview_client.uplink_sets.remove_ethernet_networks(
+                uplinkset_id, network_id
+            )
+
     def _get_network_mapping_type(self, physical_network, network_type):
         physnet_in_uplinkset_mapping = self._is_physnet_in_uplinkset_mapping(
-            physical_network
+            physical_network, network_type
         )
         if network_type == 'vlan' and physnet_in_uplinkset_mapping:
             return PHYSNET_UPLINKSET_MAPPING_TYPE
@@ -156,12 +185,22 @@ class Network(ResourceManager):
         physical_network = network_dict.get('provider:physical_network')
         network_type = network_dict.get('provider:network_type')
 
-        if not self._is_physical_network_managed(physical_network):
+        print "IS MANAGED?", self.is_managed(physical_network, network_type)
+        if not self.is_managed(physical_network, network_type):
+            return
+
+        print "IS BD?", db_manager.get_neutron_oneview_network(
+            session, network_id
+        )
+        if db_manager.get_neutron_oneview_network(
+            session, network_id
+        ) is not None:
             return
 
         mapping_type = self._get_network_mapping_type(
             physical_network, network_type
         )
+        print "MAP TYPE:", mapping_type
 
         if mapping_type is MAPPING_TYPE_NONE:
             return
@@ -177,7 +216,7 @@ class Network(ResourceManager):
                 network_type=network_type, seg_id=network_seg_id
             )
             oneview_network_id = common.id_from_uri(oneview_network.get('uri'))
-            self._add_network_to_uplink_sets(
+            self.add_network_to_uplink_sets(
                 oneview_network_id, uplinksets_id_list
             )
         elif mapping_type == FLAT_PHYSNET_NET_MAPPING_TYPE:
@@ -192,7 +231,6 @@ class Network(ResourceManager):
 
     def delete(self, session, network_dict):
         network_id = network_dict.get('id')
-        physical_network = network_dict.get('provider:physical_network')
 
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, network_id
@@ -204,10 +242,47 @@ class Network(ResourceManager):
         if neutron_oneview_network.manageable:
             self.oneview_client.ethernet_networks.delete(oneview_network_id)
 
-        db_manager.delete_neutron_oneview_network(session, network_id)
+        db_manager.delete_neutron_oneview_network(
+            session, neutron_network_id=network_id
+        )
         db_manager.delete_oneview_network_uplinkset_by_network(
             session, oneview_network_id
         )
+
+    def update_uplinksets(
+        self, session, oneview_network_id, network_type, physical_network
+    ):
+        print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+        print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+        print "UPDATE UPLINKSET UPDATE UPLINKSET UPDATE UPLINKSET"
+        print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+        print "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
+        net_uplinksets_id = common.id_list_from_uri_list(
+            self.oneview_client.ethernet_networks.get_associated_uplink_groups(
+                oneview_network_id
+            )
+        )
+        mapped_uplinks_id = common.uplinksets_id_from_network_uplinkset_list(
+            db_manager.list_oneview_network_uplinkset(
+                session, oneview_network_id=oneview_network_id
+            )
+        )
+
+        uplinksets_id_list = self.physnet_uplinkset_mapping.get(
+            self._NEUTRON_NET_TYPE_TO_ONEVIEW_NET_TYPE.get(network_type)
+        ).get(physical_network)
+
+        add_uplinksets = set(uplinksets_id_list).difference(net_uplinksets_id)
+        rem_uplinks = set(net_uplinksets_id).difference(uplinksets_id_list)
+
+        print "uplinksets_id_list", uplinksets_id_list
+        print "net_uplinksets_id", net_uplinksets_id
+        print "mapped_uplinks_id", mapped_uplinks_id
+        print "ADD", add_uplinksets
+        print "REM", rem_uplinks
+
+        self.remove_network_from_uplink_sets(oneview_network_id, rem_uplinks)
+        self.add_network_to_uplink_sets(oneview_network_id, add_uplinksets)
 
 
 class Port(ResourceManager):

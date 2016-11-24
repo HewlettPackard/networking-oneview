@@ -17,19 +17,17 @@
 from neutron.db.models_v2 import Network
 from neutron.db.models_v2 import Port
 from neutron.db import oneview_network_db
+from neutron.db.oneview_network_db import NeutronOneviewNetwork
+from neutron.db.oneview_network_db import OneviewNetworkUplinkset
 from neutron.db.segments_db import NetworkSegment
 from neutron.plugins.ml2.models import PortBinding
 from sqlalchemy import event
 
 
 # Neutron Network
-# def get_neutron_network(session, id):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             Network
-#         ).filter_by(
-#             id=id
-#         ).first()
+def get_neutron_network(session, id):
+    with session.begin(subtransactions=True):
+        return session.query(Network).get(id)
 
 
 def list_neutron_networks(session):
@@ -38,13 +36,13 @@ def list_neutron_networks(session):
 
 
 # Neutron Network Segments
-# def get_network_segment(session, network_id):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             NetworkSegment
-#         ).filter_by(
-#             network_id=network_id
-#         ).first()
+def get_network_segment(session, network_id):
+    with session.begin(subtransactions=True):
+        return session.query(
+            NetworkSegment
+        ).filter_by(
+            network_id=network_id
+        ).first()
 
 
 def list_networks_segments(session):
@@ -63,14 +61,14 @@ def list_networks_and_segments_with_physnet(session):
         ).all()
 
 
-# def get_neutron_network_with_segment(session, id):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             Network, NetworkSegment
-#         ).filter(
-#             Network.id == id,
-#             Network.id == NetworkSegment.network_id
-#         ).first()
+def get_neutron_network_with_segment(session, id):
+    with session.begin(subtransactions=True):
+        return session.query(
+            Network, NetworkSegment
+        ).filter(
+            Network.id == id,
+            Network.id == NetworkSegment.network_id
+        ).first()
 
 
 # Neutron Ports
@@ -113,6 +111,8 @@ def map_neutron_network_to_oneview(
         session, neutron_network_id, oneview_network_id, manageable
     )
 
+    if uplinksets_id_list is None:
+        return
     for uplinkset_id in uplinksets_id_list:
         insert_oneview_network_uplinkset(
             session, oneview_network_id, uplinkset_id
@@ -120,11 +120,9 @@ def map_neutron_network_to_oneview(
 
 
 # Neutron OneView Network
-def list_neutron_oneview_network(session):
+def list_neutron_oneview_network(session, **kwargs):
     with session.begin(subtransactions=True):
-        return session.query(
-            oneview_network_db.NeutronOneviewNetwork
-        ).all()
+        return session.query(NeutronOneviewNetwork).filter_by(**kwargs).all()
 
 
 # def list_neutron_oneview_network_manageable(session):
@@ -140,7 +138,7 @@ def insert_neutron_oneview_network(
     session, neutron_network_id, oneview_network_id, manageable=True
 ):
     with session.begin(subtransactions=True):
-        net = oneview_network_db.NeutronOneviewNetwork(
+        net = NeutronOneviewNetwork(
             neutron_network_id, oneview_network_id, manageable
         )
         session.add(net)
@@ -165,43 +163,34 @@ def insert_neutron_oneview_network(
 def get_neutron_oneview_network(session, neutron_network_id):
     with session.begin(subtransactions=True):
         return session.query(
-            oneview_network_db.NeutronOneviewNetwork
+            NeutronOneviewNetwork
         ).filter_by(
             neutron_network_id=neutron_network_id
         ).first()
 
 
-def delete_neutron_oneview_network(session, neutron_network_id):
+def delete_neutron_oneview_network(session, **kwargs):
     with session.begin(subtransactions=True):
-        session.query(
-            oneview_network_db.NeutronOneviewNetwork
-        ).filter_by(
-            neutron_network_id=neutron_network_id
-        ).delete()
+        session.query(NeutronOneviewNetwork).filter_by(**kwargs).delete()
 
 
 # OneView Network Uplinkset
-def list_oneview_network_uplinkset(session):
+def list_oneview_network_uplinkset(session, **kwargs):
     with session.begin(subtransactions=True):
-        return session.query(
-            oneview_network_db.OneviewNetworkUplinkset
-        ).all()
+        return session.query(OneviewNetworkUplinkset).filter_by(**kwargs).all()
 
 
-def get_oneview_network_uplinkset(session, network_id, uplinkset_id):
+def get_oneview_network_uplinkset(session, **kwargs):
     with session.begin(subtransactions=True):
         return session.query(
-            oneview_network_db.OneviewNetworkUplinkset
-        ).filter_by(
-            oneview_uplinkset_id=uplinkset_id,
-            oneview_network_id=network_id
-        ).first()
+            OneviewNetworkUplinkset
+        ).filter_by(**kwargs).first()
 
 
 def get_network_uplinksets(session, oneview_network_id):
     with session.begin(subtransactions=True):
         return session.query(
-            oneview_network_db.OneviewNetworkUplinkset
+            OneviewNetworkUplinkset
         ).filter_by(
             oneview_network_id=oneview_network_id
         ).all()
@@ -211,7 +200,7 @@ def insert_oneview_network_uplinkset(
     session, oneview_network_id, uplinkset_id
 ):
     with session.begin(subtransactions=True):
-        oneview_network_uplinkset = oneview_network_db.OneviewNetworkUplinkset(
+        oneview_network_uplinkset = OneviewNetworkUplinkset(
             oneview_network_id, uplinkset_id
         )
         session.add(oneview_network_uplinkset)
@@ -234,7 +223,7 @@ def insert_oneview_network_uplinkset(
 def delete_oneview_network_uplinkset_by_network(session, network_id):
     with session.begin(subtransactions=True):
         session.query(
-            oneview_network_db.OneviewNetworkUplinkset
+            OneviewNetworkUplinkset
         ).filter_by(
             oneview_network_id=network_id
         ).delete()

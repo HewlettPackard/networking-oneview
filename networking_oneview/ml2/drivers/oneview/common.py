@@ -24,6 +24,14 @@ def id_from_uri(uri):
         return uri.split("/")[-1]
 
 
+def id_list_from_uri_list(uri_list):
+    return [id_from_uri(uri) for uri in uri_list]
+
+
+def uplinksets_id_from_network_uplinkset_list(net_uplink_list):
+    return [net_uplink.oneview_uplinkset_id for net_uplink in net_uplink_list]
+
+
 def load_conf_option_to_dict(key_value_option):
     key_value_dict = {}
     if key_value_option is None or not key_value_option:
