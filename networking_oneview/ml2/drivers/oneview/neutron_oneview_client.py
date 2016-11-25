@@ -103,7 +103,7 @@ class Network(ResourceManager):
         if oneview_network_uuid is None:
             net_type = 'Tagged' if neutron_network_seg_id else 'Untagged'
             options = {
-                'name': "Neutron["+neutron_network_id+"]",
+                'name': "Neutron ["+neutron_network_id+"]",
                 'ethernetNetworkType': net_type,
                 'vlanId': neutron_network_seg_id,
                 "purpose": "General",
