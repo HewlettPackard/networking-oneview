@@ -90,16 +90,27 @@ def get_neutron_network_with_segment(session, id):
 #         ).all()
 
 
-# def get_port_with_binding_profile(session, network_id):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             Port, PortBinding
-#         ).filter(
-#             Port.network_id == network_id,
-#             Port.id == PortBinding.port_id,
-#             PortBinding.profile.isnot(None),
-#             PortBinding.profile != ''
-#         ).all()
+def get_port_with_binding_profile(session):
+    with session.begin(subtransactions=True):
+        return session.query(
+            Port, PortBinding
+        ).filter(
+            Port.id == PortBinding.port_id,
+            PortBinding.profile.isnot(None),
+            PortBinding.profile != ''
+        ).all()
+
+
+def get_port_with_binding_profile_by_net(session, network_id):
+    with session.begin(subtransactions=True):
+        return session.query(
+            Port, PortBinding
+        ).filter(
+            Port.network_id == network_id,
+            Port.id == PortBinding.port_id,
+            PortBinding.profile.isnot(None),
+            PortBinding.profile != ''
+        ).all()
 
 
 # OneView Mechanism driver_api

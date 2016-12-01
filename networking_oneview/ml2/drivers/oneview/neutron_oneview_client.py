@@ -15,6 +15,7 @@
 
 import abc
 import six
+import time
 
 from hpOneView import exceptions
 from neutron.plugins.ml2.drivers.oneview import common
@@ -87,13 +88,15 @@ class ResourceManager:
         self.physnet_uplinkset_mapping = physnet_uplinkset_mapping
         self.flat_physnet_net_mapping = flat_physnet_net_mapping
 
-
-class Network(ResourceManager):
-    _NEUTRON_NET_TYPE_TO_ONEVIEW_NET_TYPE = {
-        'vxlan': 'tagged',
-        'vlan': 'tagged',
-        'flat': 'untagged',
-    }
+    def is_managed(self, physical_network, network_type):
+        print "physnet_uplinkset_mapping:", self.physnet_uplinkset_mapping
+        if self._is_physnet_in_uplinkset_mapping(
+            physical_network, network_type
+        ) is not None:
+            return True
+        if self.flat_physnet_net_mapping.get(physical_network) is not None:
+            return True
+        return False
 
     def _is_physnet_in_uplinkset_mapping(self, physical_network, network_type):
         network_type = NETWORK_TYPE_UNTAGGED if network_type == 'flat' else (
@@ -109,21 +112,70 @@ class Network(ResourceManager):
             physical_network
         )
 
+    def check_server_hardware_availability(self, server_hardware_id):
+        while True:
+            if not self.get_server_hardware_power_lock_state(
+                    server_hardware_id):
+                return True
+            time.sleep(30)
+
+    def get_server_hardware_power_lock_state(self, server_hardware_id):
+        server_hardware_dict = self.oneview_client.server_hardware.get(
+            server_hardware_id
+        )
+        return server_hardware_dict.get('powerLock')
+
+    def check_server_profile_availability(self, server_hardware_id):
+        while True:
+            if not self.get_server_profile_state(
+                    server_hardware_id):
+                return True
+            time.sleep(5)
+
+    def get_server_profile_state(self, server_hardware_id):
+        server_profile_dict = self.server_profile_from_server_hardware(
+            server_hardware_id
+        )
+        print server_profile_dict.get('status')
+        return server_profile_dict.get('status') != "OK"
+
+    def get_server_hardware_power_state(self, server_hardware_id):
+        server_hardware_dict = self.oneview_client.server_hardware.get(
+            server_hardware_id
+        )
+        return server_hardware_dict.get('powerState')
+
+    def update_server_hardware_power_state(self, server_hardware_id, state):
+            configuration = {
+                "powerState": state,
+                "powerControl": "MomentaryPress"
+            }
+            server_power = (
+                self.oneview_client.server_hardware.update_power_state(
+                    configuration, server_hardware_id
+                )
+            )
+
+    def server_profile_from_server_hardware(self, server_hardware_id):
+        server_hardware = self.oneview_client.server_hardware.get(
+            server_hardware_id
+        )
+        server_profile_uri = server_hardware.get('serverProfileUri')
+        return self.oneview_client.server_profiles.get(server_profile_uri)
+
+
+class Network(ResourceManager):
+    _NEUTRON_NET_TYPE_TO_ONEVIEW_NET_TYPE = {
+        'vxlan': 'tagged',
+        'vlan': 'tagged',
+        'flat': 'untagged',
+    }
+
     # def _is_physical_network_managed(self, physical_network):
     #     return (
     #         self._is_physnet_in_uplinkset_mapping(physical_network) or
     #         self.flat_physnet_net_mapping.get(physical_network)
     #     )
-
-    def is_managed(self, physical_network, network_type):
-        print "physnet_uplinkset_mapping:", self.physnet_uplinkset_mapping
-        if self._is_physnet_in_uplinkset_mapping(
-            physical_network, network_type
-        ) is not None:
-            return True
-        if self.flat_physnet_net_mapping.get(physical_network) is not None:
-            return True
-        return False
 
     def _create_network_on_oneview(self, name, network_type, seg_id):
         options = {
@@ -286,12 +338,6 @@ class Network(ResourceManager):
 
 
 class Port(ResourceManager):
-    def _server_profile_from_server_hardware(self, server_hardware_id):
-        server_hardware = self.oneview_client.server_hardware.get(
-            server_hardware_id
-        )
-        server_profile_uri = server_hardware.get('serverProfileUri')
-        return self.oneview_client.server_profiles.get(server_profile_uri)
 
     def _get_boot_priority(self, server_profile, bootable):
         def is_boot_priority_available(connections, boot_priority):
@@ -350,6 +396,13 @@ class Port(ResourceManager):
         network_id = port_dict.get('network_id')
         mac_address = port_dict.get('mac_address')
 
+        network_segment = db_manager.get_network_segment(session, network_id)
+        physical_network = network_segment.get('physical_network')
+        network_type = network_segment.get('network_type')
+
+        if not self.is_managed(physical_network, network_type):
+            return
+
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, network_id
         )
@@ -370,7 +423,7 @@ class Port(ResourceManager):
         network_uri = common.network_uri_from_id(
             neutron_oneview_network.oneview_network_id
         )
-        server_profile = self._server_profile_from_server_hardware(
+        server_profile = self.server_profile_from_server_hardware(
             server_hardware_id
         )
         boot_priority = self._get_boot_priority(server_profile, bootable)
@@ -382,7 +435,7 @@ class Port(ResourceManager):
             'boot': {'priority': boot_priority},
             'functionType': 'Ethernet'
         })
-
+        self.check_server_profile_availability(server_hardware_id)
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
@@ -416,7 +469,7 @@ class Port(ResourceManager):
         network_uri = common.network_uri_from_id(
             neutron_oneview_network.oneview_network_id
         )
-        server_profile = self._server_profile_from_server_hardware(
+        server_profile = self.server_profile_from_server_hardware(
             server_hardware_id
         )
         connection = connection_with_mac_address(
@@ -425,7 +478,7 @@ class Port(ResourceManager):
 
         if connection:
             server_profile.get('connections').remove(connection)
-
+        self.check_server_profile_availability(server_hardware_id)
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')

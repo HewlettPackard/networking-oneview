@@ -62,6 +62,17 @@ def network_dict_for_network_creation(
     }
 
 
+def port_dict_for_port_creation(
+    network_id, vnic_type, mac_address, profile
+):
+    return {
+        'network_id': network_id,
+        'binding:vnic_type': vnic_type,
+        'mac_address': mac_address,
+        'binding:profile': profile
+    }
+
+
 # Context
 def session_from_context(context):
     if context is None:

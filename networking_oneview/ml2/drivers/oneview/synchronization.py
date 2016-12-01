@@ -12,7 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+import json
 import re
 
 from datetime import datetime
@@ -41,6 +41,7 @@ class Synchronization:
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
         self.synchronize_uplinkset_from_mapped_networks()
+        self.create_connection()
 
     def create_oneview_networks_from_neutron(self):
         print "==============================================================="
@@ -77,13 +78,13 @@ class Synchronization:
         ):
             oneview_network_id = neutron_oneview_network.oneview_network_id
             neutron_network_id = neutron_oneview_network.neutron_network_id
-
             network_segment = db_manager.get_network_segment(
                 session, neutron_network_id
             )
 
             self.neutron_oneview_client.network.update_uplinksets(
-                session, oneview_network_id, network_segment.get('network_type'),
+                session, oneview_network_id, network_segment.get(
+                    'network_type'),
                 network_segment.get('physical_network')
             )
             # uplinkset_uri = self.oneview_client.ethernet_networks.get_associated_uplink_groups(
@@ -166,9 +167,172 @@ class Synchronization:
                         physnet, network_type
                     ):
                         print "NEUTRON NETWORK IS NOT MANAGED"
+                        self._delete_connections(neutron_network_id)
                         return self.oneview_client.ethernet_networks.delete(
                             oneview_network_id
                         )
                     # self.oneview_client.ethernet_networks.delete(
                     #     oneview_network_id
                     # )
+
+    def _delete_connections(self, neutron_network_id):
+        session = get_session(self.connection)
+        for port, port_binding in db_manager.get_port_with_binding_profile_by_net(
+                session, neutron_network_id
+                ):
+            port_dict = common.port_dict_for_port_creation(
+                port.get('network_id'), port_binding.get('vnic_type'),
+                port.get('mac_address'),
+                json.loads(port_binding.get('profile'))
+            )
+            print "==========================================================="
+            print "==========================================================="
+            print "PORT PORT PORT PORT"
+            print "==========================================================="
+            print "==========================================================="
+            lli = common.local_link_information_from_port(port_dict)
+            server_hardware_id = lli[0].get('switch_info').get(
+                'server_hardware_id'
+                )
+            server_profile = (
+                self.neutron_oneview_client.port.server_profile_from_server_hardware(
+                    server_hardware_id
+                )
+            )
+            if not self.check_server_hardware_availability(
+                    server_hardware_uuid):
+                return
+
+            previous_power_state = (
+                self.neutron_oneview_client.port.get_server_hardware_power_state(
+                    server_hardware_uuid
+                )
+            )
+            self.neutron_oneview_client.port.update_server_hardware_power_state(
+                server_hardware_uuid, "Off")
+
+            for connection in server_profile.get('connections'):
+                if connection.get('mac') == port.get('mac_address'):
+                    self._remove_connection(
+                        server_profile_id, connection.get('id')
+                    )
+            self.neutron_oneview_client.port.update_server_hardware_power_state(
+                server_hardware_uuid, previous_power_state
+            )
+
+    def _remove_connection(self, server_profile_id, connection_id):
+        server_profile = self.oneview_client.server_profiles.get(
+            server_profile_id
+        ).copy()
+        connection_primary = False
+        connections = []
+        for connection in server_profile.get('connections'):
+            if connection.get('id') != connection_id:
+                connections.append(connection)
+            elif connection.get('boot').get('priority') == 'Primary':
+                connection_primary = True
+
+        for connection in connections:
+            if (
+                connection.get('boot').get('priority') == 'Secondary' and
+                connection_primary
+                    ):
+                    connection['boot']['priority'] = 'Primary'
+
+        server_profile_to_update = server_profile.copy()
+        server_profile_to_update['connections'] = connections
+        self.oneview_client.server_profiles.update(
+            resource=server_profile_to_update,
+            id_or_uri=server_profile_to_update.get('uri')
+        )
+
+    def create_connection(
+        self
+        # server_profile, port, oneview_uri, server_hardware_uuid, lli_dict
+    ):
+        session = get_session(self.connection)
+        for port, port_binding in db_manager.get_port_with_binding_profile(
+            session
+        ):
+            port_dict = common.port_dict_for_port_creation(
+                port.get('network_id'), port_binding.get('vnic_type'),
+                port.get('mac_address'),
+                json.loads(port_binding.get('profile'))
+            )
+            lli = common.local_link_information_from_port(port_dict)
+            print lli
+            server_hardware_id = lli[0].get('switch_info').get(
+                'server_hardware_id'
+                )
+            server_profile = (
+                self.neutron_oneview_client.port.server_profile_from_server_hardware(
+                    server_hardware_id
+                )
+            )
+            neutron_oneview_network = db_manager.list_neutron_oneview_network(
+                session, neutron_network_id=port.get('network_id')
+            )
+            connection_updated = False
+            if len(neutron_oneview_network) > 0:
+                oneview_uri = "/rest/ethernet-networks/" + (
+                    neutron_oneview_network[0].oneview_network_id
+                )
+                for c in server_profile.get('connections'):
+                    if c.get('mac') == port.get('mac_address'):
+                        connection_updated = True
+                        if c.get('networkUri') != oneview_uri:
+                            self.update_connection(
+                                oneview_uri, server_profile, c)
+            if not connection_updated:
+                self.neutron_oneview_client.port.create(session, port_dict)
+        # for connection in server_profile.get('connections'):
+        #     if connection.get('mac') == port.get('mac_address'):
+        #         if connection.get('networkUri') == oneview_uri:
+        #             connection_found_and_updated = True
+        #             continue
+        #         previous_power_state = self.client.port\
+        #             .get_server_hardware_power_state(
+        #                 server_hardware_uuid
+        #                 )
+        #         self.client.port.update_server_hardware_power_state(
+        #             server_hardware_uuid, "Off")
+        #         connection['networkUri'] = oneview_uri
+        #         self.oneview_client.server_profiles.update(
+        #             resource=server_profile,
+        #             id_or_uri=server_profile.get('uri')
+        #         )
+        #         self.client.port.update_server_hardware_power_state(
+        #             server_hardware_uuid, previous_power_state
+        #             )
+        #         connection_found_and_updated = True
+        #
+        # self.client.port.create(
+        #     session, port.get('network_id'), port.mac_address,
+        #     lli_dict
+        # )
+
+    def update_connection(
+        self, oneview_uri, server_profile, connection
+    ):
+        print "==============================================================="
+        print "==============================================================="
+        print "UPDATE CONNECTION UPDATE CONNECTION UPDATE CONNECTION"
+        print "==============================================================="
+        print "==============================================================="
+        connection['networkUri'] = oneview_uri
+        print connection
+        previous_power_state = (
+            self.neutron_oneview_client.port.get_server_hardware_power_state(
+                server_profile.get('uuid')
+            )
+        )
+        self.neutron_oneview_client.port.update_server_hardware_power_state(
+            server_profile.get('uuid'), "Off"
+        )
+        self.oneview_client.server_profiles.update(
+            resource=server_profile,
+            id_or_uri=server_profile.get('uri')
+        )
+        self.neutron_oneview_client.port.update_server_hardware_power_state(
+            server_profile.get('uuid'), previous_power_state
+        )

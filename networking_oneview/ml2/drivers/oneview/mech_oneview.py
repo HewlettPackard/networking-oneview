@@ -63,10 +63,10 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.flat_physnet_net_mapping
         )
 
-        # sync = synchronization.Synchronization(
-        #     self.oneview_client, self.neutron_oneview_client,
-        #     CONF.database.connection
-        # )
+        sync = synchronization.Synchronization(
+            self.oneview_client, self.neutron_oneview_client,
+            CONF.database.connection
+        )
 
     def _load_network_mappings(self):
         self.physnet_uplinkset_mapping = (
