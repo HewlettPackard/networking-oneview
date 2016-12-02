@@ -430,15 +430,25 @@ class Port(ResourceManager):
         port_id = self._port_id_from_mac(server_hardware_id, mac_address)
 
         server_profile['connections'].append({
+            'name': "NeutronPort[" + mac_address + "]",
             'portId': port_id,
             'networkUri': network_uri,
             'boot': {'priority': boot_priority},
             'functionType': 'Ethernet'
         })
         self.check_server_profile_availability(server_hardware_id)
+        previous_power_state = self.get_server_hardware_power_state(
+            server_hardware_id
+        )
+        self.update_server_hardware_power_state(
+            server_hardware_id, "Off"
+        )
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
+        )
+        self.update_server_hardware_power_state(
+            server_hardware_id, previous_power_state
         )
 
     def delete(self, session, port_dict):
@@ -479,9 +489,18 @@ class Port(ResourceManager):
         if connection:
             server_profile.get('connections').remove(connection)
         self.check_server_profile_availability(server_hardware_id)
+        previous_power_state = self.get_server_hardware_power_state(
+            server_hardware_id
+        )
+        self.update_server_hardware_power_state(
+            server_hardware_id, "Off"
+        )
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
+        )
+        self.update_server_hardware_power_state(
+            server_hardware_id, previous_power_state
         )
 
 
