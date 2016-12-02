@@ -253,7 +253,6 @@ class Synchronization:
 
     def create_connection(
         self
-        # server_profile, port, oneview_uri, server_hardware_uuid, lli_dict
     ):
         session = get_session(self.connection)
         for port, port_binding in db_manager.get_port_with_binding_profile(
@@ -282,7 +281,7 @@ class Synchronization:
                     neutron_oneview_network[0].oneview_network_id
                 )
                 self.fix_connections_with_removed_networks(
-                    server_profile, oneview_uri, server_hardware_id
+                    server_profile, oneview_uri
                 )
                 for c in server_profile.get('connections'):
                     if c.get('mac') == port.get('mac_address'):
@@ -292,31 +291,6 @@ class Synchronization:
                                 oneview_uri, server_profile, c)
             if not connection_updated:
                 self.neutron_oneview_client.port.create(session, port_dict)
-        # for connection in server_profile.get('connections'):
-        #     if connection.get('mac') == port.get('mac_address'):
-        #         if connection.get('networkUri') == oneview_uri:
-        #             connection_found_and_updated = True
-        #             continue
-        #         previous_power_state = self.client.port\
-        #             .get_server_hardware_power_state(
-        #                 server_hardware_uuid
-        #                 )
-        #         self.client.port.update_server_hardware_power_state(
-        #             server_hardware_uuid, "Off")
-        #         connection['networkUri'] = oneview_uri
-        #         self.oneview_client.server_profiles.update(
-        #             resource=server_profile,
-        #             id_or_uri=server_profile.get('uri')
-        #         )
-        #         self.client.port.update_server_hardware_power_state(
-        #             server_hardware_uuid, previous_power_state
-        #             )
-        #         connection_found_and_updated = True
-        #
-        # self.client.port.create(
-        #     session, port.get('network_id'), port.mac_address,
-        #     lli_dict
-        # )
 
     def update_connection(
         self, oneview_uri, server_profile, connection
