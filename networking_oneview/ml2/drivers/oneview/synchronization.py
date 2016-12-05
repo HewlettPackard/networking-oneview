@@ -14,7 +14,7 @@
 #    under the License.
 import json
 import re
-
+import utils
 from datetime import datetime
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
@@ -51,6 +51,17 @@ class Synchronization:
         except Exception:
             return None
 
+    def _remove_inconsistence_from_db(
+        self, session, neutron_network_id, oneview_network_id
+    ):
+        db_manager.delete_neutron_oneview_network(
+            session, neutron_network_id=neutron_network_id
+        )
+
+        db_manager.delete_oneview_network_uplinkset_by_network(
+            session, oneview_network_id
+        )
+
     def create_oneview_networks_from_neutron(self):
         print "==============================================================="
         print "==============================================================="
@@ -62,6 +73,24 @@ class Synchronization:
             db_manager.list_networks_and_segments_with_physnet(session)
         ):
             id = network.get('id')
+            neutron_oneview_network = db_manager.get_neutron_oneview_network(
+                session, id
+            )
+            print neutron_oneview_network
+            if neutron_oneview_network is not None:
+                oneview_network = self.get_oneview_network(
+                    neutron_oneview_network.oneview_network_id
+                )
+                print oneview_network
+                if oneview_network is not None:
+                    continue
+                else:
+                    self._remove_inconsistence_from_db(
+                        session,
+                        neutron_oneview_network.neutron_network_id,
+                        neutron_oneview_network.oneview_network_id
+                    )
+
             physical_network = network_segment.get('physical_network')
             network_type = network_segment.get('network_type')
             segmentation_id = network_segment.get('segmentation_id')

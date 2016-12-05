@@ -127,7 +127,7 @@ class ResourceManager:
 
     def check_server_profile_availability(self, server_hardware_id):
         while True:
-            if not self.get_server_profile_state(
+            if self.get_server_profile_state(
                     server_hardware_id):
                 return True
             time.sleep(5)
@@ -136,8 +136,8 @@ class ResourceManager:
         server_profile_dict = self.server_profile_from_server_hardware(
             server_hardware_id
         )
-        print server_profile_dict.get('status')
-        return server_profile_dict.get('status') != "OK"
+        status = server_profile_dict.get('status')
+        return status == "OK" or status == "CRITICAL"
 
     def get_server_hardware_power_state(self, server_hardware_id):
         server_hardware_dict = self.oneview_client.server_hardware.get(
