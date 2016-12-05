@@ -63,11 +63,6 @@ class Synchronization:
         )
 
     def create_oneview_networks_from_neutron(self):
-        print "==============================================================="
-        print "==============================================================="
-        print "SYNC CREATE SYNC CREATE SYNC CREATE SYNC CREATE SYNC CREATE"
-        print "==============================================================="
-        print "==============================================================="
         session = get_session(self.connection)
         for network, network_segment in (
             db_manager.list_networks_and_segments_with_physnet(session)
@@ -76,12 +71,10 @@ class Synchronization:
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 session, id
             )
-            print neutron_oneview_network
             if neutron_oneview_network is not None:
                 oneview_network = self.get_oneview_network(
                     neutron_oneview_network.oneview_network_id
                 )
-                print oneview_network
                 if oneview_network is not None:
                     continue
                 else:
@@ -94,21 +87,12 @@ class Synchronization:
             physical_network = network_segment.get('physical_network')
             network_type = network_segment.get('network_type')
             segmentation_id = network_segment.get('segmentation_id')
-            print network
-            print segmentation_id
             network_dict = common.network_dict_for_network_creation(
                 physical_network, network_type, id, segmentation_id
             )
-            print "NETWORK DICT:", network_dict
             self.neutron_oneview_client.network.create(session, network_dict)
-            print "NETWORK CREATED"
 
     def synchronize_uplinkset_from_mapped_networks(self):
-        print "==============================================================="
-        print "==============================================================="
-        print "SYNC UPDATE UPLINKSET SYNC UPDATE UPLINKSET"
-        print "==============================================================="
-        print "==============================================================="
         session = get_session(self.connection)
         for neutron_oneview_network in (
             db_manager.list_neutron_oneview_network(session)
@@ -125,50 +109,15 @@ class Synchronization:
                 ),
                 network_segment.get('physical_network')
             )
-            # uplinkset_uri = self.oneview_client.ethernet_networks.get_associated_uplink_groups(
-            #     oneview_network_id
-            # )
-            # print common.id_list_from_uri_list(uplinkset_uri)
-            # print common.uplinkset_id_list_from_oneview_network_uplinkset_list(
-            #     db_manager.list_oneview_network_uplinkset(
-            #         session, oneview_network_id=oneview_network_id
-            #     )
-            # )
-            # print db_manager.list_oneview_network_uplinkset(
-            #     session, oneview_network_id=oneview_network_id
-            # )
-            # for oneview_network_uplinkset in (
-            #     db_manager.list_oneview_network_uplinkset(
-            #         session, oneview_network_id=oneview_network_id
-            #     )
-            # ):
-            #     print oneview_network_uplinkset
-            #     oneview_network = self.oneview_client.ethernet_networks.get(
-            #         oneview_network_uplinkset.oneview_network_id
-            #     )
-            #     print oneview_network
-            #     for uplinkset_uri in self.oneview_client.ethernet_networks.get_associated_uplink_groups()
-
-            print
-        # fail()
 
     def delete_unmapped_oneview_networks(self):
-        print "==============================================================="
-        print "==============================================================="
-        print "SYNC DELETE SYNC DELETE SYNC DELETE SYNC DELETE SYNC DELETE"
-        print "==============================================================="
-        print "==============================================================="
-
         session = get_session(self.connection)
 
         for network in self.oneview_client.ethernet_networks.get_all():
-            print network.get('name')
             m = re.search('Neutron\[(.*)\]', network.get('name'))
             if m:
                 oneview_network_id = common.id_from_uri(network.get('uri'))
                 neutron_network_id = m.group(1)
-                print oneview_network_id
-                print neutron_network_id
 
                 neutron_network = db_manager.get_neutron_network(
                     session, neutron_network_id
@@ -176,58 +125,33 @@ class Synchronization:
                 network_segment = db_manager.get_network_segment(
                     session, neutron_network_id
                 )
-                print neutron_network
-                print network_segment
-                print db_manager.list_neutron_networks(session)
-                # if neutron_network:
-                #     physnet = neutron_network.get('provider:physical_network')
-                #     managed = self.neutron_oneview_client.network.is_managed(
-                #         physnet
-                #     )
                 if neutron_network is None:
-                    print "NEUTRON NETWORK IS NONE"
                     return self.oneview_client.ethernet_networks.delete(
                         oneview_network_id
                     )
-                    # self.neutron_oneview_client.network.delete(
-                    #     session, {'id': neutron_network_id}
-                    # )
-                    # db_manager.delete_neutron_oneview_network(
-                    #     session, oneview_network_id=oneview_network_id
-                    # )
                 else:
-                    print "NEUTRON NETWORK IS [[NOT]] NONE"
                     physnet = network_segment.get('physical_network')
                     network_type = network_segment.get('network_type')
-                    print "Physical Network:", physnet
-                    # print "Is Managed?", self.neutron_oneview_client.network.is_managed(physnet, network_type)
                     if not self.neutron_oneview_client.network.is_managed(
                         physnet, network_type
                     ):
-                        print "NEUTRON NETWORK IS NOT MANAGED"
                         self._delete_connections(neutron_network_id)
                         return self.neutron_oneview_client.network.delete(
                             session, {'id': neutron_network_id}
                         )
-                    # self.oneview_client.ethernet_networks.delete(
-                    #     oneview_network_id
-                    # )
 
     def _delete_connections(self, neutron_network_id):
         session = get_session(self.connection)
-        for port, port_binding in db_manager.get_port_with_binding_profile_by_net(
+        for port, port_binding in (
+            db_manager.get_port_with_binding_profile_by_net(
                 session, neutron_network_id
-                ):
+            )
+        ):
             port_dict = common.port_dict_for_port_creation(
                 port.get('network_id'), port_binding.get('vnic_type'),
                 port.get('mac_address'),
                 json.loads(port_binding.get('profile'))
             )
-            print "==========================================================="
-            print "==========================================================="
-            print "PORT PORT PORT PORT"
-            print "==========================================================="
-            print "==========================================================="
             lli = common.local_link_information_from_port(port_dict)
             server_hardware_id = lli[0].get('switch_info').get(
                 'server_hardware_id'
@@ -238,7 +162,8 @@ class Synchronization:
                 )
             )
             if not self.neutron_oneview_client.port.check_server_hardware_availability(
-                    server_hardware_id):
+                server_hardware_id
+            ):
                 return
 
             previous_power_state = (
@@ -325,13 +250,7 @@ class Synchronization:
     def update_connection(
         self, oneview_uri, server_profile, connection
     ):
-        print "==============================================================="
-        print "==============================================================="
-        print "UPDATE CONNECTION UPDATE CONNECTION UPDATE CONNECTION"
-        print "==============================================================="
-        print "==============================================================="
         connection['networkUri'] = oneview_uri
-        print connection
         previous_power_state = (
             self.neutron_oneview_client.port.get_server_hardware_power_state(
                 server_profile.get('uuid')

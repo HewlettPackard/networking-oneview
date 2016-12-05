@@ -105,10 +105,6 @@ class OneViewDriver(driver_api.MechanismDriver):
     def create_network_postcommit(self, context):
         session = common.session_from_context(context)
         network_dict = common.network_from_context(context)
-        print "---------------------------------------------------------------"
-        print "---------------------------------------------------------------"
-        print "---------------------------------------------------------------"
-        print network_dict
 
         self.neutron_oneview_client.network.create(session, network_dict)
 
