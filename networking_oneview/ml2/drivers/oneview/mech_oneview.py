@@ -29,7 +29,7 @@ from oslo_log import log
 
 
 opts = [
-    cfg.StrOpt('oneview_domain',
+    cfg.StrOpt('oneview_host',
                help=_('URL where OneView is available')),
     cfg.StrOpt('username',
                help=_('OneView username to be used')),
@@ -65,7 +65,7 @@ class OneViewDriver(driver_api.MechanismDriver):
 
     def _initialize_driver(self):
         self.oneview_client = OneViewClient({
-            "ip": CONF.oneview.oneview_domain,
+            "ip": CONF.oneview.oneview_host,
             "credentials": {
                 "userName": CONF.oneview.username,
                 "password": CONF.oneview.password
