@@ -121,7 +121,8 @@ class Synchronization:
 
             self.neutron_oneview_client.network.update_uplinksets(
                 session, oneview_network_id, network_segment.get(
-                    'network_type'),
+                    'network_type'
+                ),
                 network_segment.get('physical_network')
             )
             # uplinkset_uri = self.oneview_client.ethernet_networks.get_associated_uplink_groups(
@@ -205,8 +206,8 @@ class Synchronization:
                     ):
                         print "NEUTRON NETWORK IS NOT MANAGED"
                         self._delete_connections(neutron_network_id)
-                        return self.oneview_client.ethernet_networks.delete(
-                            oneview_network_id
+                        return self.neutron_oneview_client.network.delete(
+                            session, {'id': neutron_network_id}
                         )
                     # self.oneview_client.ethernet_networks.delete(
                     #     oneview_network_id

@@ -336,6 +336,14 @@ class Network(ResourceManager):
         self.remove_network_from_uplink_sets(oneview_network_id, rem_uplinks)
         self.add_network_to_uplink_sets(oneview_network_id, add_uplinksets)
 
+        db_manager.delete_oneview_network_uplinkset_by_network(
+            session, oneview_network_id
+        )
+        for uplinkset_id in uplinksets_id_list:
+            db_manager.insert_oneview_network_uplinkset(
+                session, oneview_network_id, uplinkset_id
+            )
+
 
 class Port(ResourceManager):
 
