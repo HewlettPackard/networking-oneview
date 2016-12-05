@@ -95,7 +95,34 @@ Considering these restrictions, OneView Mechanism Driver is capable of:
 
 OneView Mechanism Driver also implements a fault tolerance process to guarantee
 that all networks and ports that are present in Neutron are correctly reflected
-in OneView.
+in OneView. To ensure that, the verification is executed in the startup of the 
+mechanism driver to check if all the networks and ports which were managed in a 
+prior execution still need to be reflected and, in the same way, if new one 
+should be created in OneView based in the information from the configuration 
+file.
+
+This synchronization process will consider the information of the networks 
+indicated to be managed by the mechanism driver 
+(uplink_set_mappings and flat_net_mappings) from the configuration file and 
+the information stored in the OneView Mechanism Driver tables present in 
+OpenStack Database.
+
+Initially, mapped provider networks are obtained from the configuration file 
+and all networks belonging to them are obtained from Neutron. The mechanism 
+driver checks if these networks are present in its tables and if any of them is 
+missing they will be added in the database, created in the OneView and attached 
+to the configured Uplink Sets. After this verification, if any network not 
+present in the list obtained from Neutron still exists in the database they 
+will be erased from OneView and removed from the table.
+
+In the same way, OneView Mechanism Driver checks the consistence of the ports 
+related with the managed networks with the connections of the server profiles 
+related with the server hardware used by OpenStack. As Neutron Ports stores 
+the “server_hardware_uuid” received by the local_link_information, the 
+Mechanism Driver gets the information for each port and check if the Server 
+Profile used by the indicated Server Hardware have a connection correctly 
+representing this port, and if not, creates it.
+
 
 
 Ironic Configuration
