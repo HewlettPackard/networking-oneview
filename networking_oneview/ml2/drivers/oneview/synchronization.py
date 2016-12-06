@@ -31,7 +31,7 @@ def get_session(connection):
 class Synchronization:
     def __init__(self, oneview_client, neutron_oneview_client, connection):
         self.oneview_client = oneview_client
-        self.neutron_oneview_client = neutron_oneview_client
+        self.neu_ov_client = neutron_oneview_client
         self.connection = connection
 
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
@@ -90,7 +90,7 @@ class Synchronization:
             network_dict = common.network_dict_for_network_creation(
                 physical_network, network_type, id, segmentation_id
             )
-            self.neutron_oneview_client.network.create(session, network_dict)
+            self.neu_ov_client.network.create(session, network_dict)
 
     def synchronize_uplinkset_from_mapped_networks(self):
         session = get_session(self.connection)
@@ -103,7 +103,7 @@ class Synchronization:
                 session, neutron_network_id
             )
 
-            self.neutron_oneview_client.network.update_uplinksets(
+            self.neu_ov_client.network.update_uplinksets(
                 session, oneview_network_id, network_segment.get(
                     'network_type'
                 ),
@@ -132,11 +132,11 @@ class Synchronization:
                 else:
                     physnet = network_segment.get('physical_network')
                     network_type = network_segment.get('network_type')
-                    if not self.neutron_oneview_client.network.is_managed(
+                    if not self.neu_ov_client.network.is_managed(
                         physnet, network_type
                     ):
                         self._delete_connections(neutron_network_id)
-                        return self.neutron_oneview_client.network.delete(
+                        return self.neu_ov_client.network.delete(
                             session, {'id': neutron_network_id}
                         )
 
@@ -157,21 +157,21 @@ class Synchronization:
                 'server_hardware_id'
                 )
             server_profile = (
-                self.neutron_oneview_client.port.server_profile_from_server_hardware(
+                self.neu_ov_client.port.server_profile_from_server_hardware(
                     server_hardware_id
                 )
             )
-            if not self.neutron_oneview_client.port.check_server_hardware_availability(
+            if not self.neu_ov_client.port.check_server_hardware_availability(
                 server_hardware_id
             ):
                 return
 
             previous_power_state = (
-                self.neutron_oneview_client.port.get_server_hardware_power_state(
+                self.neu_ov_client.port.get_server_hardware_power_state(
                     server_hardware_id
                 )
             )
-            self.neutron_oneview_client.port.update_server_hardware_power_state(
+            self.neu_ov_client.port.update_server_hardware_power_state(
                 server_hardware_id, "Off")
 
             for connection in server_profile.get('connections'):
@@ -179,7 +179,7 @@ class Synchronization:
                     self._remove_connection(
                         server_profile, connection.get('id')
                     )
-            self.neutron_oneview_client.port.update_server_hardware_power_state(
+            self.neu_ov_client.port.update_server_hardware_power_state(
                 server_hardware_id, previous_power_state
             )
 
@@ -223,7 +223,7 @@ class Synchronization:
                 'server_hardware_id'
                 )
             server_profile = (
-                self.neutron_oneview_client.port.server_profile_from_server_hardware(
+                self.neu_ov_client.port.server_profile_from_server_hardware(
                     server_hardware_id
                 )
             )
@@ -245,25 +245,25 @@ class Synchronization:
                             self.update_connection(
                                 oneview_uri, server_profile, c)
             if not connection_updated:
-                self.neutron_oneview_client.port.create(session, port_dict)
+                self.neu_ov_client.port.create(session, port_dict)
 
     def update_connection(
         self, oneview_uri, server_profile, connection
     ):
         connection['networkUri'] = oneview_uri
         previous_power_state = (
-            self.neutron_oneview_client.port.get_server_hardware_power_state(
+            self.neu_ov_client.port.get_server_hardware_power_state(
                 server_profile.get('uuid')
             )
         )
-        self.neutron_oneview_client.port.update_server_hardware_power_state(
+        self.neu_ov_client.port.update_server_hardware_power_state(
             server_profile.get('uuid'), "Off"
         )
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
         )
-        self.neutron_oneview_client.port.update_server_hardware_power_state(
+        self.neu_ov_client.port.update_server_hardware_power_state(
             server_profile.get('uuid'), previous_power_state
         )
 
@@ -278,16 +278,16 @@ class Synchronization:
             if self.get_oneview_network(conn_network_id) is not None:
                 sp_cons.append(connection)
         server_profile['connections'] = sp_cons
-        previous_power_state = self.neutron_oneview_client.port\
+        previous_power_state = self.neu_ov_client.port\
             .get_server_hardware_power_state(
                 server_profile.get('serverHardwareUri')
                 )
-        self.neutron_oneview_client.port.update_server_hardware_power_state(
+        self.neu_ov_client.port.update_server_hardware_power_state(
             server_profile.get('serverHardwareUri'), "Off")
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
         )
-        self.neutron_oneview_client.port.update_server_hardware_power_state(
+        self.neu_ov_client.port.update_server_hardware_power_state(
             server_profile.get('serverHardwareUri'), previous_power_state
             )
