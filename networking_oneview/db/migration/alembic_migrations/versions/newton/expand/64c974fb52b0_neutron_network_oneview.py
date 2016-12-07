@@ -32,17 +32,17 @@ down_revision = 'd3435b514502'
 def upgrade():
     op.create_table(
         'neutron_oneview_network',
-        sa.Column('neutron_network_uuid', sa.String(length=36)),
-        sa.Column('oneview_network_uuid', sa.String(length=36)),
+        sa.Column('neutron_network_id', sa.String(length=36)),
+        sa.Column('oneview_network_id', sa.String(length=36)),
         sa.Column('manageable', sa.Boolean),
-        sa.PrimaryKeyConstraint('neutron_network_uuid')
+        sa.PrimaryKeyConstraint('neutron_network_id')
     )
 
     op.create_table(
         'oneview_network_uplinkset',
-        sa.Column('oneview_network_uuid', sa.String(length=36)),
-        sa.Column('oneview_uplinkset_uuid', sa.String(length=36)),
+        sa.Column('oneview_network_id', sa.String(length=36)),
+        sa.Column('oneview_uplinkset_id', sa.String(length=36)),
         sa.PrimaryKeyConstraint(
-            'oneview_network_uuid', 'oneview_uplinkset_uuid'
+            'oneview_network_id', 'oneview_uplinkset_id'
         )
     )
