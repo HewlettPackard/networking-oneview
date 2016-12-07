@@ -31,7 +31,11 @@ opts = [
                help=_('OneView password to be used')),
     cfg.StrOpt('physnet_uplinkset_mapping',
                help=_('UplinkSets to be used')),
-    cfg.StrOpt('tls_cacert_file', help=_("TLS File Path")),
+    cfg.StrOpt(
+        'tls_cacert_file',
+        default='',
+        help=_("TLS File Path")
+    ),
     cfg.StrOpt('flat_physnet_net_mapping',
                help=_('-')),
     cfg.IntOpt('ov_refresh_interval',
@@ -71,11 +75,7 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.oneview_client, self.neutron_oneview_client,
             CONF.database.connection
         )
-        if CONF.oneview.tls_cacert_file.strip():
-            self.oneview_client.connection.set_trusted_ssl_bundle(
-                CONF.oneview.tls_cacert_file
-            )
-
+       
     def _load_network_mappings(self):
         self.physnet_uplinkset_mapping = (
             common.load_conf_option_to_dict(
