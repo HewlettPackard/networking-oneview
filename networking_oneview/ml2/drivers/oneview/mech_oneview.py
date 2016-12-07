@@ -75,7 +75,7 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.oneview_client, self.neutron_oneview_client,
             CONF.database.connection
         )
-       
+
     def _load_network_mappings(self):
         self.physnet_uplinkset_mapping = (
             common.load_conf_option_to_dict(
