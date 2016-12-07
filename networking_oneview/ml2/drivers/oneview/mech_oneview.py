@@ -71,6 +71,10 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.oneview_client, self.neutron_oneview_client,
             CONF.database.connection
         )
+        if CONF.oneview.tls_cacert_file.strip():
+            self.oneview_client.connection.set_trusted_ssl_bundle(
+                CONF.oneview.tls_cacert_file
+            )
 
     def _load_network_mappings(self):
         self.physnet_uplinkset_mapping = (

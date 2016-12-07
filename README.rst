@@ -12,7 +12,7 @@ automatizes some operations previously required to be manual.
 
 
 The diagram below provides an overview of how Neutron and OneView will
-interact using the Neutron-OneView Mechanism Driver. OneView Mechanism
+interact using the OneView Mechanism Driver. OneView Mechanism
 Driver uses HPE Oneview SDK for Python to provide communication between
 Neutron and OneView through OneView's REST API.
 
@@ -38,15 +38,46 @@ Flows:
                  +-------------------+
 
 
-The Neutron-OneView Mechanism Driver aims at having the Ironic-Neutron 
+The OneView Mechanism Driver aims at having the Ironic-Neutron 
 integration for multi-tenancy working with nodes driven by the OneView 
 drivers for Ironic.
 
-To achieve this, the driver:
 
-- Creates a network in OneView for each network in Neutron to physical provider-networks configured in the driver config file
+How the driver works
+=============================
 
-- Adds networks to Uplink Sets in OneView according to Uplink Set mappings defined to the physical provider-network in the driver config file
+The OneView Mechanism Driver considers that not all networking operations that
+are performed in OpenStack need to be reflected in OneView. To identify if a certain
+request should be executed by the driver it might check if the networks and ports are
+related with networks/connections which should be reflected OneView.
+
+For Network Operations, the driver checks if the physical provider-network 
+From Neutron network belongs to is defined as one of the "managed networks" of the
+driver. The concept of "managed networks" refers to the networks configured in
+the driver config file with a mapping to attached it to an Uplink Set in OneView.
+Operations of Networks with no mappings are just ignored by the driver.
+
+These mappings configuration can be made in the configuration file using the
+"uplinkset_mappings" and "flat_net_mappings" attributes, as follows:
+
+- "uplinkset_mappings" are used to define which provider networks from Neutron should be controlled by the OneView Mechanism Driver. In “uplinkset_mappings” attribute it’s necessary to define pairs of Provider Network: Uplink Set UUID to represent desired mappings of Neutron networks to the Uplink Sets the networks that will be created in OneView to reflect them might be attached to have external access. These mappings can be related with “Ethernet” Uplink Sets to support VLAN networks or “Untagged” Uplink Sets to support flat network. In the case of mappings using “Ethernet” Uplink Sets, OneView not allows that more than one network use the same VLAN ID in the same Uplink set and only one mapping is allowed per Logical Interconnect. In the case of “Untagged” Uplink Sets OneView restricts that only one network can be configured to use it.
+
+- "flat_net_mappings" are used to define manual mappings of specific flat provider networks from Neutron to existing Untagged networks in OneView. This configuration can be done to allow OneView administrator to use a configured environment instead of create an entire new one interacting with OpenStack. When a network is mapped with "flat_net_mappings" no operations in OneView are performed since it is considered that all environment was correctly configured by OneView Administrator.
+
+In the case of Port Operations, only ports related to managed networks and with
+the "local_link_information" field populated are considered. When the driver
+identifies that "local_link_information" exists in a given port, it checks if 
+it contains a Server Hardware UUID and boot information. The mech driver also
+uses the information of the MAC address of the requested port to identify the
+specific NIC of the Server Profile where the operation should be executed.
+This information can be directly configured in the Neutron port or passed by
+Ironic port field "local_link_connection".
+
+Considering these restrictions, OneView Mechanism Driver is capable of:
+
+- Create a network in OneView for each network in Neutron to physical provider-networks configured in the driver config file
+
+- Add networks to Uplink Sets in OneView according to Uplink Set mappings defined to the physical provider-network in the driver config file
 
     - "Ethernet" Uplink Sets are used with "vlan" typed provider networks
     - "Untagged" Uplink Sets are used with "flat" typed provider networks
@@ -56,11 +87,60 @@ To achieve this, the driver:
 
     - This covers migration from the flat model to the multi-tenant model
 
-- Creates, removes and updates connections in Server Profiles, implementing Neutron port binding
+- Create, remove and update connections in Server Profiles, implementing Neutron port binding
 
     - Works only with vif_type = baremetal
     - Expects Server Hardware UUID and boot priority in the local_link_information of the port
 
+
+OneView Mechanism Driver also implements a fault tolerance process to guarantee
+that all networks and ports that are present in Neutron are correctly reflected
+in OneView. To ensure that, the verification is executed in the startup of the 
+mechanism driver to check if all the networks and ports which were managed in a 
+prior execution still need to be reflected and, in the same way, if new one 
+should be created in OneView based in the information from the configuration 
+file.
+
+This synchronization process will consider the information of the networks 
+indicated to be managed by the mechanism driver 
+(uplink_set_mappings and flat_net_mappings) from the configuration file and 
+the information stored in the OneView Mechanism Driver tables present in 
+OpenStack Database.
+
+Initially, mapped provider networks are obtained from the configuration file 
+and all networks belonging to them are obtained from Neutron. The mechanism 
+driver checks if these networks are present in its tables and if any of them is 
+missing they will be added in the database, created in the OneView and attached 
+to the configured Uplink Sets. After this verification, if any network not 
+present in the list obtained from Neutron still exists in the database they 
+will be erased from OneView and removed from the table.
+
+In the same way, OneView Mechanism Driver checks the consistence of the ports 
+related with the managed networks with the connections of the server profiles 
+related with the server hardware used by OpenStack. As Neutron Ports stores 
+the “server_hardware_uuid” received by the local_link_information, the 
+Mechanism Driver gets the information for each port and check if the Server 
+Profile used by the indicated Server Hardware have a connection correctly 
+representing this port, and if not, creates it.
+
+
+
+Ironic Configuration
+=============================
+By default, Ironic is configured to use flat networks during deployment process. To use Ironic-Neutron integration to provide networks isolation during deployment, some configurations are necessary. In ironic.conf file the following configuration should be done:
+::
+
+    enabled_network_interfaces = flat,noop,neutron
+    default_network_interface = neutron
+    cleaning_network_uuid = neutron_cleaning_network_UUID
+    provisioning_network_uuid = neutron_provisioning_network_UUID
+
+As mentioned in the previous section, the OneView Mechanism Driver needs to receive the “local_link_connection” from Ironic ports to perform networking ports operations. Once Ironic ports don’t have any information stored by default, it’s necessary to update existing ports with the desired data to data field as follow:
+::
+
+    ironic --ironic-api-version 1.22 port-update Ironic_node_ID replace local_link_connection="{\"switch_id\": \"aa:bb:cc:dd:ee:ff\", \"port_id\": \"\", \"switch_info\": \"{'server_hardware_uuid': 'value', 'bootable':'true/false'}\"}"
+
+In “local_link_connection”, switch_id and port_id are necessary to identify specific the switch/port where the operation should be performed, but as OneView Mechanism Driver doesn’t deals directly with switches, this information is not necessary. “switch_info” attribute can receive any information and because of it, will be to configured with information demanded by OneView Mechanism Driver. Two information need to be passed: ‘server_hardware_uuid’ and ‘bootable’. ‘server_hardware_uuid’ identifies in which Server Hardware the connection to represent the new port will be created and ‘bootable’ indicates if this connection will be bootable or not. To identify the port where the connection need to be created, the MAC address already configured in the Ironic port will be used.
 
 Install
 =============================
@@ -127,13 +207,20 @@ Install
        
         flat_net_mappings=<flat-physical-network1-name>:<oneview-network1-id>,<flat-physical-network2-name>:<oneview-network2-id>,...
         
-        ov_refresh_interval=<ov_refresh_interval> (ov_refresh_interval is used in seconds and is optional - default valeu is 3600)
+        ov_refresh_interval=<ov_refresh_interval> 
+        
+        tls_cacert_file = <TLS File Path>
+        
+
+“ov_refresh_interval” is used to configure the period (in seconds) in which the mechanism driver will execute the periodic synchronization to check if any inconsistence exists between Neutron and OneView and correct them if possible. This attribute is optional and if not configured the default value is 3600 seconds.
+
+To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from OneView. 
 
 
 - Examples of the lines are:
 ::
 
-    oneview_ip=10.5.0.33
+    oneview_domain_name=OneView_Server_Name
 
     username=admin
 
@@ -144,6 +231,8 @@ Install
     flat_net_mappings=physnet3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,physnet4:66666666-ba2e-490a-81f9-2226c240f3d9
 
     ov_refresh_interval=3600
+    
+    tls_cacert_file = /home/ubuntu/certificate/appliance.com.crt
 
 
     [ml2_type_flat]
@@ -197,11 +286,21 @@ Install
 License
 =============================
 
-Apache License: Version 2.0, January 2004
+OneView ML2 Mechanism Driver is distributed under the terms of the Apache
+License, Version 2.0. The full terms and conditions of this license are detailed
+in the LICENSE file.
 
 
 Contributing
 =============================
+
+You know the drill. Fork it, branch it, change it, commit it, and pull-request
+it. We are passionate about improving this project, and glad to accept help to
+make it better. However, keep the following in mind:
+
+-  Contributed code must have the same license of the repository.
+
+- We reserve the right to reject changes that we feel do not fit the scope of this project, so for feature additions, please open an issue to discuss your ideas before doing the work.
 
 - If you would like to contribute to the development of OpenStack, you must follow the steps in this page:
 
@@ -211,6 +310,3 @@ Contributing
   tool, following the workflow documented at:
 
     http://docs.openstack.org/infra/manual/developers.html#development-workflow
-
-
-
