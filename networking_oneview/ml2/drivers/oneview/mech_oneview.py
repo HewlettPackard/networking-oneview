@@ -22,7 +22,7 @@ from oslo_config import cfg
 
 
 opts = [
-    cfg.StrOpt('oneview_ip',
+    cfg.StrOpt('oneview_host',
                help=_('IP where OneView is available')),
     cfg.StrOpt('username',
                help=_('OneView username to be used')),
@@ -46,7 +46,7 @@ CONF.register_opts(opts, group='oneview')
 
 def get_oneview_client():
     return OneViewClient({
-        "ip": CONF.oneview.oneview_ip,
+        "ip": CONF.oneview.oneview_host,
         "credentials": {
             "userName": CONF.oneview.username,
             "password": CONF.oneview.password

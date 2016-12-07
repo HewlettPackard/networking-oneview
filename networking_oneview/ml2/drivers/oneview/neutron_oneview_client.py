@@ -255,7 +255,7 @@ class Network(ResourceManager):
             ).get(physical_network)
             network_type = 'Tagged' if network_seg_id else 'Untagged'
             oneview_network = self._create_network_on_oneview(
-                name="Neutron[" + network_id + "]",
+                name="Neutron [" + network_id + "]",
                 network_type=network_type, seg_id=network_seg_id
             )
             oneview_network_id = common.id_from_uri(oneview_network.get('uri'))
