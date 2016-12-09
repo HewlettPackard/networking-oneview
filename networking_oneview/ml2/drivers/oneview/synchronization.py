@@ -114,7 +114,7 @@ class Synchronization:
         session = get_session(self.connection)
 
         for network in self.oneview_client.ethernet_networks.get_all():
-            m = re.search('Neutron\[(.*)\]', network.get('name'))
+            m = re.search('Neutron \[(.*)\]', network.get('name'))
             if m:
                 oneview_network_id = common.id_from_uri(network.get('uri'))
                 neutron_network_id = m.group(1)

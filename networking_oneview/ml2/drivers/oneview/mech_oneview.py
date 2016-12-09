@@ -93,7 +93,6 @@ class OneViewDriver(driver_api.MechanismDriver):
         session = common.session_from_context(context)
         port_dict = common.port_from_context(context)
         self.neutron_oneview_client.port.create(session, port_dict)
-
         port = context.current
         vnic_type = port['binding:vnic_type']
         if vnic_type != portbindings.VNIC_BAREMETAL:
