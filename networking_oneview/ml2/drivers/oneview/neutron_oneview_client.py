@@ -134,7 +134,6 @@ class ResourceManager:
             server_hardware_id
         )
         status = server_profile_dict.get('status')
-        print status
         return status
 
     def get_server_hardware_power_state(self, server_hardware_id):
@@ -380,11 +379,6 @@ class Port(ResourceManager):
             str(port_info.get('virtual_port_function'))
 
     def create(self, session, port_dict):
-        print "=============================================================="
-        print "=============================================================="
-        print "=============================================================="
-        print "=============================================================="
-        print "CREATE PORT CREATE PORT CREATE PORT CREATE PORT CREATE PORT"
         vnic_type = port_dict.get('binding:vnic_type')
         network_id = port_dict.get('network_id')
         mac_address = port_dict.get('mac_address')
@@ -421,8 +415,7 @@ class Port(ResourceManager):
         )
         boot_priority = self._get_boot_priority(server_profile, bootable)
         port_id = self._port_id_from_mac(server_hardware_id, mac_address)
-        print "PORT_ID:", port_id
-
+        
         server_profile['connections'].append({
             'name': "NeutronPort[" + mac_address + "]",
             'portId': port_id,
