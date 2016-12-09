@@ -161,11 +161,10 @@ class Synchronization:
                     server_hardware_id
                 )
             )
-            if not self.neu_ov_client.port.check_server_hardware_availability(
-                server_hardware_id
-            ):
-                return
 
+            self.neu_ov_client.port.check_server_hardware_availability(
+                server_hardware_id
+            )
             previous_power_state = (
                 self.neu_ov_client.port.get_server_hardware_power_state(
                     server_hardware_id
@@ -251,6 +250,9 @@ class Synchronization:
         self, oneview_uri, server_profile, connection
     ):
         connection['networkUri'] = oneview_uri
+        self.neu_ov_client.port.check_server_hardware_availability(
+            server_profile.get('uuid')
+        )
         previous_power_state = (
             self.neu_ov_client.port.get_server_hardware_power_state(
                 server_profile.get('uuid')
@@ -278,6 +280,9 @@ class Synchronization:
             if self.get_oneview_network(conn_network_id) is not None:
                 sp_cons.append(connection)
         server_profile['connections'] = sp_cons
+        self.neu_ov_client.port.check_server_hardware_availability(
+            server_profile.get('serverHardwareUri')
+        )
         previous_power_state = self.neu_ov_client.port\
             .get_server_hardware_power_state(
                 server_profile.get('serverHardwareUri')
