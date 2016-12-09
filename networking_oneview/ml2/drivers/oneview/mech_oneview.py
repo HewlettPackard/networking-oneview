@@ -75,7 +75,7 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.oneview_client, self.neutron_oneview_client,
             CONF.database.connection
         )
-       
+
     def _load_network_mappings(self):
         self.physnet_uplinkset_mapping = (
             common.load_conf_option_to_dict(
@@ -90,6 +90,10 @@ class OneViewDriver(driver_api.MechanismDriver):
 
     def bind_port(self, context):
         """Bind baremetal port to a network."""
+        session = common.session_from_context(context)
+        port_dict = common.port_from_context(context)
+        self.neutron_oneview_client.port.create(session, port_dict)
+
         port = context.current
         vnic_type = port['binding:vnic_type']
         if vnic_type != portbindings.VNIC_BAREMETAL:
@@ -123,10 +127,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         self.neutron_oneview_client.network.delete(session, network_dict)
 
     def create_port_postcommit(self, context):
-        session = common.session_from_context(context)
-        port_dict = common.port_from_context(context)
-
-        self.neutron_oneview_client.port.create(session, port_dict)
+        pass
 
     def delete_port_postcommit(self, context):
         session = common.session_from_context(context)
