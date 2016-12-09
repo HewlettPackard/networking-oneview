@@ -408,6 +408,14 @@ To set TLS options for the communication with OneView, it is necessary to downlo
 
     $ sudo python oneview_network_db_tables.py
 
+6. To finish, execute:
+
+::
+
+    $ cd /opt/stack/neutron/
+
+    $ sudo python setup.py install
+
 
 License
 =============================
