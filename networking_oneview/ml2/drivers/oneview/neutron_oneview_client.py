@@ -415,7 +415,7 @@ class Port(ResourceManager):
         )
         boot_priority = self._get_boot_priority(server_profile, bootable)
         port_id = self._port_id_from_mac(server_hardware_id, mac_address)
-        
+
         server_profile['connections'].append({
             'name': "NeutronPort[" + mac_address + "]",
             'portId': port_id,
