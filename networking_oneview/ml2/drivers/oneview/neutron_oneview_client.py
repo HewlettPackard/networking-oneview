@@ -134,7 +134,6 @@ class ResourceManager:
             server_hardware_id
         )
         status = server_profile_dict.get('status')
-        print status
         return status
 
     def get_server_hardware_power_state(self, server_hardware_id):
@@ -309,6 +308,8 @@ class Network(ResourceManager):
         uplinksets_id_list = self.physnet_uplinkset_mapping.get(
             self._NEUTRON_NET_TYPE_TO_ONEVIEW_NET_TYPE.get(network_type)
         ).get(physical_network)
+        if uplinksets_id_list is None:
+            uplinksets_id_list = []
 
         add_uplinksets = set(uplinksets_id_list).difference(net_uplinksets_id)
         rem_uplinks = set(net_uplinksets_id).difference(uplinksets_id_list)
