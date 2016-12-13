@@ -20,4 +20,3 @@ def drop_tables(connection):
 if __name__ == '__main__':
     connection = 'mysql+pymysql://root:stackdb@127.0.0.1/neutron?charset=utf8'
     create_tables(connection)
-    
