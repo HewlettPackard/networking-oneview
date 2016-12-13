@@ -380,6 +380,7 @@ class Port(ResourceManager):
 
     def create(self, session, port_dict):
         vnic_type = port_dict.get('binding:vnic_type')
+        host_id = port_dict.get('binding:host_id')
         network_id = port_dict.get('network_id')
         mac_address = port_dict.get('mac_address')
 

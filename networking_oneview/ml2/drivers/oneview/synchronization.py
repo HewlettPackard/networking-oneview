@@ -15,6 +15,8 @@
 import json
 import re
 import utils
+import sys
+import time
 from datetime import datetime
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
@@ -33,11 +35,12 @@ class Synchronization:
         self.oneview_client = oneview_client
         self.neu_ov_client = neutron_oneview_client
         self.connection = connection
-
+        #self.synchronize()
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=3600, initial_delay=0)
 
     def synchronize(self):
+        self.check_unique_uplinkset_constraint()
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
         self.synchronize_uplinkset_from_mapped_networks()
@@ -62,7 +65,38 @@ class Synchronization:
             session, oneview_network_id
         )
 
+    # def check_unique_uplinkset_constraint(self):
+    #     print "###############################################"
+    #     print "###############################################"
+    #     print "###############################################"
+    #     print "###############################################"
+    #     mapped_uplinksets = []
+    #     physnet_mappings = self.neu_ov_client.port.physnet_uplinkset_mapping
+    #     print physnet_mappings
+    #     for key in physnet_mappings:
+    #         for _type in physnet_mappings[key]:
+    #             for uplinkset in physnet_mappings.get('key')[_type]
+    #             print uplinkset
+    #             if uplinkset in mapped_uplinksets:
+    #                 err = "Uplinkset %(uplinkset)s is used by more"
+    #                 "than one Physnet", {
+    #                     'uplinkset': uplinkset
+    #                 }
+    #
+    #                 print err
+    #                 LOG.error(err)
+    #                 sys.exit(1)
+    #             print "###############################################"
+    #             print "###############################################"
+    #             print uplinkset
+    #             mapped_uplinksets.append(uplinkset)
+    #     time.sleep(10)
+
     def create_oneview_networks_from_neutron(self):
+        print "###############################################"
+        print "###############################################"
+        print "###############################################"
+        print "###############################################"
         session = get_session(self.connection)
         for network, network_segment in (
             db_manager.list_networks_and_segments_with_physnet(session)

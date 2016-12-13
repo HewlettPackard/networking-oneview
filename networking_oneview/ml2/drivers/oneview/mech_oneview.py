@@ -14,6 +14,7 @@
 #    under the License.
 
 from hpOneView.oneview_client import OneViewClient
+from neutron.extensions import portbindings
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.ml2.drivers.oneview import common
 from neutron.plugins.ml2.drivers.oneview import synchronization

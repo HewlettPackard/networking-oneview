@@ -63,11 +63,12 @@ def network_dict_for_network_creation(
 
 
 def port_dict_for_port_creation(
-    network_id, vnic_type, mac_address, profile
+    network_id, vnic_type, mac_address, profile, host_id='host_id'
 ):
     return {
         'network_id': network_id,
         'binding:vnic_type': vnic_type,
+        'binding:host_id': host_id,
         'mac_address': mac_address,
         'binding:profile': profile
     }
