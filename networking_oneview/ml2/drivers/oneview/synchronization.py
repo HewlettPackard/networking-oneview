@@ -16,11 +16,14 @@ import json
 import re
 import utils
 from datetime import datetime
-from neutron.plugins.ml2.drivers.oneview import common
-from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from oslo_service import loopingcall
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+from networking_oneview.plugins.ml2.drivers.oneview import common
+from networking_oneview.plugins.ml2.drivers.oneview import(
+    database_manager as db_manager
+)
 
 
 def get_session(connection):

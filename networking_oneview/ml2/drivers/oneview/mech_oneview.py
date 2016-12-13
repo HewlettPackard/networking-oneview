@@ -15,11 +15,13 @@
 
 from hpOneView.oneview_client import OneViewClient
 from neutron.plugins.ml2 import driver_api
-from neutron.plugins.ml2.drivers.oneview import common
-from neutron.plugins.ml2.drivers.oneview import synchronization
-from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
 from oslo_config import cfg
 
+from networking_oneview.plugins.ml2.drivers.oneview import common
+from networking_oneview.plugins.ml2.drivers.oneview import synchronization
+from networking_oneview.plugins.ml2.drivers.oneview.neutron_oneview_client(
+    import Client
+)
 
 opts = [
     cfg.StrOpt('oneview_host',

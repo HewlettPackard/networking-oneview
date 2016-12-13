@@ -16,12 +16,13 @@
 
 from neutron.db.models_v2 import Network
 from neutron.db.models_v2 import Port
-from neutron.db import oneview_network_db
-from neutron.db.oneview_network_db import NeutronOneviewNetwork
-from neutron.db.oneview_network_db import OneviewNetworkUplinkset
-from neutron.db.segments_db import NetworkSegment
 from neutron.plugins.ml2.models import PortBinding
 from sqlalchemy import event
+from neutron.db.segments_db import NetworkSegment
+
+from networking_oneview.db.oneview_network_db import NeutronOneviewNetwork
+from networking_oneview.db.oneview_network_db import OneviewNetworkUplinkset
+from networking_oneview.db import oneview_network_db
 
 
 # Neutron Network
