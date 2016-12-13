@@ -7,9 +7,11 @@ from neutron.db.model_base import BASEV2
 from networking_oneview.db.oneview_network_db import NeutronOneviewNetwork
 from networking_oneview.db.oneview_network_db import OneviewNetworkUplinkset
 
+
 def create_tables(connection):
     engine = create_engine(connection)
     BASEV2.metadata.create_all(engine)
+
 
 def drop_tables(connection):
     engine = create_engine(connection)
@@ -17,6 +19,4 @@ def drop_tables(connection):
 
 if __name__ == '__main__':
     connection = 'mysql+pymysql://root:stackdb@127.0.0.1/neutron?charset=utf8'
-    #drop_tables(connection)
     create_tables(connection)
-
