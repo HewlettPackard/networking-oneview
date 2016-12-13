@@ -35,12 +35,12 @@ class Synchronization:
         self.oneview_client = oneview_client
         self.neu_ov_client = neutron_oneview_client
         self.connection = connection
-        #self.synchronize()
+        # self.synchronize()
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=3600, initial_delay=0)
 
     def synchronize(self):
-        self.check_unique_uplinkset_constraint()
+        # self.check_unique_uplinkset_constraint()
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
         self.synchronize_uplinkset_from_mapped_networks()
@@ -93,10 +93,6 @@ class Synchronization:
     #     time.sleep(10)
 
     def create_oneview_networks_from_neutron(self):
-        print "###############################################"
-        print "###############################################"
-        print "###############################################"
-        print "###############################################"
         session = get_session(self.connection)
         for network, network_segment in (
             db_manager.list_networks_and_segments_with_physnet(session)
@@ -124,6 +120,7 @@ class Synchronization:
             network_dict = common.network_dict_for_network_creation(
                 physical_network, network_type, id, segmentation_id
             )
+
             self.neu_ov_client.network.create(session, network_dict)
 
     def synchronize_uplinkset_from_mapped_networks(self):
@@ -136,13 +133,13 @@ class Synchronization:
             network_segment = db_manager.get_network_segment(
                 session, neutron_network_id
             )
-
-            self.neu_ov_client.network.update_uplinksets(
-                session, oneview_network_id, network_segment.get(
-                    'network_type'
-                ),
-                network_segment.get('physical_network')
-            )
+            if network_segment is not None:
+                self.neu_ov_client.network.update_uplinksets(
+                    session, oneview_network_id, network_segment.get(
+                        'network_type'
+                    ),
+                    network_segment.get('physical_network')
+                )
 
     def delete_unmapped_oneview_networks(self):
         session = get_session(self.connection)
