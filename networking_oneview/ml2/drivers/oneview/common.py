@@ -40,10 +40,10 @@ def load_conf_option_to_dict(key_value_option):
 
     for key_value in key_value_list:
         key, value = key_value.split(':')
-        if key_value_dict.get(key) is None:
+        key = key.strip()
+        if key not in key_value_dict:
             key_value_dict[key] = []
         key_value_dict[key].append(value)
-
     return key_value_dict
 
 
