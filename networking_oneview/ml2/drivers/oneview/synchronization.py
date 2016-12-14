@@ -14,16 +14,13 @@
 #    under the License.
 import json
 import re
-import utils
 from datetime import datetime
 from oslo_service import loopingcall
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from networking_oneview.plugins.ml2.drivers.oneview import common
-from networking_oneview.plugins.ml2.drivers.oneview import(
-    database_manager as db_manager
-)
+from networking_oneview.ml2.drivers.oneview import common
+from networking_oneview.ml2.drivers.oneview import database_manager as db_manager
 
 
 def get_session(connection):
@@ -275,7 +272,7 @@ class Synchronization:
     ):
         sp_cons = []
         for connection in server_profile.get('connections'):
-            conn_network_id = oneview_network_id = utils.id_from_uri(
+            conn_network_id = oneview_network_id = common.id_from_uri(
                 connection.get('networkUri')
             )
             if self.get_oneview_network(conn_network_id) is not None:

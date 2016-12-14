@@ -20,10 +20,9 @@ import time
 from hpOneView import exceptions
 from oslo_log import log
 
-from networking_oneview.plugins.ml2.drivers.oneview import common
-from networking_oneview.plugins.ml2.drivers.oneview(
-    import database_manager as db_manager
-)
+from networking_oneview.ml2.drivers.oneview import common
+from networking_oneview.ml2.drivers.oneview import database_manager as db_manager
+
 
 LOG = log.getLogger(__name__)
 
