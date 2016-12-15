@@ -382,6 +382,7 @@ class Port(ResourceManager):
 
     def create(self, session, port_dict):
         vnic_type = port_dict.get('binding:vnic_type')
+        host_id = port_dict.get('binding:host_id')
         network_id = port_dict.get('network_id')
         mac_address = port_dict.get('mac_address')
 
@@ -426,6 +427,7 @@ class Port(ResourceManager):
             'functionType': 'Ethernet'
         })
         self.check_server_profile_availability(server_hardware_id)
+        self.check_server_hardware_availability(server_hardware_id)
         previous_power_state = self.get_server_hardware_power_state(
             server_hardware_id
         )
@@ -478,6 +480,7 @@ class Port(ResourceManager):
         if connection:
             server_profile.get('connections').remove(connection)
         self.check_server_profile_availability(server_hardware_id)
+        self.check_server_hardware_availability(server_hardware_id)
         previous_power_state = self.get_server_hardware_power_state(
             server_hardware_id
         )
