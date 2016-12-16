@@ -47,4 +47,3 @@ def upgrade():
             'oneview_network_id', 'oneview_uplinkset_id'
         )
     )
-
