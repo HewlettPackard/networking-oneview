@@ -21,7 +21,7 @@ from networking_oneview.ml2.drivers.oneview import common
 from networking_oneview.ml2.drivers.oneview import synchronization
 from networking_oneview.ml2.drivers.oneview.neutron_oneview_client import (
     Client
-    )
+)
 
 
 opts = [
