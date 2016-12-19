@@ -14,7 +14,12 @@
 #    under the License.
 
 from hpOneView.oneview_client import OneViewClient
+from neutron.extensions import portbindings
 from neutron.plugins.ml2 import driver_api
+from neutron.plugins.common import constants as p_const
+from neutron.plugins.ml2.drivers.oneview import common
+from neutron.plugins.ml2.drivers.oneview import synchronization
+from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
 from oslo_config import cfg
 
 from networking_oneview.ml2.drivers.oneview import common
@@ -93,6 +98,9 @@ class OneViewDriver(driver_api.MechanismDriver):
 
     def bind_port(self, context):
         """Bind baremetal port to a network."""
+        session = common.session_from_context(context)
+        port_dict = common.port_from_context(context)
+        self.neutron_oneview_client.port.create(session, port_dict)
         port = context.current
         vnic_type = port['binding:vnic_type']
         if vnic_type != portbindings.VNIC_BAREMETAL:
@@ -126,10 +134,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         self.neutron_oneview_client.network.delete(session, network_dict)
 
     def create_port_postcommit(self, context):
-        session = common.session_from_context(context)
-        port_dict = common.port_from_context(context)
-
-        self.neutron_oneview_client.port.create(session, port_dict)
+        pass
 
     def delete_port_postcommit(self, context):
         session = common.session_from_context(context)

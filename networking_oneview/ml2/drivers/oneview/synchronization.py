@@ -14,8 +14,11 @@
 #    under the License.
 import json
 import re
+import utils
+import sys
 from datetime import datetime
 from oslo_service import loopingcall
+from oslo_log import log
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -35,7 +38,7 @@ class Synchronization:
         self.oneview_client = oneview_client
         self.neu_ov_client = neutron_oneview_client
         self.connection = connection
-
+        self.check_unique_uplinkset_constraint()
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=3600, initial_delay=0)
 
@@ -63,6 +66,35 @@ class Synchronization:
         db_manager.delete_oneview_network_uplinkset_by_network(
             session, oneview_network_id
         )
+
+    def check_unique_uplinkset_constraint(self):
+        mapped_uplinksets = []
+        physnet_mappings = self.neu_ov_client.port.physnet_uplinkset_mapping
+        for key in physnet_mappings:
+            for _type in physnet_mappings[key]:
+                uplinksets = physnet_mappings[key][_type]
+                uplinksets_checked = []
+                for uplinkset in uplinksets:
+                    if uplinkset in uplinksets_checked:
+                        warning = (
+                            "Uplinkset %(uplinkset)s is duplicated "
+                            "in the same Physical Network") % {
+                                'uplinkset': uplinkset
+                                }
+                        LOG.warning(warning)
+                    else:
+                        uplinksets_checked.append(uplinkset)
+                for uplinkset in uplinksets_checked:
+                    if uplinkset in mapped_uplinksets:
+                        err = (
+                            "Uplinkset %(uplinkset)s is used by more"
+                            "than one Physical Network") % {
+                                'uplinkset': uplinkset
+                                }
+                        LOG.error(err)
+                        sys.exit(1)
+                    else:
+                        mapped_uplinksets.append(uplinkset)
 
     def create_oneview_networks_from_neutron(self):
         session = get_session(self.connection)
@@ -92,6 +124,7 @@ class Synchronization:
             network_dict = common.network_dict_for_network_creation(
                 physical_network, network_type, id, segmentation_id
             )
+
             self.neu_ov_client.network.create(session, network_dict)
 
     def synchronize_uplinkset_from_mapped_networks(self):
@@ -104,19 +137,19 @@ class Synchronization:
             network_segment = db_manager.get_network_segment(
                 session, neutron_network_id
             )
-
-            self.neu_ov_client.network.update_uplinksets(
-                session, oneview_network_id, network_segment.get(
-                    'network_type'
-                ),
-                network_segment.get('physical_network')
-            )
+            if network_segment is not None:
+                self.neu_ov_client.network.update_uplinksets(
+                    session, oneview_network_id, network_segment.get(
+                        'network_type'
+                    ),
+                    network_segment.get('physical_network')
+                )
 
     def delete_unmapped_oneview_networks(self):
         session = get_session(self.connection)
 
         for network in self.oneview_client.ethernet_networks.get_all():
-            m = re.search('Neutron\[(.*)\]', network.get('name'))
+            m = re.search('Neutron \[(.*)\]', network.get('name'))
             if m:
                 oneview_network_id = common.id_from_uri(network.get('uri'))
                 neutron_network_id = m.group(1)
@@ -163,11 +196,10 @@ class Synchronization:
                     server_hardware_id
                 )
             )
-            if not self.neu_ov_client.port.check_server_hardware_availability(
-                server_hardware_id
-            ):
-                return
 
+            self.neu_ov_client.port.check_server_hardware_availability(
+                server_hardware_id
+            )
             previous_power_state = (
                 self.neu_ov_client.port.get_server_hardware_power_state(
                     server_hardware_id
@@ -253,6 +285,9 @@ class Synchronization:
         self, oneview_uri, server_profile, connection
     ):
         connection['networkUri'] = oneview_uri
+        self.neu_ov_client.port.check_server_hardware_availability(
+            server_profile.get('uuid')
+        )
         previous_power_state = (
             self.neu_ov_client.port.get_server_hardware_power_state(
                 server_profile.get('uuid')
@@ -280,6 +315,9 @@ class Synchronization:
             if self.get_oneview_network(conn_network_id) is not None:
                 sp_cons.append(connection)
         server_profile['connections'] = sp_cons
+        self.neu_ov_client.port.check_server_hardware_availability(
+            server_profile.get('serverHardwareUri')
+        )
         previous_power_state = self.neu_ov_client.port\
             .get_server_hardware_power_state(
                 server_profile.get('serverHardwareUri')

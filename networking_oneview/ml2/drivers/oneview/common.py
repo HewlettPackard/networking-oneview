@@ -40,10 +40,10 @@ def load_conf_option_to_dict(key_value_option):
 
     for key_value in key_value_list:
         key, value = key_value.split(':')
-        if key_value_dict.get(key) is None:
+        key = key.strip()
+        if key not in key_value_dict:
             key_value_dict[key] = []
         key_value_dict[key].append(value)
-
     return key_value_dict
 
 
@@ -63,11 +63,12 @@ def network_dict_for_network_creation(
 
 
 def port_dict_for_port_creation(
-    network_id, vnic_type, mac_address, profile
+    network_id, vnic_type, mac_address, profile, host_id='host_id'
 ):
     return {
         'network_id': network_id,
         'binding:vnic_type': vnic_type,
+        'binding:host_id': host_id,
         'mac_address': mac_address,
         'binding:profile': profile
     }
