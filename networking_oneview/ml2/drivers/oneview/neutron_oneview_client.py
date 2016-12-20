@@ -18,9 +18,13 @@ import six
 import time
 
 from hpOneView import exceptions
-from neutron.plugins.ml2.drivers.oneview import common
-from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from oslo_log import log
+
+from networking_oneview.ml2.drivers.oneview import common
+from networking_oneview.ml2.drivers.oneview import (
+    database_manager as db_manager
+)
+
 
 LOG = log.getLogger(__name__)
 
@@ -134,7 +138,6 @@ class ResourceManager:
             server_hardware_id
         )
         status = server_profile_dict.get('status')
-        print status
         return status
 
     def get_server_hardware_power_state(self, server_hardware_id):
@@ -309,6 +312,8 @@ class Network(ResourceManager):
         uplinksets_id_list = self.physnet_uplinkset_mapping.get(
             self._NEUTRON_NET_TYPE_TO_ONEVIEW_NET_TYPE.get(network_type)
         ).get(physical_network)
+        if uplinksets_id_list is None:
+            uplinksets_id_list = []
 
         add_uplinksets = set(uplinksets_id_list).difference(net_uplinksets_id)
         rem_uplinks = set(net_uplinksets_id).difference(uplinksets_id_list)
@@ -386,6 +391,7 @@ class Port(ResourceManager):
         print "=============================================================="
         print "CREATE PORT CREATE PORT CREATE PORT CREATE PORT CREATE PORT"
         vnic_type = port_dict.get('binding:vnic_type')
+        host_id = port_dict.get('binding:host_id')
         network_id = port_dict.get('network_id')
         mac_address = port_dict.get('mac_address')
 

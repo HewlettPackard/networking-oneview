@@ -13,20 +13,21 @@
 #    under the License.
 #
 
-"""neutron_network_oneview
+"""initial db version
 
-Revision ID: 64c974fb52b0
-Revises: d3435b514502
-Create Date: 2016-06-16 13:25:08.761553
+Revision ID: 56529a79cf3b
+Revises: abd1dbdb47a5
+Create Date: 2016-12-16 11:24:37.752589
 
 """
 
 from alembic import op
 import sqlalchemy as sa
 
+
 # revision identifiers, used by Alembic.
-revision = '64c974fb52b0'
-down_revision = 'd3435b514502'
+revision = '56529a79cf3b'
+down_revision = None
 
 
 def upgrade():

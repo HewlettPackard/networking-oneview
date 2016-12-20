@@ -142,7 +142,142 @@ As mentioned in the previous section, the OneView Mechanism Driver needs to rece
 
 In “local_link_connection”, switch_id and port_id are necessary to identify specific the switch/port where the operation should be performed, but as OneView Mechanism Driver doesn’t deals directly with switches, this information is not necessary. “switch_info” attribute can receive any information and because of it, will be to configured with information demanded by OneView Mechanism Driver. Two information need to be passed: ‘server_hardware_uuid’ and ‘bootable’. ‘server_hardware_uuid’ identifies in which Server Hardware the connection to represent the new port will be created and ‘bootable’ indicates if this connection will be bootable or not. To identify the port where the connection need to be created, the MAC address already configured in the Ironic port will be used.
 
-Install
+Install with PyPi
+=============================
+
+1. The ML2 Mechanism Driver:
+::
+
+    $ pip install networking-oneview
+
+
+2. Making ML2_conf.ini file configurations: 
+
+- Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
+
+::
+
+    mechanism_drivers = openvswitch,linuxbridge,genericswitch,oneview
+
+- Find the correspondent line and insert the flat physical networks:
+
+::
+
+    [ml2_type_flat]
+
+    flat_networks = public,<flat-physical-network1-name>,<flat-physical-network2-name>*
+
+- Find the correspondent line and insert the vlan physical networks:
+
+::
+
+    [ml2_type_vlan]
+
+    network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>
+
+- Copy the following lines to the end of this file:
+
+::
+
+        [oneview]
+
+        oneview_host=<OneView server IP address>
+
+        username=<OneView username>
+
+        password=<OneView password>
+
+        uplinkset_mapping=<physical-network1-name>:<oneview-uplinkset1_uuid>,<physical-network2-name>:<uplinkset2_uuid>,...
+       
+        flat_net_mappings=<flat-physical-network1-name>:<oneview-network1-id>,<flat-physical-network2-name>:<oneview-network2-id>,...
+        
+        ov_refresh_interval=<ov_refresh_interval> 
+        
+        tls_cacert_file = <TLS File Path>
+        
+
+“ov_refresh_interval” is used to configure the period (in seconds) in which the mechanism driver will execute the periodic synchronization to check if any inconsistence exists between Neutron and OneView and correct them if possible. This attribute is optional and if not configured the default value is 3600 seconds.
+
+To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from OneView. 
+
+
+- Examples of the lines are:
+
+::
+
+    oneview_host=OneView_IP_address
+
+    username=admin
+
+    password=password
+
+    uplinkset_mapping=physnet1:8b4d1932-2528-4f32-8b00-3879cfa1de28,physnet2:f0be6758-4b4b-4596-8aa1-6c38d2422d4f
+
+    flat_net_mappings=physnet3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,physnet4:66666666-ba2e-490a-81f9-2226c240f3d9
+
+    ov_refresh_interval=3600
+    
+    tls_cacert_file = /home/ubuntu/certificate/appliance.com.crt
+
+
+    [ml2_type_flat]
+ 
+    flat_networks = public,physnet3,physnet4
+    
+    [ml2_type_vlan]
+ 
+    network_vlan_ranges = public,physnet1,physnet2
+
+
+3. Making setup.cfg file configurations:
+
+- Edit the /opt/stack/neutron/setup.cfg file. Under: 
+
+::
+
+    neutron.ml2.mechanism_drivers =
+
+    in this part, insert the following:
+
+    oneview = networking_oneview.ml2.drivers.oneview.mech_oneview:OneViewDriver
+
+
+4. Restart Neutron:
+
+- Restart the neutron service. If everything is well, the mechanism driver is working.
+
+
+5. Creating the database tables:
+
+- Run the migration script to create the database tables necessary for the mechanism driver function.
+
+- Go to the mechanism driver pypi instalation folder:
+
+::
+
+    $ cd <instalation_directory>/networking_oneview/db
+
+    - One examples of the instalation_directory is:
+    /usr/local/lib/python2.7/dist-packages/
+
+
+- Then run:
+
+::
+
+    $ sudo python oneview_network_db_tables.py
+
+6. To finish, execute:
+
+::
+
+    $ cd /opt/stack/neutron/
+
+    $ sudo python setup.py install
+
+
+
+Install with git
 =============================
 
 1. The ML2 Mechanism Driver:
@@ -157,21 +292,13 @@ Install
 
     $ cd networking-oneview
 
-- Run the script install-deriver.sh:
+- Run:
 ::
 
-    $ ./install-driver.sh
-
-- This script copy some folders to neutron's work directory: /opt/stack/neutron
+    $ sudo python setup.py install
 
 
-2. Install python-hpOneViewclient:
-::
-
-    $ pip install hpOneView
-
-
-3. Making ML2_conf.ini file configurations: 
+2. Making ML2_conf.ini file configurations: 
 
 - Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
 ::
@@ -197,7 +324,7 @@ Install
 
         [oneview]
 
-        oneview_ip=<OneView server IP address>
+        oneview_host=<OneView server IP address>
 
         username=<OneView username>
 
@@ -220,7 +347,7 @@ To set TLS options for the communication with OneView, it is necessary to downlo
 - Examples of the lines are:
 ::
 
-    oneview_domain_name=OneView_Server_Name
+    oneview_host=OneView_IP_address
 
     username=admin
 
@@ -244,7 +371,7 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     network_vlan_ranges = public,physnet1,physnet2
 
 
-4. Making setup.cfg file configurations:
+3. Making setup.cfg file configurations:
 
 - Edit the /opt/stack/neutron/setup.cfg file. Under: 
 ::
@@ -256,31 +383,38 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     oneview = neutron.plugins.ml2.drivers.oneview.mech_oneview:OneViewDriver
 
 
-5. Restart Neutron:
+4. Restart Neutron:
 
 - Restart the neutron service. If everything is well, the mechanism driver is working.
 
 
-6. Creating the database tables:
+5. Creating the database tables:
 
 - Run the migration script to create the database tables necessary for the mechanism driver function.
 
-- Go to the mechanism driver download folder in the following path:
+- Go to the mechanism driver instalation folder:
+
 ::
 
-    $ cd <download_directory>/networking-oneview/networking_oneview/db
+    $ cd <instalation_directory>/networking_oneview/db
+
+    - One examples of the instalation_directory is:
+    /usr/local/lib/python2.7/dist-packages/
+
 
 - Then run:
+
 ::
 
-    $ sudo python oneview_network_db.py install
+    $ sudo python oneview_network_db_tables.py
 
-- If any error related to db log occurs, execute:
+6. To finish, execute:
+
 ::
 
     $ cd /opt/stack/neutron/
 
-    $ neutron-db-manage upgrade head
+    $ sudo python setup.py install
 
 
 License

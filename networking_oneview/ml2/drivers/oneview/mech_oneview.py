@@ -14,13 +14,19 @@
 #    under the License.
 
 from hpOneView.oneview_client import OneViewClient
+from neutron.extensions import portbindings
 from neutron.plugins.ml2 import driver_api
-from neutron.plugins.ml2.drivers.oneview import common
-from neutron.plugins.ml2.drivers.oneview import synchronization
-from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
+from neutron.plugins.common import constants as p_const
 from oslo_config import cfg
+from oslo_log import log
 
+from networking_oneview.ml2.drivers.oneview import common
+from networking_oneview.ml2.drivers.oneview import synchronization
+from networking_oneview.ml2.drivers.oneview.neutron_oneview_client import (
+    Client
+)
 
+LOG = log.getLogger(__name__)
 opts = [
     cfg.StrOpt('oneview_host',
                help=_('IP where OneView is available')),
@@ -93,7 +99,6 @@ class OneViewDriver(driver_api.MechanismDriver):
         session = common.session_from_context(context)
         port_dict = common.port_from_context(context)
         self.neutron_oneview_client.port.create(session, port_dict)
-
         port = context.current
         vnic_type = port['binding:vnic_type']
         if vnic_type != portbindings.VNIC_BAREMETAL:
