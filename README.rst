@@ -202,31 +202,10 @@ Configuration
     network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>
 
 
-2. Making mL2_conf_oneview.ini file configurations:
+2. mL2_conf_oneview.ini file configurations:
 ::
 
 - Edit the /etc/neutron/plugins/ml2/ml2_conf_oneview.ini file.
-- Copy the following lines to the end of this file:
-
-::
-
-
-        [oneview]
-
-        oneview_host=<OneView server IP address>
-
-        username=<OneView username>
-
-        password=<OneView password>
-
-        uplinkset_mapping=<physical-network1-name>:<oneview-uplinkset1_uuid>,<physical-network2-name>:<uplinkset2_uuid>,...
-
-        flat_net_mappings=<flat-physical-network1-name>:<oneview-network1-id>,<flat-physical-network2-name>:<oneview-network2-id>,...
-
-        ov_refresh_interval=<ov_refresh_interval>
-
-        tls_cacert_file = <TLS File Path>
-
 
 “ov_refresh_interval” is used to configure the period (in seconds) in which the mechanism driver will execute the periodic synchronization to check if any inconsistence exists between Neutron and OneView and correct them if possible. This attribute is optional and if not configured the default value is 3600 seconds.
 
@@ -237,7 +216,7 @@ To set TLS options for the communication with OneView, it is necessary to downlo
 
 ::
 
-    oneview_host=OneView_IP_address
+    oneview_host=1.2.3.4
 
     username=admin
 
@@ -250,15 +229,6 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     ov_refresh_interval=3600
 
     tls_cacert_file = /home/ubuntu/certificate/appliance.com.crt
-
-
-    [ml2_type_flat]
-
-    flat_networks = public,physnet3,physnet4
-
-    [ml2_type_vlan]
-
-    network_vlan_ranges = public,physnet1,physnet2
 
 
 3. Restart Neutron:
