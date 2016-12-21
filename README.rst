@@ -38,8 +38,8 @@ Flows:
                  +-------------------+
 
 
-The OneView Mechanism Driver aims at having the Ironic-Neutron 
-integration for multi-tenancy working with nodes driven by the OneView 
+The OneView Mechanism Driver aims at having the Ironic-Neutron
+integration for multi-tenancy working with nodes driven by the OneView
 drivers for Ironic.
 
 
@@ -51,7 +51,7 @@ are performed in OpenStack need to be reflected in OneView. To identify if a cer
 request should be executed by the driver it might check if the networks and ports are
 related with networks/connections which should be reflected OneView.
 
-For Network Operations, the driver checks if the physical provider-network 
+For Network Operations, the driver checks if the physical provider-network
 From Neutron network belongs to is defined as one of the "managed networks" of the
 driver. The concept of "managed networks" refers to the networks configured in
 the driver config file with a mapping to attached it to an Uplink Set in OneView.
@@ -66,7 +66,7 @@ These mappings configuration can be made in the configuration file using the
 
 In the case of Port Operations, only ports related to managed networks and with
 the "local_link_information" field populated are considered. When the driver
-identifies that "local_link_information" exists in a given port, it checks if 
+identifies that "local_link_information" exists in a given port, it checks if
 it contains a Server Hardware UUID and boot information. The mech driver also
 uses the information of the MAC address of the requested port to identify the
 specific NIC of the Server Profile where the operation should be executed.
@@ -95,32 +95,32 @@ Considering these restrictions, OneView Mechanism Driver is capable of:
 
 OneView Mechanism Driver also implements a fault tolerance process to guarantee
 that all networks and ports that are present in Neutron are correctly reflected
-in OneView. To ensure that, the verification is executed in the startup of the 
-mechanism driver to check if all the networks and ports which were managed in a 
-prior execution still need to be reflected and, in the same way, if new one 
-should be created in OneView based in the information from the configuration 
+in OneView. To ensure that, the verification is executed in the startup of the
+mechanism driver to check if all the networks and ports which were managed in a
+prior execution still need to be reflected and, in the same way, if new one
+should be created in OneView based in the information from the configuration
 file.
 
-This synchronization process will consider the information of the networks 
-indicated to be managed by the mechanism driver 
-(uplink_set_mappings and flat_net_mappings) from the configuration file and 
-the information stored in the OneView Mechanism Driver tables present in 
+This synchronization process will consider the information of the networks
+indicated to be managed by the mechanism driver
+(uplink_set_mappings and flat_net_mappings) from the configuration file and
+the information stored in the OneView Mechanism Driver tables present in
 OpenStack Database.
 
-Initially, mapped provider networks are obtained from the configuration file 
-and all networks belonging to them are obtained from Neutron. The mechanism 
-driver checks if these networks are present in its tables and if any of them is 
-missing they will be added in the database, created in the OneView and attached 
-to the configured Uplink Sets. After this verification, if any network not 
-present in the list obtained from Neutron still exists in the database they 
+Initially, mapped provider networks are obtained from the configuration file
+and all networks belonging to them are obtained from Neutron. The mechanism
+driver checks if these networks are present in its tables and if any of them is
+missing they will be added in the database, created in the OneView and attached
+to the configured Uplink Sets. After this verification, if any network not
+present in the list obtained from Neutron still exists in the database they
 will be erased from OneView and removed from the table.
 
-In the same way, OneView Mechanism Driver checks the consistence of the ports 
-related with the managed networks with the connections of the server profiles 
-related with the server hardware used by OpenStack. As Neutron Ports stores 
-the “server_hardware_uuid” received by the local_link_information, the 
-Mechanism Driver gets the information for each port and check if the Server 
-Profile used by the indicated Server Hardware have a connection correctly 
+In the same way, OneView Mechanism Driver checks the consistence of the ports
+related with the managed networks with the connections of the server profiles
+related with the server hardware used by OpenStack. As Neutron Ports stores
+the “server_hardware_uuid” received by the local_link_information, the
+Mechanism Driver gets the information for each port and check if the Server
+Profile used by the indicated Server Hardware have a connection correctly
 representing this port, and if not, creates it.
 
 
@@ -151,13 +151,13 @@ Install with PyPi
     $ pip install networking-oneview
 
 
-2. Making ML2_conf.ini file configurations: 
+2. Making mL2_conf.ini file configurations:
 
 - Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
 
 ::
 
-    mechanism_drivers = openvswitch,linuxbridge,genericswitch,oneview
+    mechanism_drivers = <others Drivers>,oneview
 
 - Find the correspondent line and insert the flat physical networks:
 
@@ -175,9 +175,15 @@ Install with PyPi
 
     network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>
 
+
+3. Making mL2_conf_oneview.ini file configurations:
+::
+
+- Edit the /etc/neutron/plugins/ml2/ml2_conf_oneview.ini file.
 - Copy the following lines to the end of this file:
 
 ::
+
 
         [oneview]
 
@@ -188,17 +194,17 @@ Install with PyPi
         password=<OneView password>
 
         uplinkset_mapping=<physical-network1-name>:<oneview-uplinkset1_uuid>,<physical-network2-name>:<uplinkset2_uuid>,...
-       
+
         flat_net_mappings=<flat-physical-network1-name>:<oneview-network1-id>,<flat-physical-network2-name>:<oneview-network2-id>,...
-        
-        ov_refresh_interval=<ov_refresh_interval> 
-        
+
+        ov_refresh_interval=<ov_refresh_interval>
+
         tls_cacert_file = <TLS File Path>
-        
+
 
 “ov_refresh_interval” is used to configure the period (in seconds) in which the mechanism driver will execute the periodic synchronization to check if any inconsistence exists between Neutron and OneView and correct them if possible. This attribute is optional and if not configured the default value is 3600 seconds.
 
-To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from OneView. 
+To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from OneView.
 
 
 - Examples of the lines are:
@@ -216,30 +222,17 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     flat_net_mappings=physnet3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,physnet4:66666666-ba2e-490a-81f9-2226c240f3d9
 
     ov_refresh_interval=3600
-    
+
     tls_cacert_file = /home/ubuntu/certificate/appliance.com.crt
 
 
     [ml2_type_flat]
- 
+
     flat_networks = public,physnet3,physnet4
-    
+
     [ml2_type_vlan]
- 
+
     network_vlan_ranges = public,physnet1,physnet2
-
-
-3. Making setup.cfg file configurations:
-
-- Edit the /opt/stack/neutron/setup.cfg file. Under: 
-
-::
-
-    neutron.ml2.mechanism_drivers =
-
-    in this part, insert the following:
-
-    oneview = networking_oneview.ml2.drivers.oneview.mech_oneview:OneViewDriver
 
 
 4. Restart Neutron:
@@ -249,32 +242,10 @@ To set TLS options for the communication with OneView, it is necessary to downlo
 
 5. Creating the database tables:
 
-- Run the migration script to create the database tables necessary for the mechanism driver function.
-
-- Go to the mechanism driver pypi instalation folder:
-
+- Run:
 ::
 
-    $ cd <instalation_directory>/networking_oneview/db
-
-    - One examples of the instalation_directory is:
-    /usr/local/lib/python2.7/dist-packages/
-
-
-- Then run:
-
-::
-
-    $ sudo python oneview_network_db_tables.py
-
-6. To finish, execute:
-
-::
-
-    $ cd /opt/stack/neutron/
-
-    $ sudo python setup.py install
-
+    $ neutron-db-manage upgrade heads
 
 
 Install with git
@@ -295,15 +266,15 @@ Install with git
 - Run:
 ::
 
-    $ sudo python setup.py install
+    $ pip install .
 
 
-2. Making ML2_conf.ini file configurations: 
+2. Making mL2_conf.ini file configurations:
 
 - Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
 ::
 
-    mechanism_drivers = openvswitch,linuxbridge,genericswitch,oneview
+    mechanism_drivers = <others Drivers>,oneview
 
 - Find the correspondent line and insert the flat physical networks:
 ::
@@ -319,7 +290,13 @@ Install with git
 
     network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>
 
+
+3. Making mL2_conf_oneview.ini file configurations:
+::
+
+- Edit the /etc/neutron/plugins/ml2/ml2_conf_oneview.ini file.
 - Copy the following lines to the end of this file:
+
 ::
 
         [oneview]
@@ -331,17 +308,17 @@ Install with git
         password=<OneView password>
 
         uplinkset_mapping=<physical-network1-name>:<oneview-uplinkset1_uuid>,<physical-network2-name>:<uplinkset2_uuid>,...
-       
+
         flat_net_mappings=<flat-physical-network1-name>:<oneview-network1-id>,<flat-physical-network2-name>:<oneview-network2-id>,...
-        
-        ov_refresh_interval=<ov_refresh_interval> 
-        
+
+        ov_refresh_interval=<ov_refresh_interval>
+
         tls_cacert_file = <TLS File Path>
-        
+
 
 “ov_refresh_interval” is used to configure the period (in seconds) in which the mechanism driver will execute the periodic synchronization to check if any inconsistence exists between Neutron and OneView and correct them if possible. This attribute is optional and if not configured the default value is 3600 seconds.
 
-To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from OneView. 
+To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from OneView.
 
 
 - Examples of the lines are:
@@ -358,24 +335,24 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     flat_net_mappings=physnet3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,physnet4:66666666-ba2e-490a-81f9-2226c240f3d9
 
     ov_refresh_interval=3600
-    
+
     tls_cacert_file = /home/ubuntu/certificate/appliance.com.crt
 
 
     [ml2_type_flat]
- 
+
     flat_networks = public,physnet3,physnet4
-    
+
     [ml2_type_vlan]
- 
+
     network_vlan_ranges = public,physnet1,physnet2
 
 
-3. Making setup.cfg file configurations:
+4. Making setup.cfg file configurations:
 
-- Edit the /opt/stack/neutron/setup.cfg file. Under: 
+- Edit the /opt/stack/neutron/setup.cfg file. Under:
 ::
-    
+
     neutron.ml2.mechanism_drivers =
 
     in this file, insert the following:
@@ -383,38 +360,17 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     oneview = neutron.plugins.ml2.drivers.oneview.mech_oneview:OneViewDriver
 
 
-4. Restart Neutron:
+5. Restart Neutron:
 
 - Restart the neutron service. If everything is well, the mechanism driver is working.
 
 
-5. Creating the database tables:
+6. Creating the database tables:
 
-- Run the migration script to create the database tables necessary for the mechanism driver function.
-
-- Go to the mechanism driver instalation folder:
-
+- Run:
 ::
 
-    $ cd <instalation_directory>/networking_oneview/db
-
-    - One examples of the instalation_directory is:
-    /usr/local/lib/python2.7/dist-packages/
-
-
-- Then run:
-
-::
-
-    $ sudo python oneview_network_db_tables.py
-
-6. To finish, execute:
-
-::
-
-    $ cd /opt/stack/neutron/
-
-    $ sudo python setup.py install
+    $ neutron-db-manage upgrade heads
 
 
 License
@@ -440,7 +396,7 @@ make it better. However, keep the following in mind:
 
     http://docs.openstack.org/infra/manual/developers.html
 
-- Once those steps have been completed, changes to OpenStack should be submitted for review via the Gerrit 
+- Once those steps have been completed, changes to OpenStack should be submitted for review via the Gerrit
   tool, following the workflow documented at:
 
     http://docs.openstack.org/infra/manual/developers.html#development-workflow
