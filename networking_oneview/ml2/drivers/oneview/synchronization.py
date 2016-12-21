@@ -55,8 +55,8 @@ class Synchronization:
             return self.oneview_client.ethernet_networks.get(
                 oneview_network_id
             )
-        except Exception:
-            return None
+        except exceptions.HPOneViewException as err:
+            LOG.error(err)
 
     def _remove_inconsistence_from_db(
         self, session, neutron_network_id, oneview_network_id
@@ -71,11 +71,9 @@ class Synchronization:
 
     def check_lig_constraint(self):
         physnet_mappings = self.neu_ov_client.port.physnet_uplinkset_mapping
-        print physnet_mappings
         for key in physnet_mappings:
             for _type in physnet_mappings[key]:
                 uplinksets = physnet_mappings[key][_type]
-                print uplinksets
                 lgis = []
                 for uplinkset in uplinksets:
                     us = self.oneview_client.uplink_sets.get(uplinkset)
@@ -97,8 +95,7 @@ class Synchronization:
                                 'uplinktype': uplink_type
                                 }
                         LOG.error(err)
-                        sys.exit(1)
-                    print lgis
+                        sys.exit(1)           
 
     def check_unique_uplinkset_constraint(self):
         mapped_uplinksets = []

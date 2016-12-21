@@ -16,6 +16,7 @@
 import abc
 import six
 import time
+import sys
 
 from hpOneView import exceptions
 from oslo_log import log
@@ -542,6 +543,7 @@ class Client:
                 return oneview_client.uplink_sets.get(uplinkset_id)
             except exceptions.HPOneViewException as err:
                 LOG.error(err)
+                sys.exit(1)
 
         uplinksets_by_type = {}
         for physnet in physnet_uplinkset_mapping:
