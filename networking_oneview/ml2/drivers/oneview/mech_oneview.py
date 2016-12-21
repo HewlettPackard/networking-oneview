@@ -35,14 +35,14 @@ opts = [
     cfg.StrOpt('password',
                secret=True,
                help=_('OneView password to be used')),
-    cfg.StrOpt('physnet_uplinkset_mapping',
+    cfg.StrOpt('physnet_uplinkset_mappings',
                help=_('UplinkSets to be used')),
     cfg.StrOpt(
         'tls_cacert_file',
         default='',
         help=_("TLS File Path")
     ),
-    cfg.StrOpt('flat_physnet_net_mapping',
+    cfg.StrOpt('flat_physnet_net_mappings',
                help=_('-')),
     cfg.IntOpt('ov_refresh_interval',
                default=3600,
@@ -85,12 +85,12 @@ class OneViewDriver(driver_api.MechanismDriver):
     def _load_network_mappings(self):
         self.physnet_uplinkset_mapping = (
             common.load_conf_option_to_dict(
-                CONF.oneview.physnet_uplinkset_mapping
+                CONF.oneview.physnet_uplinkset_mappings
             )
         )
         self.flat_physnet_net_mapping = (
             common.load_conf_option_to_dict(
-                CONF.oneview.flat_physnet_net_mapping
+                CONF.oneview.flat_physnet_net_mappings
             )
         )
 
