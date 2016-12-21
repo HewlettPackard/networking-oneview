@@ -95,7 +95,7 @@ class Synchronization:
                                 'uplinktype': uplink_type
                                 }
                         LOG.error(err)
-                        sys.exit(1)           
+                        sys.exit(1)
 
     def check_unique_uplinkset_constraint(self):
         mapped_uplinksets = []
