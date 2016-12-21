@@ -241,14 +241,6 @@ $ /usr/local/bin/neutron-server --config-file /etc/neutron/neutron.conf --config
 - If everything is well, the mechanism driver is working.
 
 
-4. Creating the database tables:
-
-- Run:
-::
-
-    $ neutron-db-manage upgrade heads
-
-
 License
 =============================
 
