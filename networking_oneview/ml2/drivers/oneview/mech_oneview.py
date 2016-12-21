@@ -141,3 +141,4 @@ class OneViewDriver(driver_api.MechanismDriver):
         port_dict = common.port_from_context(context)
 
         self.neutron_oneview_client.port.delete(session, port_dict)
+

@@ -331,3 +331,4 @@ class Synchronization:
         self.neu_ov_client.port.update_server_hardware_power_state(
             server_profile.get('serverHardwareUri'), previous_power_state
             )
+
