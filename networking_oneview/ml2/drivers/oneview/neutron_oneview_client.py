@@ -16,11 +16,16 @@
 import abc
 import six
 import time
+import sys
 
 from hpOneView import exceptions
-from neutron.plugins.ml2.drivers.oneview import common
-from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from oslo_log import log
+
+from networking_oneview.ml2.drivers.oneview import common
+from networking_oneview.ml2.drivers.oneview import (
+    database_manager as db_manager
+)
+
 
 LOG = log.getLogger(__name__)
 
@@ -418,7 +423,6 @@ class Port(ResourceManager):
         )
         boot_priority = self._get_boot_priority(server_profile, bootable)
         port_id = self._port_id_from_mac(server_hardware_id, mac_address)
-
         server_profile['connections'].append({
             'name': "NeutronPort[" + mac_address + "]",
             'portId': port_id,
@@ -539,6 +543,7 @@ class Client:
                 return oneview_client.uplink_sets.get(uplinkset_id)
             except exceptions.HPOneViewException as err:
                 LOG.error(err)
+                sys.exit(1)
 
         uplinksets_by_type = {}
         for physnet in physnet_uplinkset_mapping:

@@ -14,15 +14,17 @@
 #    under the License.
 import json
 import re
-import utils
 import sys
+import time
 from datetime import datetime
-from neutron.plugins.ml2.drivers.oneview import common
-from neutron.plugins.ml2.drivers.oneview import database_manager as db_manager
 from oslo_service import loopingcall
 from oslo_log import log
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from networking_oneview.ml2.drivers.oneview import common
+from networking_oneview.ml2.drivers.oneview import (
+    database_manager as db_manager
+)
 
 LOG = log.getLogger(__name__)
 
@@ -38,6 +40,7 @@ class Synchronization:
         self.neu_ov_client = neutron_oneview_client
         self.connection = connection
         self.check_unique_uplinkset_constraint()
+        self.check_lig_constraint()
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=3600, initial_delay=0)
 
@@ -52,8 +55,8 @@ class Synchronization:
             return self.oneview_client.ethernet_networks.get(
                 oneview_network_id
             )
-        except Exception:
-            return None
+        except exceptions.HPOneViewException as err:
+            LOG.error(err)
 
     def _remove_inconsistence_from_db(
         self, session, neutron_network_id, oneview_network_id
@@ -65,6 +68,34 @@ class Synchronization:
         db_manager.delete_oneview_network_uplinkset_by_network(
             session, oneview_network_id
         )
+
+    def check_lig_constraint(self):
+        physnet_mappings = self.neu_ov_client.port.physnet_uplinkset_mapping
+        for key in physnet_mappings:
+            for _type in physnet_mappings[key]:
+                uplinksets = physnet_mappings[key][_type]
+                lgis = []
+                for uplinkset in uplinksets:
+                    us = self.oneview_client.uplink_sets.get(uplinkset)
+                    uplink_type = us.get('ethernetNetworkType')
+                    li = self.oneview_client.logical_interconnects.get(
+                        us.get('logicalInterconnectUri'))
+                    lig = self.oneview_client.logical_interconnect_groups.get(
+                        li.get('logicalInterconnectGroupUri')
+                    )
+                    lig_uri = lig.get('uri')
+                    if lig_uri not in lgis:
+                        lgis.append(lig_uri)
+                    else:
+                        err = (
+                            "There is more than one uplinkset of "
+                            "type %(uplinktype)s from the same logical "
+                            "interconnect group mapped "
+                            "for the same physnet") % {
+                                'uplinktype': uplink_type
+                                }
+                        LOG.error(err)
+                        sys.exit(1)
 
     def check_unique_uplinkset_constraint(self):
         mapped_uplinksets = []
@@ -86,7 +117,7 @@ class Synchronization:
                 for uplinkset in uplinksets_checked:
                     if uplinkset in mapped_uplinksets:
                         err = (
-                            "Uplinkset %(uplinkset)s is used by more"
+                            "Uplinkset %(uplinkset)s is used by more "
                             "than one Physical Network") % {
                                 'uplinkset': uplinkset
                                 }
@@ -308,7 +339,7 @@ class Synchronization:
     ):
         sp_cons = []
         for connection in server_profile.get('connections'):
-            conn_network_id = oneview_network_id = utils.id_from_uri(
+            conn_network_id = oneview_network_id = common.id_from_uri(
                 connection.get('networkUri')
             )
             if self.get_oneview_network(conn_network_id) is not None:

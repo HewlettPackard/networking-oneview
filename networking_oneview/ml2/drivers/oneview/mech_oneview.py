@@ -17,12 +17,16 @@ from hpOneView.oneview_client import OneViewClient
 from neutron.extensions import portbindings
 from neutron.plugins.ml2 import driver_api
 from neutron.plugins.common import constants as p_const
-from neutron.plugins.ml2.drivers.oneview import common
-from neutron.plugins.ml2.drivers.oneview import synchronization
-from neutron.plugins.ml2.drivers.oneview.neutron_oneview_client import Client
 from oslo_config import cfg
+from oslo_log import log
 
+from networking_oneview.ml2.drivers.oneview import common
+from networking_oneview.ml2.drivers.oneview import synchronization
+from networking_oneview.ml2.drivers.oneview.neutron_oneview_client import (
+    Client
+)
 
+LOG = log.getLogger(__name__)
 opts = [
     cfg.StrOpt('oneview_host',
                help=_('IP where OneView is available')),
