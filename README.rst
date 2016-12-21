@@ -152,7 +152,6 @@ Install with PyPi
 
 
 2. Making mL2_conf.ini file configurations:
-
 - Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
 
 ::
