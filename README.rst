@@ -233,7 +233,12 @@ To set TLS options for the communication with OneView, it is necessary to downlo
 
 3. Restart Neutron:
 
-- Restart the neutron service. If everything is well, the mechanism driver is working.
+- Restart the neutron service adding the new configuration file using '--config-file /etc/neutron/plugins/ml2/ml2_conf_oneview.ini'. Example:
+::
+
+$ /usr/local/bin/neutron-server --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/ml2/ml2_conf.ini --config-file /etc/neutron/plugins/ml2/ml2_conf_oneview.ini
+
+- If everything is well, the mechanism driver is working.
 
 
 4. Creating the database tables:
