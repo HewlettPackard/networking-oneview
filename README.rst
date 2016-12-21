@@ -175,9 +175,15 @@ Install with PyPi
 
     network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>
 
+
+3. Making mL2_conf_oneview.ini file configurations:
+::
+
+- Edit the /etc/neutron/plugins/ml2/ml2_conf_oneview.ini file.
 - Copy the following lines to the end of this file:
 
 ::
+
 
         [oneview]
 
@@ -229,12 +235,12 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     network_vlan_ranges = public,physnet1,physnet2
 
 
-3. Restart Neutron:
+4. Restart Neutron:
 
 - Restart the neutron service. If everything is well, the mechanism driver is working.
 
 
-4. Creating the database tables:
+5. Creating the database tables:
 
 - Run:
 ::
@@ -284,7 +290,13 @@ Install with git
 
     network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>
 
+
+3. Making mL2_conf_oneview.ini file configurations:
+::
+
+- Edit the /etc/neutron/plugins/ml2/ml2_conf_oneview.ini file.
 - Copy the following lines to the end of this file:
+
 ::
 
         [oneview]
@@ -336,7 +348,7 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     network_vlan_ranges = public,physnet1,physnet2
 
 
-3. Making setup.cfg file configurations:
+4. Making setup.cfg file configurations:
 
 - Edit the /opt/stack/neutron/setup.cfg file. Under:
 ::
@@ -348,12 +360,12 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     oneview = neutron.plugins.ml2.drivers.oneview.mech_oneview:OneViewDriver
 
 
-4. Restart Neutron:
+5. Restart Neutron:
 
 - Restart the neutron service. If everything is well, the mechanism driver is working.
 
 
-5. Creating the database tables:
+6. Creating the database tables:
 
 - Run:
 ::
