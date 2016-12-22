@@ -147,7 +147,7 @@ Install
 
 1. Install with PIP
 
-- To install the ML2 Mechanism Driver run:
+- To install the ML2 Mechanism Driver, run:
 ::
 
     $ pip install networking-oneview
@@ -157,7 +157,7 @@ Install
 
 2. Install with GIT
 
-- Make the git clone of the mechdriver files for a folder of your choice <download_directory>:
+- Make the git clone of the mech driver files for a folder of your choice <download_directory>:
 ::
 
     $ git clone git@git.lsd.ufcg.edu.br:ironic-neutron-oneview/networking-oneview.git
@@ -178,7 +178,7 @@ Install
 Configuration
 =============================
 
-1. Making mL2_conf.ini file configurations:
+1. Making ml2_conf.ini file configurations:
 - Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
 
 ::
@@ -202,7 +202,7 @@ Configuration
     network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>
 
 
-2. mL2_conf_oneview.ini file configurations:
+2. ml2_conf_oneview.ini file configurations:
 ::
 
 - Edit the /etc/neutron/plugins/ml2/ml2_conf_oneview.ini file.
