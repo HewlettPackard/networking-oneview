@@ -19,6 +19,7 @@ import time
 from datetime import datetime
 from oslo_service import loopingcall
 from oslo_log import log
+from hpOneView import exceptions
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from networking_oneview.ml2.drivers.oneview import common
