@@ -42,7 +42,7 @@ opts = [
         default='',
         help=_("TLS File Path")
     ),
-    cfg.StrOpt('flat_physnet_net_mappings',
+    cfg.StrOpt('flat_net_mappings',
                help=_('-')),
     cfg.IntOpt('ov_refresh_interval',
                default=3600,
@@ -90,7 +90,7 @@ class OneViewDriver(driver_api.MechanismDriver):
         )
         self.flat_physnet_net_mapping = (
             common.load_conf_option_to_dict(
-                CONF.oneview.flat_physnet_net_mappings
+                CONF.oneview.flat_net_mappings
             )
         )
 
