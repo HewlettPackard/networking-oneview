@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import json
-
 ETHERNET_NETWORK_PREFIX = '/rest/ethernet-networks/'
 
 
@@ -34,16 +32,18 @@ def uplinksets_id_from_network_uplinkset_list(net_uplink_list):
 
 def load_conf_option_to_dict(key_value_option):
     key_value_dict = {}
-    if key_value_option is None or not key_value_option:
+
+    if not key_value_option:
         return key_value_dict
+
     key_value_list = key_value_option.split(',')
 
     for key_value in key_value_list:
-        key, value = key_value.split(':')
-        key = key.strip()
-        if key not in key_value_dict:
-            key_value_dict[key] = []
-        key_value_dict[key].append(value)
+        values = key_value.split(':')
+        provider = values[0]
+        if provider not in key_value_dict:
+            key_value_dict[provider] = []
+        key_value_dict[provider].extend(values[1:])
     return key_value_dict
 
 
@@ -76,49 +76,40 @@ def port_dict_for_port_creation(
 
 # Context
 def session_from_context(context):
-    if context is None:
-        return None
+    plugin_context = getattr(context, '_plugin_context', None)
 
-    plugin_context = context._plugin_context
-    if plugin_context is None:
-        return None
-
-    return plugin_context._session
+    return getattr(plugin_context, '_session', None)
 
 
 def network_from_context(context):
-    if context is None:
-        return None
-
-    return context._network
+    return getattr(context, '_network', None)
 
 
 def port_from_context(context):
-    if context is None:
-        return None
-
-    return context._port
+    return getattr(context, '_port', None)
 
 
 def local_link_information_from_port(port_dict):
     binding_profile_dict = port_dict.get('binding:profile')
-    if binding_profile_dict is None:
-        return None
-    return binding_profile_dict.get('local_link_information')
+
+    return binding_profile_dict.get(
+        'local_link_information') if binding_profile_dict else None
 
 
 def is_local_link_information_valid(local_link_information_list):
     if len(local_link_information_list) != 1:
         return False
+
     local_link_information = local_link_information_list[0]
     switch_info = local_link_information.get('switch_info')
-    if switch_info is None:
+
+    if not switch_info:
         return False
 
     server_hardware_uuid = switch_info.get('server_hardware_id')
     bootable = switch_info.get('bootable')
 
-    if server_hardware_uuid is None or bootable is None:
+    if not server_hardware_uuid or not bootable:
         return False
 
     return type(bootable) == bool

@@ -15,16 +15,15 @@
 
 import abc
 import six
-import time
 import sys
+import time
 
 from hpOneView import exceptions
 from oslo_log import log
 
-from networking_oneview.ml2.drivers.oneview import common
 from networking_oneview.ml2.drivers.oneview import (
-    database_manager as db_manager
-)
+    database_manager as db_manager)
+from networking_oneview.ml2.drivers.oneview import common
 
 
 LOG = log.getLogger(__name__)
@@ -59,8 +58,8 @@ def validate_local_link_information(local_link_information_list):
 
     if server_hardware_id is None or bootable is None:
         LOG.warning(
-            "Port 'local_link_information' must contain 'server_hardware_id'"
-            " and 'bootable'."
+            "Port 'local_link_information' must contain 'server_hardware_id' "
+            "and 'bootable'."
         )
         return False
 
@@ -84,7 +83,7 @@ def is_port_valid_to_reflect_on_oneview(
 
 
 @six.add_metaclass(abc.ABCMeta)
-class ResourceManager:
+class ResourceManager(object):
     def __init__(
         self, oneview_client, physnet_uplinkset_mapping,
         flat_physnet_net_mapping
@@ -500,7 +499,7 @@ class Port(ResourceManager):
         )
 
 
-class Client:
+class Client(object):
     def __init__(
         self, oneview_client, physnet_uplinkset_mapping,
         flat_physnet_net_mapping

@@ -12,20 +12,19 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import json
 import re
 import sys
-import time
-from datetime import datetime
-from oslo_service import loopingcall
-from oslo_log import log
+
 from hpOneView import exceptions
+from networking_oneview.ml2.drivers.oneview import (
+    database_manager as db_manager)
+from networking_oneview.ml2.drivers.oneview import common
+from oslo_log import log
+from oslo_service import loopingcall
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from networking_oneview.ml2.drivers.oneview import common
-from networking_oneview.ml2.drivers.oneview import (
-    database_manager as db_manager
-)
 
 LOG = log.getLogger(__name__)
 
@@ -35,7 +34,7 @@ def get_session(connection):
     return Session()
 
 
-class Synchronization:
+class Synchronization(object):
     def __init__(self, oneview_client, neutron_oneview_client, connection):
         self.oneview_client = oneview_client
         self.neu_ov_client = neutron_oneview_client
@@ -92,9 +91,8 @@ class Synchronization:
                             "There is more than one uplinkset of "
                             "type %(uplinktype)s from the same logical "
                             "interconnect group mapped "
-                            "for the same physnet") % {
-                                'uplinktype': uplink_type
-                                }
+                            "for the same physnet"
+                        ) % {'uplinktype': uplink_type}
                         LOG.error(err)
                         sys.exit(1)
 
@@ -109,9 +107,8 @@ class Synchronization:
                     if uplinkset in uplinksets_checked:
                         warning = (
                             "Uplinkset %(uplinkset)s is duplicated "
-                            "in the same Physical Network") % {
-                                'uplinkset': uplinkset
-                                }
+                            "in the same Physical Network"
+                        ) % {'uplinkset': uplinkset}
                         LOG.warning(warning)
                     else:
                         uplinksets_checked.append(uplinkset)
@@ -119,9 +116,8 @@ class Synchronization:
                     if uplinkset in mapped_uplinksets:
                         err = (
                             "Uplinkset %(uplinkset)s is used by more "
-                            "than one Physical Network") % {
-                                'uplinkset': uplinkset
-                                }
+                            "than one Physical Network"
+                        ) % {'uplinkset': uplinkset}
                         LOG.error(err)
                         sys.exit(1)
                     else:
@@ -221,7 +217,7 @@ class Synchronization:
             lli = common.local_link_information_from_port(port_dict)
             server_hardware_id = lli[0].get('switch_info').get(
                 'server_hardware_id'
-                )
+            )
             server_profile = (
                 self.neu_ov_client.port.server_profile_from_server_hardware(
                     server_hardware_id
