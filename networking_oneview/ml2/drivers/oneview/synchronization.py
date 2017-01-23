@@ -39,8 +39,8 @@ class Synchronization(object):
         self.oneview_client = oneview_client
         self.neu_ov_client = neutron_oneview_client
         self.connection = connection
-        self.check_unique_uplinkset_constraint()
-        self.check_lig_constraint()
+        # self.check_unique_uplinkset_constraint()
+        # self.check_lig_constraint()
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=3600, initial_delay=0)
 

@@ -44,6 +44,7 @@ def load_conf_option_to_dict(key_value_option):
         if provider not in key_value_dict:
             key_value_dict[provider] = []
         key_value_dict[provider].extend(values[1:])
+    print key_value_dict
     return key_value_dict
 
 

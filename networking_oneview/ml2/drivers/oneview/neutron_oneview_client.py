@@ -105,10 +105,16 @@ class ResourceManager(object):
         network_type = NETWORK_TYPE_UNTAGGED if network_type == 'flat' else (
             NETWORK_TYPE_TAGGED
         )
+        print self.physnet_uplinkset_mapping
         if self.physnet_uplinkset_mapping.get(network_type).get(
             physical_network
         ):
+            print "retornou True"
             return True
+        print "retornou essa bomba"
+        print self.physnet_uplinkset_mapping.get(network_type).get(
+            physical_network
+        )
         return self.physnet_uplinkset_mapping.get(network_type).get(
             physical_network
         )
@@ -230,19 +236,60 @@ class Network(ResourceManager):
 
         return MAPPING_TYPE_NONE
 
+    def add_network_to_lig(self, lig_list, networkUri):
+        for lig_id, uplinkset_name in zip(lig_list[0::2], lig_list[1::2]):
+            lig = (
+                self.oneview_client.logical_interconnect_groups.get(lig_id)
+                )
+            lig_uplinksets = lig.get('uplinkSets')
+            uplinkset = (
+                uls for uls in lig_uplinksets if uls.get(
+                    'name') == uplinkset_name).next()
+            uplinkset['networkUris'].append(networkUri)
+            self.oneview_client.logical_interconnect_groups.update(lig)
+
+    def add_network_to_lis(self, uplinkset_list, networkUri):
+        for uplinkset in uplinkset_list:
+            uplinkset['networkUris'].append(networkUri)
+            self.oneview_client.uplink_sets.update(uplinkset)
+
+    def _get_lig_list(self, physical_network, network_type):
+        mappings = self.physnet_uplinkset_mapping.get(network_type).get(
+            physical_network)
+        return mappings
+
+    def _get_uplinksets_from_lig(self, network_type, lig_list):
+        lig_ids = lig_list[0::2]
+        uplink_names = lig_list[1::2]
+        valid_uplinksets = []
+        for uplink_name in uplink_names:
+            uplinks = self.oneview_client.uplink_sets.get_by(
+                'name', uplink_name
+                )
+            for uplink in uplinks:
+                li = self.oneview_client.logical_interconnects.get(
+                    uplink.get('logicalInterconnectUri'))
+                lig_id = common.id_from_uri(
+                    li.get('logicalInterconnectGroupUri')
+                )
+                if lig_id in lig_ids and uplink.get(
+                        'ethernetNetworkType').lower() == network_type:
+                    valid_uplinksets.append(uplink)
+        return valid_uplinksets
+
     def create(self, session, network_dict):
         network_id = network_dict.get('id')
         network_seg_id = network_dict.get('provider:segmentation_id')
         physical_network = network_dict.get('provider:physical_network')
         network_type = network_dict.get('provider:network_type')
 
-        if not self.is_managed(physical_network, network_type):
-            return
+        # if not self.is_managed(physical_network, network_type):
+        #     return
 
-        if db_manager.get_neutron_oneview_network(
-            session, network_id
-        ) is not None:
-            return
+        # if not db_manager.get_neutron_oneview_network(
+        #     session, network_id
+        # ):
+        #     return
 
         mapping_type = self._get_network_mapping_type(
             physical_network, network_type
@@ -250,30 +297,36 @@ class Network(ResourceManager):
 
         if mapping_type is MAPPING_TYPE_NONE:
             return
-
-        uplinksets_id_list = []
+        lig_list = []
+        uplinksets_li_list = []
         if mapping_type == PHYSNET_UPLINKSET_MAPPING_TYPE:
-            uplinksets_id_list = self.physnet_uplinkset_mapping.get(
-                self._NEUTRON_NET_TYPE_TO_ONEVIEW_NET_TYPE.get(network_type)
-            ).get(physical_network)
-            network_type = 'Tagged' if network_seg_id else 'Untagged'
+            network_type = 'tagged' if network_seg_id else 'untagged'
+            lig_list = self._get_lig_list(physical_network, network_type)
+            uplinksets_list = self._get_uplinksets_from_lig(
+                network_type, lig_list)
+            print "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+            print "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+            print "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+            print uplinksets_list
             oneview_network = self._create_network_on_oneview(
                 name="Neutron [" + network_id + "]",
-                network_type=network_type, seg_id=network_seg_id
+                network_type=network_type.capitalize(), seg_id=network_seg_id
             )
             oneview_network_id = common.id_from_uri(oneview_network.get('uri'))
-            self.add_network_to_uplink_sets(
-                oneview_network_id, uplinksets_id_list
+            self.add_network_to_lig(
+                lig_list, oneview_network.get('uri'))
+            self.add_network_to_lis(
+                uplinksets_list, oneview_network.get('uri')
             )
-        elif mapping_type == FLAT_PHYSNET_NET_MAPPING_TYPE:
-            oneview_network_id = self.flat_physnet_net_mapping.get(
-                physical_network
-            )
-
-        db_manager.map_neutron_network_to_oneview(
-            session, network_id, oneview_network_id, uplinksets_id_list,
-            mapping_type == PHYSNET_UPLINKSET_MAPPING_TYPE
-        )
+        # elif mapping_type == FLAT_PHYSNET_NET_MAPPING_TYPE:
+        #     oneview_network_id = self.flat_physnet_net_mapping.get(
+        #         physical_network
+        #     )
+        #
+        # db_manager.map_neutron_network_to_oneview(
+        #     session, network_id, oneview_network_id, uplinksets_id_list,
+        #     mapping_type == PHYSNET_UPLINKSET_MAPPING_TYPE
+        # )
 
     def delete(self, session, network_dict):
         network_id = network_dict.get('id')
@@ -537,23 +590,32 @@ class Client(object):
     def _get_uplinkset_by_type(
         self, oneview_client, physnet_uplinkset_mapping, net_type
     ):
-        def try_to_get_uplinkset(oneview_client, uplinkset_id):
+        def get_lig(oneview_client, lig_id):
             try:
-                return oneview_client.uplink_sets.get(uplinkset_id)
+                return oneview_client.logical_interconnect_groups.get(lig_id)
             except exceptions.HPOneViewException as err:
                 LOG.error(err)
                 sys.exit(1)
 
         uplinksets_by_type = {}
         for physnet in physnet_uplinkset_mapping:
-            for uplinkset_id in physnet_uplinkset_mapping.get(physnet):
-                uplinkset = try_to_get_uplinkset(oneview_client, uplinkset_id)
-                if (
-                    uplinkset is None or
-                    uplinkset.get('ethernetNetworkType').lower() == net_type
-                ):
+            provider = physnet_uplinkset_mapping.get(physnet)
+            for lig_ids, uplinkset_name in zip(provider[0::2], provider[1::2]):
+                lig = get_lig(oneview_client, lig_ids)
+                lig_uplinksets = lig.get('uplinkSets')
+                try:
+                    uplinkset = (
+                        uls for uls in lig_uplinksets if uls.get(
+                            'name') == uplinkset_name).next()
+                except Exception as err:
+                    LOG.error(
+                        "Uplinkset not found in Logical Interconnect Group")
+                    raise err
+                if uplinkset.get(
+                        'ethernetNetworkType').lower() == net_type:
                     if uplinksets_by_type.get(physnet) is None:
                         uplinksets_by_type[physnet] = []
-                    uplinksets_by_type[physnet].append(uplinkset_id)
+                    uplinksets_by_type[physnet].append(lig_ids)
+                    uplinksets_by_type[physnet].append(uplinkset_name)
 
         return uplinksets_by_type

@@ -77,10 +77,10 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.oneview_client.connection.set_trusted_ssl_bundle(
                 CONF.oneview.tls_cacert_file
             )
-        sync = synchronization.Synchronization(
-            self.oneview_client, self.neutron_oneview_client,
-            CONF.database.connection
-        )
+        # sync = synchronization.Synchronization(
+        #     self.oneview_client, self.neutron_oneview_client,
+        #     CONF.database.connection
+        # )
 
     def _load_network_mappings(self):
         self.physnet_uplinkset_mapping = (
@@ -88,6 +88,7 @@ class OneViewDriver(driver_api.MechanismDriver):
                 CONF.oneview.uplinkset_mappings
             )
         )
+
         self.flat_physnet_net_mapping = (
             common.load_conf_option_to_dict(
                 CONF.oneview.flat_net_mappings
@@ -122,7 +123,9 @@ class OneViewDriver(driver_api.MechanismDriver):
     def create_network_postcommit(self, context):
         session = common.session_from_context(context)
         network_dict = common.network_from_context(context)
-
+        print "########################################################"
+        print "########################################################"
+        print "###########################POSTCOMMMIT#####################"
         self.neutron_oneview_client.network.create(session, network_dict)
 
     def delete_network_postcommit(self, context):
