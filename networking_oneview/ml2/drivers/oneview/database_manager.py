@@ -22,6 +22,9 @@ from neutron.db.segments_db import NetworkSegment
 
 from networking_oneview.db.oneview_network_db import NeutronOneviewNetwork
 from networking_oneview.db.oneview_network_db import OneviewNetworkUplinkset
+from networking_oneview.db.oneview_network_db import (
+    OneviewLogicalInterconnectGroup
+    )
 from networking_oneview.db import oneview_network_db
 
 
@@ -117,7 +120,7 @@ def get_port_with_binding_profile_by_net(session, network_id):
 # OneView Mechanism driver_api
 def map_neutron_network_to_oneview(
     session, neutron_network_id, oneview_network_id, uplinksets_id_list,
-    manageable
+    manageable, lig_list
 ):
     insert_neutron_oneview_network(
         session, neutron_network_id, oneview_network_id, manageable
@@ -126,9 +129,15 @@ def map_neutron_network_to_oneview(
     if uplinksets_id_list is None:
         return
     for uplinkset_id in uplinksets_id_list:
+        print uplinkset_id
         insert_oneview_network_uplinkset(
             session, oneview_network_id, uplinkset_id
         )
+    for lig_id, uplinkset_name in zip(lig_list[0::2], lig_list[1::2]):
+        insert_oneview_network_lig(
+            session, oneview_network_id, lig_id, uplinkset_name
+        )
+
 
 
 # Neutron OneView Network
@@ -248,3 +257,61 @@ def delete_oneview_network_uplinkset_by_network(session, network_id):
 #         ).filter_by(
 #             port_id=neutron_port_id
 #         ).first()
+
+
+# LOGICAL_INTERCONNECT_GROUP
+
+
+def list_oneview_network_lig(session, **kwargs):
+    with session.begin(subtransactions=True):
+        return session.query(
+            OneviewLogicalInterconnectGroup).filter_by(**kwargs).all()
+
+
+def get_oneview_network_lig(session, **kwargs):
+    with session.begin(subtransactions=True):
+        return session.query(
+            OneviewLogicalInterconnectGroup
+        ).filter_by(**kwargs).first()
+
+
+def get_network_lig(session, oneview_network_id):
+    with session.begin(subtransactions=True):
+        return session.query(
+            OneviewLogicalInterconnectGroup
+        ).filter_by(
+            oneview_network_id=oneview_network_id
+        ).all()
+
+
+def insert_oneview_network_lig(
+    session, oneview_network_id, lig_id, uplinkset_name
+):
+    with session.begin(subtransactions=True):
+        oneview_network_lig = OneviewLogicalInterconnectGroup(
+            oneview_network_id, lig_id, uplinkset_name
+        )
+        session.add(oneview_network_lig)
+
+
+# def delete_oneview_network_uplinkset(
+#     session, uplinkset_id, network_id, commit=False
+# ):
+#     with session.begin(subtransactions=True):
+#         session.query(
+#             oneview_network_db.OneviewLogicalInterconnectGroup
+#         ).filter_by(
+#             oneview_uplinkset_id=uplinkset_id,
+#             oneview_network_id=network_id
+#         ).delete()
+#     if commit:
+#         session.commit()
+
+
+def delete_oneview_network_lig_by_network(session, network_id):
+    with session.begin(subtransactions=True):
+        session.query(
+            OneviewLogicalInterconnectGroup
+        ).filter_by(
+            oneview_network_id=network_id
+        ).delete()

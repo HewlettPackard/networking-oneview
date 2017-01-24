@@ -6,6 +6,9 @@ from sqlalchemy.orm import sessionmaker
 from neutron.db.model_base import BASEV2
 from networking_oneview.db.oneview_network_db import NeutronOneviewNetwork
 from networking_oneview.db.oneview_network_db import OneviewNetworkUplinkset
+from networking_oneview.db.oneview_network_db import (
+    OneviewLogicalInterconnectGroup
+    )
 
 
 def create_tables(connection):
