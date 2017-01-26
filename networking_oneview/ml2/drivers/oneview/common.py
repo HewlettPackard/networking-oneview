@@ -13,7 +13,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from hpOneView import exceptions
+from oslo_log import log
+
+MAPPING_TYPE_NONE = 0
+FLAT_NET_MAPPINGS_TYPE = 1
+UPLINKSET_MAPPINGS_TYPE = 2
+
+NETWORK_TYPE_TAGGED = 'tagged'
+NETWORK_TYPE_UNTAGGED = 'untagged'
 ETHERNET_NETWORK_PREFIX = '/rest/ethernet-networks/'
+
+LOG = log.getLogger(__name__)
 
 
 # Utils
@@ -30,6 +41,26 @@ def uplinksets_id_from_network_uplinkset_list(net_uplink_list):
     return [net_uplink.oneview_uplinkset_id for net_uplink in net_uplink_list]
 
 
+def get_uplinkset_by_name_from_list(uplinkset_list, uplinkset_name):
+    try:
+        uplinkset_obj = (
+            uplinkset for uplinkset in uplinkset_list if uplinkset.get(
+                'name') == uplinkset_name).next()
+    except Exception:
+        LOG.error("Uplinkset not found in Logical Interconnect Group")
+        raise
+
+    return uplinkset_obj
+
+
+def get_logical_interconnect_group_by_id(self, oneview_client, lig_id):
+    try:
+        return oneview_client.logical_interconnect_groups.get(lig_id)
+    except exceptions.HPOneViewException as err:
+        LOG.error(err)
+        raise err
+
+
 def load_conf_option_to_dict(key_value_option):
     key_value_dict = {}
 
@@ -41,10 +72,8 @@ def load_conf_option_to_dict(key_value_option):
     for key_value in key_value_list:
         values = key_value.split(':')
         provider = values[0]
-        if provider not in key_value_dict:
-            key_value_dict[provider] = []
-        key_value_dict[provider].extend(values[1:])
-    print key_value_dict
+        key_value_dict.setdefault(provider, []).extend(values[1:])
+
     return key_value_dict
 
 

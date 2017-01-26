@@ -255,10 +255,10 @@ class Synchronization(object):
 
         for connection in connections:
             if (
-                connection.get('boot').get('priority') == 'Secondary' and
+                (connection.get('boot').get('priority') == 'Secondary') and
                 connection_primary
-                    ):
-                    connection['boot']['priority'] = 'Primary'
+            ):
+                connection['boot']['priority'] = 'Primary'
 
         server_profile_to_update = server_profile.copy()
         server_profile_to_update['connections'] = connections
@@ -267,22 +267,23 @@ class Synchronization(object):
             id_or_uri=server_profile_to_update.get('uri')
         )
 
-    def create_connection(
-        self
-    ):
+    def create_connection(self):
         session = get_session(self.connection)
+
         for port, port_binding in db_manager.get_port_with_binding_profile(
             session
         ):
             port_dict = common.port_dict_for_port_creation(
-                port.get('network_id'), port_binding.get('vnic_type'),
+                port.get('network_id'),
+                port_binding.get('vnic_type'),
                 port.get('mac_address'),
                 json.loads(port_binding.get('profile'))
             )
+
             lli = common.local_link_information_from_port(port_dict)
-            server_hardware_id = lli[0].get('switch_info').get(
-                'server_hardware_id'
-                )
+            server_hardware_id = (
+                lli[0].get('switch_info').get('server_hardware_id')
+            )
             server_profile = (
                 self.neu_ov_client.port.server_profile_from_server_hardware(
                     server_hardware_id
@@ -335,20 +336,24 @@ class Synchronization(object):
         self, server_profile, oneview_uri
     ):
         sp_cons = []
+
         for connection in server_profile.get('connections'):
-            conn_network_id = oneview_network_id = common.id_from_uri(
+            conn_network_id = common.id_from_uri(
                 connection.get('networkUri')
             )
             if self.get_oneview_network(conn_network_id) is not None:
                 sp_cons.append(connection)
+
         server_profile['connections'] = sp_cons
         self.neu_ov_client.port.check_server_hardware_availability(
             server_profile.get('serverHardwareUri')
         )
-        previous_power_state = self.neu_ov_client.port\
-            .get_server_hardware_power_state(
+        previous_power_state = (
+            self.neu_ov_client.port.get_server_hardware_power_state(
                 server_profile.get('serverHardwareUri')
-                )
+            )
+        )
+
         self.neu_ov_client.port.update_server_hardware_power_state(
             server_profile.get('serverHardwareUri'), "Off")
         self.oneview_client.server_profiles.update(
@@ -357,4 +362,4 @@ class Synchronization(object):
         )
         self.neu_ov_client.port.update_server_hardware_power_state(
             server_profile.get('serverHardwareUri'), previous_power_state
-            )
+        )
