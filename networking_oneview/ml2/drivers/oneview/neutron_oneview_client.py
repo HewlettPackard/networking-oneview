@@ -27,48 +27,6 @@ from networking_oneview.ml2.drivers.oneview import common
 LOG = log.getLogger(__name__)
 
 
-def is_local_link_information_valid(local_link_information_list):
-    if not local_link_information_list:
-        return False
-
-    if len(local_link_information_list) > 1:
-        LOG.warning("'local_link_information' must have only one value")
-        return False
-
-    local_link_information = local_link_information_list[0]
-    switch_info = local_link_information.get('switch_info')
-
-    if switch_info is None:
-        LOG.warning("'local_link_information' must contain 'switch_info'.")
-        return False
-
-    server_hardware_id = switch_info.get('server_hardware_id')
-    bootable = eval(switch_info.get('bootable'))
-
-    if not (server_hardware_id or bootable):
-        LOG.warning(
-            "'local_link_information' must contain 'server_hardware_id' "
-            "and 'bootable'."
-        )
-        return False
-
-    if not isinstance(bootable, bool):
-        LOG.warning("'bootable' must be a boolean.")
-        return False
-
-    return True
-
-
-def is_port_valid_to_reflect_on_oneview(
-    vnic_type, neutron_oneview_network, local_link_information_list
-):
-    if vnic_type != 'baremetal':
-        return False
-    if not neutron_oneview_network:
-        return False
-    return is_local_link_information_valid(local_link_information_list)
-
-
 @six.add_metaclass(abc.ABCMeta)
 class ResourceManager(object):
     def __init__(self, oneview_client, uplinkset_mappings, flat_net_mappings):
@@ -368,6 +326,55 @@ class Network(ResourceManager):
 
 class Port(ResourceManager):
 
+    def create(self, session, port_dict):
+        network_id = port_dict.get('network_id')
+
+        network_segment = db_manager.get_network_segment(session, network_id)
+        physical_network = network_segment.get('physical_network')
+        network_type = network_segment.get('network_type')
+
+        if not self.is_managed(physical_network, network_type):
+            return
+
+        local_link_information_list = common.local_link_information_from_port(
+            port_dict
+        )
+
+        if not self._is_port_valid_to_reflect_on_oneview(
+            session, port_dict, local_link_information_list
+        ):
+            LOG.info("Port not valid to reflect on OneView.")
+            return
+
+        switch_info = local_link_information_list[0].get('switch_info')
+
+        neutron_oneview_network = db_manager.get_neutron_oneview_network(
+            session, network_id)
+        network_uri = common.network_uri_from_id(
+            neutron_oneview_network.oneview_network_id)
+
+        server_hardware_id = switch_info.get('server_hardware_id')
+        server_profile = self.server_profile_from_server_hardware(
+            server_hardware_id
+        )
+
+        bootable = switch_info.get('bootable')
+        boot_priority = self._get_boot_priority(server_profile, bootable)
+
+        mac_address = port_dict.get('mac_address')
+        port_id = self._port_id_from_mac(server_hardware_id, mac_address)
+
+        server_profile['connections'].append({
+            'name': "NeutronPort[" + mac_address + "]",
+            'portId': port_id,
+            'networkUri': network_uri,
+            'boot': {'priority': boot_priority},
+            'functionType': 'Ethernet'
+        })
+
+        self._check_oneview_entities_availability(server_hardware_id)
+        self._update_oneview_entities(server_hardware_id, server_profile)
+
     def _get_boot_priority(self, server_profile, bootable):
         if bootable:
             connections = server_profile.get('connections')
@@ -377,6 +384,8 @@ class Port(ResourceManager):
                 return 'Secondary'
         return 'NotBootable'
 
+    # NOTE(nicodemos): Is this method right? When I found the boot_priority, Is
+    # it to return false?
     def _is_boot_priority_available(self, connections, boot_priority):
         for connection in connections:
             if connection.get('boot').get('priority') == boot_priority:
@@ -422,102 +431,89 @@ class Port(ResourceManager):
                             ),
                         }
 
-    def create(self, session, port_dict):
-        vnic_type = port_dict.get('binding:vnic_type')
-        network_id = port_dict.get('network_id')
-        mac_address = port_dict.get('mac_address')
-
-        network_segment = db_manager.get_network_segment(session, network_id)
-        physical_network = network_segment.get('physical_network')
-        network_type = network_segment.get('network_type')
-
-        if not self.is_managed(physical_network, network_type):
-            return
-
-        neutron_oneview_network = db_manager.get_neutron_oneview_network(
-            session, network_id
-        )
+    def delete(self, session, port_dict):
         local_link_information_list = common.local_link_information_from_port(
             port_dict
         )
-
-        if not is_port_valid_to_reflect_on_oneview(
-            vnic_type, neutron_oneview_network, local_link_information_list
+        if not self._is_port_valid_to_reflect_on_oneview(
+            session, port_dict, local_link_information_list
         ):
             LOG.info("Port not valid to reflect on OneView.")
             return
 
         switch_info = local_link_information_list[0].get('switch_info')
         server_hardware_id = switch_info.get('server_hardware_id')
-        bootable = switch_info.get('bootable')
-
-        network_uri = common.network_uri_from_id(
-            neutron_oneview_network.oneview_network_id
-        )
         server_profile = self.server_profile_from_server_hardware(
             server_hardware_id
         )
-        boot_priority = self._get_boot_priority(server_profile, bootable)
-        port_id = self._port_id_from_mac(server_hardware_id, mac_address)
-        server_profile['connections'].append({
-            'name': "NeutronPort[" + mac_address + "]",
-            'portId': port_id,
-            'networkUri': network_uri,
-            'boot': {'priority': boot_priority},
-            'functionType': 'Ethernet'
-        })
-        self.check_server_profile_availability(server_hardware_id)
-        self.check_server_hardware_availability(server_hardware_id)
-        previous_power_state = self.get_server_hardware_power_state(
-            server_hardware_id
-        )
-        self.update_server_hardware_power_state(
-            server_hardware_id, "Off"
-        )
-        self.oneview_client.server_profiles.update(
-            resource=server_profile,
-            id_or_uri=server_profile.get('uri')
-        )
-        self.update_server_hardware_power_state(
-            server_hardware_id, previous_power_state
-        )
 
-    def delete(self, session, port_dict):
-        def connection_with_mac_address(connections, mac_address):
-            for connection in connections:
-                if connection.get('mac') == mac_address:
-                    return connection
+        mac_address = port_dict.get('mac_address')
+        connection = self._connection_with_mac_address(
+            server_profile.get('connections'), mac_address
+        )
+        if connection:
+            server_profile.get('connections').remove(connection)
+
+        self._check_oneview_entities_availability(server_hardware_id)
+        self._update_oneview_entities(server_hardware_id, server_profile)
+
+    def _connection_with_mac_address(self, connections, mac_address):
+        for connection in connections:
+            if connection.get('mac') == mac_address:
+                return connection
+
+    def _is_port_valid_to_reflect_on_oneview(
+        self, session, port_dict, local_link_information_list
+    ):
+        def is_local_link_information_valid(local_link_information_list):
+            if not local_link_information_list:
+                return False
+
+            if len(local_link_information_list) > 1:
+                LOG.warning(
+                    "'local_link_information' must have only one value")
+                return False
+
+            local_link_information = local_link_information_list[0]
+            switch_info = local_link_information.get('switch_info')
+
+            if switch_info is None:
+                LOG.warning(
+                    "'local_link_information' must contain 'switch_info'.")
+                return False
+
+            server_hardware_id = switch_info.get('server_hardware_id')
+            bootable = eval(switch_info.get('bootable'))
+
+            if not (server_hardware_id or bootable):
+                LOG.warning(
+                    "'local_link_information' must contain "
+                    "'server_hardware_id' and 'bootable'.")
+                return False
+
+            if not isinstance(bootable, bool):
+                LOG.warning("'bootable' must be a boolean.")
+                return False
+
+            return True
 
         vnic_type = port_dict.get('binding:vnic_type')
         network_id = port_dict.get('network_id')
-        mac_address = port_dict.get('mac_address')
-
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, network_id
         )
-        local_link_information_list = common.local_link_information_from_port(
-            port_dict
-        )
 
-        if not is_port_valid_to_reflect_on_oneview(
-            vnic_type, neutron_oneview_network, local_link_information_list
-        ):
-            return
+        if vnic_type != 'baremetal':
+            return False
+        if not neutron_oneview_network:
+            return False
+        return is_local_link_information_valid(local_link_information_list)
 
-        switch_info = local_link_information_list[0].get('switch_info')
-        server_hardware_id = switch_info.get('server_hardware_id')
-
-        server_profile = self.server_profile_from_server_hardware(
-            server_hardware_id
-        )
-        connection = connection_with_mac_address(
-            server_profile.get('connections'), mac_address
-        )
-
-        if connection:
-            server_profile.get('connections').remove(connection)
+    def _check_oneview_entities_availability(self, server_hardware_id):
         self.check_server_profile_availability(server_hardware_id)
         self.check_server_hardware_availability(server_hardware_id)
+
+    def _update_oneview_entities(self, server_hardware_id, server_profile):
         previous_power_state = self.get_server_hardware_power_state(
             server_hardware_id
         )

@@ -53,7 +53,7 @@ def get_uplinkset_by_name_from_list(uplinkset_list, uplinkset_name):
     return uplinkset_obj
 
 
-def get_logical_interconnect_group_by_id(self, oneview_client, lig_id):
+def get_logical_interconnect_group_by_id(oneview_client, lig_id):
     try:
         return oneview_client.logical_interconnect_groups.get(lig_id)
     except exceptions.HPOneViewException as err:
