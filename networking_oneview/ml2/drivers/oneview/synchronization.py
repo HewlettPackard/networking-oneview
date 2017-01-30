@@ -29,11 +29,6 @@ from sqlalchemy.orm import sessionmaker
 LOG = log.getLogger(__name__)
 
 
-def get_session(connection):
-    Session = sessionmaker(bind=create_engine(connection), autocommit=True)
-    return Session()
-
-
 class Synchronization(object):
     def __init__(self, oneview_client, neutron_oneview_client, connection):
         self.oneview_client = oneview_client
@@ -44,17 +39,20 @@ class Synchronization(object):
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=3600, initial_delay=0)
 
+    def get_session(self):
+        Session = sessionmaker(bind=create_engine(self.connection),
+                               autocommit=True)
+        return Session()
+
     def synchronize(self):
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
         self.synchronize_uplinkset_from_mapped_networks()
         self.create_connection()
 
-    def get_oneview_network(self, oneview_network_id):
+    def get_oneview_network(self, oneview_net_id):
         try:
-            return self.oneview_client.ethernet_networks.get(
-                oneview_network_id
-            )
+            return self.oneview_client.ethernet_networks.get(oneview_net_id)
         except exceptions.HPOneViewException as err:
             LOG.error(err)
 
@@ -69,76 +67,80 @@ class Synchronization(object):
             session, oneview_network_id
         )
 
-    def check_lig_constraint(self):
-        physnet_mappings = self.neu_ov_client.port.physnet_uplinkset_mapping
-        for key in physnet_mappings:
-            for _type in physnet_mappings[key]:
-                uplinksets = physnet_mappings[key][_type]
-                lgis = []
-                for uplinkset in uplinksets:
-                    us = self.oneview_client.uplink_sets.get(uplinkset)
-                    uplink_type = us.get('ethernetNetworkType')
-                    li = self.oneview_client.logical_interconnects.get(
-                        us.get('logicalInterconnectUri'))
-                    lig = self.oneview_client.logical_interconnect_groups.get(
-                        li.get('logicalInterconnectGroupUri')
-                    )
-                    lig_uri = lig.get('uri')
-                    if lig_uri not in lgis:
-                        lgis.append(lig_uri)
-                    else:
-                        err = (
-                            "There is more than one uplinkset of "
-                            "type %(uplinktype)s from the same logical "
-                            "interconnect group mapped "
-                            "for the same physnet"
-                        ) % {'uplinktype': uplink_type}
-                        LOG.error(err)
-                        sys.exit(1)
+        db_manager.delete_oneview_network_lig(
+            session, oneview_network_id=oneview_network_id
+        )
+
+    def check_uplinkset_types_constraint(self):
+        """Check the number of uplinkset types for a provider in a LIG.
+
+        It is only possible to map one provider to at the most one uplink
+        of each type
+        """
+        uplinkset_mappings = self.neu_ov_client.port.uplinkset_mappings
+        for provider in uplinkset_mappings:
+            uplinksets_type = {}
+            for lig_id, ups_name in zip(provider[::2], provider[1::2]):
+                lig_mappings = uplinksets_type.setdefault(lig_id, [])
+                lig = self.oneview_client.logical_interconnect_groups.get(
+                    lig_id
+                )
+                uplinkset = common.get_uplinkset_by_name_from_list(
+                    lig.get('uplinkSets'), ups_name)
+                lig_mappings.append(uplinkset.get('ethernetNetworkType'))
+
+                if len(lig_mappings) != len(set(lig_mappings)):
+                    err = (
+                        "The provider %(provider)s has more than one "
+                        "uplinkset of the same type in the logical "
+                        "interconnect group %(lig_id)s."
+                    ) % {"provider": provider, "lig_id": lig_id}
+                    LOG.error(err)
+                    raise Exception(err)
 
     def check_unique_uplinkset_constraint(self):
-        mapped_uplinksets = []
-        physnet_mappings = self.neu_ov_client.port.physnet_uplinkset_mapping
-        for key in physnet_mappings:
-            for _type in physnet_mappings[key]:
-                uplinksets = physnet_mappings[key][_type]
-                uplinksets_checked = []
-                for uplinkset in uplinksets:
-                    if uplinkset in uplinksets_checked:
-                        warning = (
-                            "Uplinkset %(uplinkset)s is duplicated "
-                            "in the same Physical Network"
-                        ) % {'uplinkset': uplinkset}
-                        LOG.warning(warning)
-                    else:
-                        uplinksets_checked.append(uplinkset)
-                for uplinkset in uplinksets_checked:
-                    if uplinkset in mapped_uplinksets:
+        uplinkset_mappings = self.neu_ov_client.port.uplinkset_mappings
+
+        for prov1 in uplinkset_mappings:
+            for prov2 in uplinkset_mappings:
+                if prov1 != prov2:
+                    prov1_lig_mapping_tupples = zip(prov1[::2], prov1[1::2])
+                    prov2_lig_mapping_tupples = zip(prov2[::2], prov2[1::2])
+                    identical_mappings = (set(prov1_lig_mapping_tupples) &
+                                          set(prov2_lig_mapping_tupples))
+                    if len(identical_mappings) > 0:
+                        err_message_attrs = {
+                            "prov1": prov1,
+                            "prov2": prov2,
+                            "identical_mappings": "\n".join(
+                                (", ".join(mapping)
+                                    for mapping in identical_mappings)
+                            )
+                        }
                         err = (
-                            "Uplinkset %(uplinkset)s is used by more "
-                            "than one Physical Network"
-                        ) % {'uplinkset': uplinkset}
+                            "The providers %(prov1)s and %(prov2)s are being "
+                            "mappend to the same Logical Interconnect Group "
+                            "and the same Uplinkset.\n"
+                            "The LIG ids and Uplink names are:\n"
+                            "%(identical_mappings)s"
+                        ) % err_message_attrs
                         LOG.error(err)
-                        sys.exit(1)
-                    else:
-                        mapped_uplinksets.append(uplinkset)
+                        raise Exception(err)
 
     def create_oneview_networks_from_neutron(self):
-        session = get_session(self.connection)
+        session = self.get_session()
         for network, network_segment in (
             db_manager.list_networks_and_segments_with_physnet(session)
         ):
-            id = network.get('id')
+            net_id = network.get('id')
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
-                session, id
+                session, net_id
             )
-            if neutron_oneview_network is not None:
+            if neutron_oneview_network:
                 oneview_network = self.get_oneview_network(
                     neutron_oneview_network.oneview_network_id
                 )
-                if oneview_network is not None:
-                    continue
-                else:
+                if not oneview_network:
                     self._remove_inconsistence_from_db(
                         session,
                         neutron_oneview_network.neutron_network_id,
@@ -149,13 +151,13 @@ class Synchronization(object):
             network_type = network_segment.get('network_type')
             segmentation_id = network_segment.get('segmentation_id')
             network_dict = common.network_dict_for_network_creation(
-                physical_network, network_type, id, segmentation_id
+                physical_network, network_type, net_id, segmentation_id
             )
 
             self.neu_ov_client.network.create(session, network_dict)
 
     def synchronize_uplinkset_from_mapped_networks(self):
-        session = get_session(self.connection)
+        session = self.get_session()
         for neutron_oneview_network in (
             db_manager.list_neutron_oneview_network(session)
         ):
@@ -173,7 +175,7 @@ class Synchronization(object):
                 )
 
     def delete_unmapped_oneview_networks(self):
-        session = get_session(self.connection)
+        session = self.get_session()
 
         for network in self.oneview_client.ethernet_networks.get_all():
             m = re.search('Neutron \[(.*)\]', network.get('name'))
@@ -203,7 +205,7 @@ class Synchronization(object):
                         )
 
     def _delete_connections(self, neutron_network_id):
-        session = get_session(self.connection)
+        session = self.get_session()
         for port, port_binding in (
             db_manager.get_port_with_binding_profile_by_net(
                 session, neutron_network_id
@@ -268,7 +270,7 @@ class Synchronization(object):
         )
 
     def create_connection(self):
-        session = get_session(self.connection)
+        session = self.get_session()
 
         for port, port_binding in db_manager.get_port_with_binding_profile(
             session

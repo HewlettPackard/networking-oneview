@@ -60,7 +60,10 @@ def get_oneview_client():
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
         self.oneview_client = get_oneview_client()
-        self._load_network_mappings()
+        self.uplinkset_mappings = common.load_conf_option_to_dict(
+            CONF.oneview.uplinkset_mappings)
+        self.flat_net_mappings = common.load_conf_option_to_dict(
+            CONF.oneview.flat_net_mappings)
 
         self.neutron_oneview_client = Client(self.oneview_client,
                                              self.uplinkset_mappings,
@@ -75,13 +78,6 @@ class OneViewDriver(driver_api.MechanismDriver):
         # )
 
     def _load_network_mappings(self):
-        self.uplinkset_mappings = common.load_conf_option_to_dict(
-            CONF.oneview.uplinkset_mappings
-        )
-
-        self.flat_net_mappings = common.load_conf_option_to_dict(
-            CONF.oneview.flat_net_mappings
-        )
 
     def bind_port(self, context):
         """Bind baremetal port to a network."""

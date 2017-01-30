@@ -61,6 +61,17 @@ def get_logical_interconnect_group_by_id(oneview_client, lig_id):
         raise err
 
 
+def get_logical_interconnect_group_from_uplink(oneview_client, uplinkset_id):
+    us = oneview_client.uplink_sets.get(uplinkset_id)
+    li = oneview_client.logical_interconnects.get(
+        us.get('logicalInterconnectUri'))
+    lig = oneview_client.logical_interconnect_groups.get(
+        li.get('logicalInterconnectGroupUri')
+    )
+
+    return lig
+
+
 def load_conf_option_to_dict(key_value_option):
     key_value_dict = {}
 

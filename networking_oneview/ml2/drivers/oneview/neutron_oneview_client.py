@@ -34,6 +34,7 @@ class ResourceManager(object):
         self.uplinkset_mappings = uplinkset_mappings
         self.flat_net_mappings = flat_net_mappings
 
+    # NOTE(nicodemos) Change method name
     def is_managed(self, physical_network, network_type):
         if self._is_physnet_in_uplinkset_mapping(
             physical_network, network_type
