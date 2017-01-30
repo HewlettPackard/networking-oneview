@@ -15,7 +15,6 @@
 
 import json
 import re
-import sys
 
 from hpOneView import exceptions
 from networking_oneview.ml2.drivers.oneview import (
@@ -34,8 +33,8 @@ class Synchronization(object):
         self.oneview_client = oneview_client
         self.neu_ov_client = neutron_oneview_client
         self.connection = connection
-        # self.check_unique_uplinkset_constraint()
-        # self.check_lig_constraint()
+        # self.check_unique_lig_per_provider_constraint()
+        # self.check_uplinkset_types_constraint()
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=3600, initial_delay=0)
 
@@ -63,9 +62,9 @@ class Synchronization(object):
             session, neutron_network_id=neutron_network_id
         )
 
-        db_manager.delete_oneview_network_uplinkset_by_network(
-            session, oneview_network_id
-        )
+        # db_manager.delete_oneview_network_uplinkset_by_network(
+        #     session, oneview_network_id
+        # )
 
         db_manager.delete_oneview_network_lig(
             session, oneview_network_id=oneview_network_id
@@ -75,7 +74,7 @@ class Synchronization(object):
         """Check the number of uplinkset types for a provider in a LIG.
 
         It is only possible to map one provider to at the most one uplink
-        of each type
+        of each type.
         """
         uplinkset_mappings = self.neu_ov_client.port.uplinkset_mappings
         for provider in uplinkset_mappings:
@@ -98,20 +97,22 @@ class Synchronization(object):
                     LOG.error(err)
                     raise Exception(err)
 
-    def check_unique_uplinkset_constraint(self):
+    def check_unique_lig_per_provider_constraint(self):
         uplinkset_mappings = self.neu_ov_client.port.uplinkset_mappings
 
-        for prov1 in uplinkset_mappings:
-            for prov2 in uplinkset_mappings:
-                if prov1 != prov2:
-                    prov1_lig_mapping_tupples = zip(prov1[::2], prov1[1::2])
-                    prov2_lig_mapping_tupples = zip(prov2[::2], prov2[1::2])
-                    identical_mappings = (set(prov1_lig_mapping_tupples) &
-                                          set(prov2_lig_mapping_tupples))
-                    if len(identical_mappings) > 0:
+        for provider in uplinkset_mappings:
+            for provider2 in uplinkset_mappings:
+                if provider != provider2:
+                    provider_lig_mapping_tupples = zip(
+                        provider[::2], provider[1::2])
+                    provider2_lig_mapping_tupples = zip(
+                        provider2[::2], provider2[1::2])
+                    identical_mappings = (set(provider_lig_mapping_tupples) &
+                                          set(provider2_lig_mapping_tupples))
+                    if identical_mappings:
                         err_message_attrs = {
-                            "prov1": prov1,
-                            "prov2": prov2,
+                            "prov1": provider,
+                            "prov2": provider2,
                             "identical_mappings": "\n".join(
                                 (", ".join(mapping)
                                     for mapping in identical_mappings)
@@ -166,7 +167,7 @@ class Synchronization(object):
             network_segment = db_manager.get_network_segment(
                 session, neutron_network_id
             )
-            if network_segment is not None:
+            if network_segment:
                 self.neu_ov_client.network.update_uplinksets(
                     session, oneview_network_id, network_segment.get(
                         'network_type'
