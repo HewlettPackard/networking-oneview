@@ -64,7 +64,8 @@ class OneViewDriver(driver_api.MechanismDriver):
             CONF.oneview.uplinkset_mappings)
         self.flat_net_mappings = common.load_conf_option_to_dict(
             CONF.oneview.flat_net_mappings)
-
+        print self.uplinkset_mappings
+        print self.flat_net_mappings
         self.neutron_oneview_client = Client(self.oneview_client,
                                              self.uplinkset_mappings,
                                              self.flat_net_mappings)
@@ -72,12 +73,10 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.oneview_client.connection.set_trusted_ssl_bundle(
                 CONF.oneview.tls_cacert_file
             )
-        # sync = synchronization.Synchronization(
-        #     self.oneview_client, self.neutron_oneview_client,
-        #     CONF.database.connection
-        # )
-
-    def _load_network_mappings(self):
+        sync = synchronization.Synchronization(
+            self.oneview_client, self.neutron_oneview_client,
+            CONF.database.connection, self.uplinkset_mappings
+        )
 
     def bind_port(self, context):
         """Bind baremetal port to a network."""

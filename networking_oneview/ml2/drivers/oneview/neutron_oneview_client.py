@@ -262,7 +262,7 @@ class Network(ResourceManager):
             session, oneview_network_id
         )
         db_manager.delete_oneview_network_lig_by_network(
-            session, oneview_network_id
+            session, oneview_network_id=oneview_network_id
         )
 
     def update_uplinksets(

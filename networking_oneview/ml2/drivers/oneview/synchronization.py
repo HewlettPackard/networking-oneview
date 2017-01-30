@@ -29,14 +29,21 @@ LOG = log.getLogger(__name__)
 
 
 class Synchronization(object):
-    def __init__(self, oneview_client, neutron_oneview_client, connection):
+    def __init__(
+            self, oneview_client, neutron_oneview_client, connection,
+            uplinkset_mappings):
         self.oneview_client = oneview_client
         self.neu_ov_client = neutron_oneview_client
         self.connection = connection
-        # self.check_unique_lig_per_provider_constraint()
-        # self.check_uplinkset_types_constraint()
-        heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
-        heartbeat.start(interval=3600, initial_delay=0)
+        self.uplinkset_mappings = uplinkset_mappings
+        print "#########################################################33"
+        print "#########################################################33"
+        print "#########################################################33"
+        print "#########################################################33"
+        self.check_unique_lig_per_provider_constraint()
+        self.check_uplinkset_types_constraint()
+        # heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
+        # heartbeat.start(interval=3600, initial_delay=0)
 
     def get_session(self):
         Session = sessionmaker(bind=create_engine(self.connection),
@@ -76,10 +83,12 @@ class Synchronization(object):
         It is only possible to map one provider to at the most one uplink
         of each type.
         """
-        uplinkset_mappings = self.neu_ov_client.port.uplinkset_mappings
-        for provider in uplinkset_mappings:
+        for provider in self.uplinkset_mappings:
+            provider_mapping = zip(
+                self.uplinkset_mappings.get(provider)[::2],
+                self.uplinkset_mappings.get(provider)[1::2])
             uplinksets_type = {}
-            for lig_id, ups_name in zip(provider[::2], provider[1::2]):
+            for lig_id, ups_name in provider_mapping:
                 lig_mappings = uplinksets_type.setdefault(lig_id, [])
                 lig = self.oneview_client.logical_interconnect_groups.get(
                     lig_id
@@ -98,15 +107,15 @@ class Synchronization(object):
                     raise Exception(err)
 
     def check_unique_lig_per_provider_constraint(self):
-        uplinkset_mappings = self.neu_ov_client.port.uplinkset_mappings
-
-        for provider in uplinkset_mappings:
-            for provider2 in uplinkset_mappings:
+        for provider in self.uplinkset_mappings:
+            for provider2 in self.uplinkset_mappings:
                 if provider != provider2:
                     provider_lig_mapping_tupples = zip(
-                        provider[::2], provider[1::2])
+                        self.uplinkset_mappings.get(provider)[::2],
+                        self.uplinkset_mappings.get(provider)[1::2])
                     provider2_lig_mapping_tupples = zip(
-                        provider2[::2], provider2[1::2])
+                        self.uplinkset_mappings.get(provider2)[::2],
+                        self.uplinkset_mappings.get(provider2)[1::2])
                     identical_mappings = (set(provider_lig_mapping_tupples) &
                                           set(provider2_lig_mapping_tupples))
                     if identical_mappings:
@@ -120,7 +129,7 @@ class Synchronization(object):
                         }
                         err = (
                             "The providers %(prov1)s and %(prov2)s are being "
-                            "mappend to the same Logical Interconnect Group "
+                            "mapped to the same Logical Interconnect Group "
                             "and the same Uplinkset.\n"
                             "The LIG ids and Uplink names are:\n"
                             "%(identical_mappings)s"
