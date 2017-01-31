@@ -107,12 +107,14 @@ class ResourceManager(object):
 
 
 class Network(ResourceManager):
+    import q
     NEUTRON_NET_TYPE_TO_ONEVIEW_NET_TYPE = {
         'vxlan': 'tagged',
         'vlan': 'tagged',
         'flat': 'untagged',
     }
 
+    @q
     def create(self, session, network_dict):
         network_id = network_dict.get('id')
         network_seg_id = network_dict.get('provider:segmentation_id')
@@ -133,7 +135,7 @@ class Network(ResourceManager):
             return
 
         lig_list = []
-
+        uplinksets_list = []
         if mapping_type == common.UPLINKSET_MAPPINGS_TYPE:
             network_type = 'tagged' if network_seg_id else 'untagged'
             lig_list = self._get_lig_list(physical_network, network_type)
@@ -203,6 +205,7 @@ class Network(ResourceManager):
                     uplinksets.append(uplink)
         return uplinksets
 
+    @q
     def _create_network_on_oneview(self, name, network_type, seg_id):
         options = {
             'name': name,
@@ -214,6 +217,7 @@ class Network(ResourceManager):
         }
         return self.oneview_client.ethernet_networks.create(options)
 
+    @q
     def _add_network_to_logical_interconnect_group(
         self, uplinkset_mappings, networkUri
     ):
@@ -235,13 +239,17 @@ class Network(ResourceManager):
                 logical_interconnect_group
             )
 
+    @q
     def _add_network_to_logical_interconnects(
         self, uplinkset_list, networkUri
     ):
         for uplinkset in uplinkset_list:
             uplinkset['networkUris'].append(networkUri)
+            import q; q("Nao passei pelo update")
             self.oneview_client.uplink_sets.update(uplinkset)
+            q(uplinkset)
 
+    @q
     def delete(self, session, network_dict):
         network_id = network_dict.get('id')
 
@@ -265,6 +273,7 @@ class Network(ResourceManager):
             session, oneview_network_id=oneview_network_id
         )
 
+    @q
     def update_uplinksets(
         self, session, oneview_network_id, network_type, physical_network
     ):
@@ -326,7 +335,8 @@ class Network(ResourceManager):
 
 
 class Port(ResourceManager):
-
+    import q
+    @q
     def create(self, session, port_dict):
         network_id = port_dict.get('network_id')
 
@@ -484,7 +494,10 @@ class Port(ResourceManager):
                 return False
 
             server_hardware_id = switch_info.get('server_hardware_id')
-            bootable = eval(switch_info.get('bootable'))
+            if type(switch_info.get('bootable')) == type("u"):
+                bootable = eval(switch_info.get('bootable'))
+            else:
+                bootable = switch_info.get('bootable')
 
             if not (server_hardware_id or bootable):
                 LOG.warning(

@@ -64,8 +64,6 @@ class OneViewDriver(driver_api.MechanismDriver):
             CONF.oneview.uplinkset_mappings)
         self.flat_net_mappings = common.load_conf_option_to_dict(
             CONF.oneview.flat_net_mappings)
-        print self.uplinkset_mappings
-        print self.flat_net_mappings
         self.neutron_oneview_client = Client(self.oneview_client,
                                              self.uplinkset_mappings,
                                              self.flat_net_mappings)
