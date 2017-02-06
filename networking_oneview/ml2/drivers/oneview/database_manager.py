@@ -102,15 +102,15 @@ def get_port_with_binding_profile_by_net(session, network_id):
 # OneView Mechanism driver_api
 def map_neutron_network_to_oneview(
     session, neutron_network_id, oneview_network_id,
-    manageable, lig_list
+    manageable, mappings
 ):
     insert_neutron_oneview_network(
         session, neutron_network_id, oneview_network_id, manageable
     )
 
-    if lig_list is None:
+    if mappings is None:
         return
-    for lig_id, uplinkset_name in zip(lig_list[0::2], lig_list[1::2]):
+    for lig_id, uplinkset_name in zip(mappings[0::2], mappings[1::2]):
         insert_oneview_network_lig(
             session, oneview_network_id, lig_id, uplinkset_name
         )
