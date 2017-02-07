@@ -36,14 +36,10 @@ class Synchronization(object):
         self.neu_ov_client = neutron_oneview_client
         self.connection = connection
         self.uplinkset_mappings = uplinkset_mappings
-        print "#########################################################33"
-        print "#########################################################33"
-        print "#########################################################33"
-        print "#########################################################33"
         self.check_unique_lig_per_provider_constraint()
         self.check_uplinkset_types_constraint()
-        # heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
-        # heartbeat.start(interval=3600, initial_delay=0)
+        heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
+        heartbeat.start(interval=3600, initial_delay=0)
 
     def get_session(self):
         Session = sessionmaker(bind=create_engine(self.connection),
@@ -54,7 +50,7 @@ class Synchronization(object):
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
         self.synchronize_uplinkset_from_mapped_networks()
-        self.create_connection()
+        # self.create_connection()
 
     def get_oneview_network(self, oneview_net_id):
         try:
@@ -69,9 +65,9 @@ class Synchronization(object):
             session, neutron_network_id=neutron_network_id
         )
 
-        # db_manager.delete_oneview_network_uplinkset_by_network(
-        #     session, oneview_network_id
-        # )
+        db_manager.delete_oneview_network_uplinkset_by_network(
+            session, oneview_network_id
+        )
 
         db_manager.delete_oneview_network_lig(
             session, oneview_network_id=oneview_network_id
@@ -176,13 +172,17 @@ class Synchronization(object):
             network_segment = db_manager.get_network_segment(
                 session, neutron_network_id
             )
+            print "#######################################"
+            print "#######################################"
+            print network_segment
+            print "#######################################"
+            print "#######################################"
+            print "#######################################"
             if network_segment:
-                self.neu_ov_client.network.update_uplinksets(
+                self.neu_ov_client.network.update_network_lig(
                     session, oneview_network_id, network_segment.get(
-                        'network_type'
-                    ),
-                    network_segment.get('physical_network')
-                )
+                        'network_type'), network_segment.get(
+                        'physical_network'))
 
     def delete_unmapped_oneview_networks(self):
         session = self.get_session()
@@ -192,7 +192,6 @@ class Synchronization(object):
             if m:
                 oneview_network_id = common.id_from_uri(network.get('uri'))
                 neutron_network_id = m.group(1)
-
                 neutron_network = db_manager.get_neutron_network(
                     session, neutron_network_id
                 )
