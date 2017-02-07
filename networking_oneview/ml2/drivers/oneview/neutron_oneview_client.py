@@ -107,14 +107,12 @@ class ResourceManager(object):
 
 
 class Network(ResourceManager):
-    import q
     NEUTRON_NET_TYPE_TO_ONEVIEW_NET_TYPE = {
         'vxlan': 'tagged',
         'vlan': 'tagged',
         'flat': 'untagged',
     }
 
-    @q
     def create(self, session, network_dict):
         network_id = network_dict.get('id')
         network_seg_id = network_dict.get('provider:segmentation_id')
@@ -195,7 +193,6 @@ class Network(ResourceManager):
                     uplinksets.append(uplink)
         return uplinksets
 
-    @q
     def _create_network_on_oneview(self, name, network_type, seg_id):
         options = {
             'name': name,
@@ -207,9 +204,8 @@ class Network(ResourceManager):
         }
         return self.oneview_client.ethernet_networks.create(options)
 
-    @q
     def _add_network_to_logical_interconnect_group(
-        self, uplinkset_mappings, networkUri
+        self, uplinkset_mappings, network_uri
     ):
         for lig_id, uplinkset_name in zip(
             uplinkset_mappings[0::2], uplinkset_mappings[1::2]
@@ -223,18 +219,17 @@ class Network(ResourceManager):
             uplinkset = common.get_uplinkset_by_name_from_list(
                 lig_uplinksets, uplinkset_name
             )
-            uplinkset['networkUris'].append(networkUri)
+            uplinkset['networkUris'].append(network_uri)
 
             self.oneview_client.logical_interconnect_groups.update(
                 logical_interconnect_group
             )
 
-    @q
     def _add_network_to_logical_interconnects(
-        self, uplinkset_list, networkUri
+        self, uplinkset_list, network_uri
     ):
         for uplinkset in uplinkset_list:
-            uplinkset['networkUris'].append(networkUri)
+            uplinkset['networkUris'].append(network_uri)
             self.oneview_client.uplink_sets.update(uplinkset)
 
     def delete(self, session, network_dict):
@@ -286,7 +281,7 @@ class Network(ResourceManager):
                         'oneview_uplinkset_name'))
         print "###########################"
         print "###########################"
-        print "Mandou add to lgis"
+        print "Mandou add to ligs"
         self._add_to_ligs(
             network_type, physical_network,
             self.oneview_client.ethernet_networks.get(oneview_network_id))
@@ -375,8 +370,6 @@ class Network(ResourceManager):
 
 
 class Port(ResourceManager):
-    import q
-    @q
     def create(self, session, port_dict):
         network_id = port_dict.get('network_id')
 
@@ -435,8 +428,6 @@ class Port(ResourceManager):
                 return 'Secondary'
         return 'NotBootable'
 
-    # NOTE(nicodemos): Is this method right? When I found the boot_priority, Is
-    # it to return false?
     def _is_boot_priority_available(self, connections, boot_priority):
         for connection in connections:
             if connection.get('boot').get('priority') == boot_priority:

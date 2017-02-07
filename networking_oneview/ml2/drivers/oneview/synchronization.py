@@ -49,8 +49,8 @@ class Synchronization(object):
     def synchronize(self):
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
-        self.synchronize_uplinkset_from_mapped_networks()
-        # self.create_connection()
+        #self.synchronize_uplinkset_from_mapped_networks()
+        self.create_connection()
 
     def get_oneview_network(self, oneview_net_id):
         try:
@@ -147,6 +147,7 @@ class Synchronization(object):
                     neutron_oneview_network.oneview_network_id
                 )
                 if not oneview_network:
+                    print "Chamou _remove_inconsistence_from_db"
                     self._remove_inconsistence_from_db(
                         session,
                         neutron_oneview_network.neutron_network_id,
@@ -290,7 +291,6 @@ class Synchronization(object):
                 port.get('mac_address'),
                 json.loads(port_binding.get('profile'))
             )
-
             lli = common.local_link_information_from_port(port_dict)
             server_hardware_id = (
                 lli[0].get('switch_info').get('server_hardware_id')
@@ -303,13 +303,17 @@ class Synchronization(object):
             neutron_oneview_network = db_manager.list_neutron_oneview_network(
                 session, neutron_network_id=port.get('network_id')
             )
+            print neutron_oneview_network
+            print "#########################################"
+            print "#########################################"
+            print "#########################################"
             connection_updated = False
             if len(neutron_oneview_network) > 0:
                 oneview_uri = "/rest/ethernet-networks/" + (
                     neutron_oneview_network[0].oneview_network_id
                 )
                 self.fix_connections_with_removed_networks(
-                    server_profile, oneview_uri
+                    server_profile
                 )
                 for c in server_profile.get('connections'):
                     if c.get('mac') == port.get('mac_address'):
@@ -343,16 +347,24 @@ class Synchronization(object):
             server_profile.get('uuid'), previous_power_state
         )
 
-    def fix_connections_with_removed_networks(
-        self, server_profile, oneview_uri
-    ):
+    def fix_connections_with_removed_networks(self, server_profile):
+        print "fix_connections_with_removed_networks"
+        print "fix_connections_with_removed_networks"
+        print "fix_connections_with_removed_networks"
+        print "fix_connections_with_removed_networks"
+        print "fix_connections_with_removed_networks"
+        print "fix_connections_with_removed_networks"
+        print "fix_connections_with_removed_networks"
+        print "fix_connections_with_removed_networks"
+        print "fix_connections_with_removed_networks"
         sp_cons = []
 
         for connection in server_profile.get('connections'):
             conn_network_id = common.id_from_uri(
                 connection.get('networkUri')
             )
-            if self.get_oneview_network(conn_network_id) is not None:
+            print self.get_oneview_network(conn_network_id)
+            if self.get_oneview_network(conn_network_id):
                 sp_cons.append(connection)
 
         server_profile['connections'] = sp_cons
