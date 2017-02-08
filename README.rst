@@ -130,11 +130,11 @@ Ironic Configuration
 By default, Ironic is configured to use flat networks during deployment process. To use Ironic-Neutron integration to provide networks isolation during deployment, some configurations are necessary. In ironic.conf file the following configuration should be done:
 ::
 
-[DEFAULT]
+    [DEFAULT]
     enabled_network_interfaces = flat,noop,neutron
     default_network_interface = neutron
 
-[neutron]
+    [neutron]
     cleaning_network_uuid = neutron_cleaning_network_UUID
     provisioning_network_uuid = neutron_provisioning_network_UUID
 
@@ -148,16 +148,18 @@ In “local_link_connection”, switch_id and port_id are necessary to identify 
 Install
 =============================
 
-Requirement
-
-- Python => 2.7.9
 
 1. Install with PIP
 
+- Requirement:
+
+ Python => 2.7.9
+
 - To install the ML2 Mechanism Driver, run:
+
 ::
 
-    $ pip install networking-oneview
+  $ pip install networking-oneview
 
 - Go to the Configuration section
 
@@ -165,16 +167,19 @@ Requirement
 2. Install with GIT
 
 - Make the git clone of the mech driver files for a folder of your choice <download_directory>:
+
 ::
 
     $ git clone git@git.lsd.ufcg.edu.br:ironic-neutron-oneview/networking-oneview.git
 
 - Access the folder <networking-oneview>:
+
 ::
 
     $ cd networking-oneview
 
 - Run:
+
 ::
 
     $ pip install .
@@ -241,10 +246,13 @@ To set TLS options for the communication with OneView, it is necessary to downlo
 3. Restart Neutron and upgrade Database:
 
 - Upgrade Database:
+
 ::
+
 $ neutron-db-manage upgrade heads
 
 - Restart the neutron service adding the new configuration file using '--config-file /etc/neutron/plugins/ml2/ml2_conf_oneview.ini'. Example:
+
 ::
 
 $ /usr/local/bin/neutron-server --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/ml2/ml2_conf.ini --config-file /etc/neutron/plugins/ml2/ml2_conf_oneview.ini
