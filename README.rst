@@ -60,7 +60,7 @@ Operations of Networks with no mappings are just ignored by the driver.
 These mappings configuration can be made in the configuration file using the
 "uplinkset_mappings" and "flat_net_mappings" attributes, as follows:
 
-- "uplinkset_mappings" are used to define which provider networks from Neutron should be controlled by the OneView Mechanism Driver. In “uplinkset_mappings” attribute it’s necessary to define pairs of Provider Network: Uplink Set UUID to represent desired mappings of Neutron networks to the Uplink Sets the networks that will be created in OneView to reflect them might be attached to have external access. These mappings can be related with “Ethernet” Uplink Sets to support VLAN networks or “Untagged” Uplink Sets to support flat network. In the case of mappings using “Ethernet” Uplink Sets, OneView not allows that more than one network use the same VLAN ID in the same Uplink set and only one mapping is allowed per Logical Interconnect. In the case of “Untagged” Uplink Sets OneView restricts that only one network can be configured to use it.
+- "uplinkset_mappings" are used to define which provider networks from Neutron should be controlled by the OneView Mechanism Driver. In “uplinkset_mappings” attribute it’s necessary to define pairs of Provider Network: Logical Interconnect Group UUID: Uplink Set name to represent desired mappings of Neutron networks to the Uplink Sets in Logical Interconnect Group the networks that will be created in OneView to reflect them might be attached to have external access. These mappings can be related with “Ethernet” Uplink Sets to support VLAN networks or “Untagged” Uplink Sets to support flat network. In the case of mappings using “Ethernet” Uplink Sets, OneView not allows that more than one network use the same VLAN ID in the same Uplink set and only one mapping is allowed per Logical Interconnect. In the case of “Untagged” Uplink Sets OneView restricts that only one network can be configured to use it.
 
 - "flat_net_mappings" are used to define manual mappings of specific flat provider networks from Neutron to existing Untagged networks in OneView. This configuration can be done to allow OneView administrator to use a configured environment instead of create an entire new one interacting with OpenStack. When a network is mapped with "flat_net_mappings" no operations in OneView are performed since it is considered that all environment was correctly configured by OneView Administrator.
 
@@ -130,8 +130,11 @@ Ironic Configuration
 By default, Ironic is configured to use flat networks during deployment process. To use Ironic-Neutron integration to provide networks isolation during deployment, some configurations are necessary. In ironic.conf file the following configuration should be done:
 ::
 
+[DEFAULT]
     enabled_network_interfaces = flat,noop,neutron
     default_network_interface = neutron
+
+[neutron]
     cleaning_network_uuid = neutron_cleaning_network_UUID
     provisioning_network_uuid = neutron_provisioning_network_UUID
 
@@ -144,6 +147,10 @@ In “local_link_connection”, switch_id and port_id are necessary to identify 
 
 Install
 =============================
+
+Requirement
+
+- Python => 2.7.9
 
 1. Install with PIP
 
@@ -222,7 +229,7 @@ To set TLS options for the communication with OneView, it is necessary to downlo
 
     password=password
 
-    uplinkset_mappings=physnet1:8b4d1932-2528-4f32-8b00-3879cfa1de28,physnet2:f0be6758-4b4b-4596-8aa1-6c38d2422d4f
+    uplinkset_mappings=physnet1:8b4d1932-2528-4f32-8b00-3879cfa1de28:uplink_name,physnet2:f0be6758-4b4b-4596-8aa1-6c38d2422d4f:uplink_name2
 
     flat_net_mappings=physnet3:4e45ab21-ba2e-490a-81f9-2226c240f3d9,physnet4:66666666-ba2e-490a-81f9-2226c240f3d9
 
@@ -231,7 +238,11 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     tls_cacert_file = /home/ubuntu/certificate/appliance.com.crt
 
 
-3. Restart Neutron:
+3. Restart Neutron and upgrade Database:
+
+- Upgrade Database:
+::
+$ neutron-db-manage upgrade heads
 
 - Restart the neutron service adding the new configuration file using '--config-file /etc/neutron/plugins/ml2/ml2_conf_oneview.ini'. Example:
 ::
