@@ -60,7 +60,7 @@ Operations of Networks with no mappings are just ignored by the driver.
 These mappings configuration can be made in the configuration file using the
 "uplinkset_mappings" and "flat_net_mappings" attributes, as follows:
 
-- "uplinkset_mappings" are used to define which provider networks from Neutron should be controlled by the OneView Mechanism Driver. In “uplinkset_mappings” attribute it’s necessary to define pairs of Provider Network: Logical Interconnect Group UUID: Uplink Set name to represent desired mappings of Neutron networks to the Uplink Sets in Logical Interconnect Group the networks that will be created in OneView to reflect them might be attached to have external access. These mappings can be related with “Ethernet” Uplink Sets to support VLAN networks or “Untagged” Uplink Sets to support flat network. In the case of mappings using “Ethernet” Uplink Sets, OneView not allows that more than one network use the same VLAN ID in the same Uplink set and only one mapping is allowed per Logical Interconnect. In the case of “Untagged” Uplink Sets OneView restricts that only one network can be configured to use it.
+- "uplinkset_mappings" are used to define which provider networks from Neutron should be controlled by the OneView Mechanism Driver. In “uplinkset_mappings” attribute it’s necessary to define triple of [Provider_Network:Logical_Interconnect_Group_UUID:Uplink_Set_name] to represent desired mappings of Neutron networks to the Uplink Sets in Logical Interconnect Group the networks that will be created in OneView to reflect them might be attached to have external access. These mappings can be related with “Ethernet” Uplink Sets to support VLAN networks or “Untagged” Uplink Sets to support flat network. In the case of mappings using “Ethernet” Uplink Sets, OneView not allows that more than one network use the same VLAN ID in the same Uplink set and only one mapping is allowed per Logical Interconnect. In the case of “Untagged” Uplink Sets OneView restricts that only one network can be configured to use it.
 
 - "flat_net_mappings" are used to define manual mappings of specific flat provider networks from Neutron to existing Untagged networks in OneView. This configuration can be done to allow OneView administrator to use a configured environment instead of create an entire new one interacting with OpenStack. When a network is mapped with "flat_net_mappings" no operations in OneView are performed since it is considered that all environment was correctly configured by OneView Administrator.
 
@@ -196,6 +196,13 @@ Configuration
 ::
 
     mechanism_drivers = <others Drivers>,oneview
+
+- Find the correspondent line and insert the words *flat,vlan* as follow:
+
+::
+
+    tenant_network_types = vxlan,flat,vlan
+
 
 - Find the correspondent line and insert the flat physical networks:
 
