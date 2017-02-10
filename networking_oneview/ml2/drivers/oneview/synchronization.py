@@ -49,7 +49,7 @@ class Synchronization(object):
     def synchronize(self):
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
-        #self.synchronize_uplinkset_from_mapped_networks()
+        self.synchronize_uplinkset_from_mapped_networks()
         self.create_connection()
 
     def get_oneview_network(self, oneview_net_id):
@@ -63,10 +63,6 @@ class Synchronization(object):
     ):
         db_manager.delete_neutron_oneview_network(
             session, neutron_network_id=neutron_network_id
-        )
-
-        db_manager.delete_oneview_network_uplinkset_by_network(
-            session, oneview_network_id
         )
 
         db_manager.delete_oneview_network_lig(
@@ -147,7 +143,6 @@ class Synchronization(object):
                     neutron_oneview_network.oneview_network_id
                 )
                 if not oneview_network:
-                    print "Chamou _remove_inconsistence_from_db"
                     self._remove_inconsistence_from_db(
                         session,
                         neutron_oneview_network.neutron_network_id,
@@ -173,12 +168,6 @@ class Synchronization(object):
             network_segment = db_manager.get_network_segment(
                 session, neutron_network_id
             )
-            print "#######################################"
-            print "#######################################"
-            print network_segment
-            print "#######################################"
-            print "#######################################"
-            print "#######################################"
             if network_segment:
                 self.neu_ov_client.network.update_network_lig(
                     session, oneview_network_id, network_segment.get(
@@ -280,6 +269,11 @@ class Synchronization(object):
         )
 
     def create_connection(self):
+        """ Recreate connection that were deleted on Oneview.
+
+        Calls method to fix critical connections in the Server Profile that
+        will be used.
+        """
         session = self.get_session()
 
         for port, port_binding in db_manager.get_port_with_binding_profile(
@@ -303,10 +297,6 @@ class Synchronization(object):
             neutron_oneview_network = db_manager.list_neutron_oneview_network(
                 session, neutron_network_id=port.get('network_id')
             )
-            print neutron_oneview_network
-            print "#########################################"
-            print "#########################################"
-            print "#########################################"
             connection_updated = False
             if len(neutron_oneview_network) > 0:
                 oneview_uri = "/rest/ethernet-networks/" + (
@@ -348,22 +338,12 @@ class Synchronization(object):
         )
 
     def fix_connections_with_removed_networks(self, server_profile):
-        print "fix_connections_with_removed_networks"
-        print "fix_connections_with_removed_networks"
-        print "fix_connections_with_removed_networks"
-        print "fix_connections_with_removed_networks"
-        print "fix_connections_with_removed_networks"
-        print "fix_connections_with_removed_networks"
-        print "fix_connections_with_removed_networks"
-        print "fix_connections_with_removed_networks"
-        print "fix_connections_with_removed_networks"
         sp_cons = []
 
         for connection in server_profile.get('connections'):
             conn_network_id = common.id_from_uri(
                 connection.get('networkUri')
             )
-            print self.get_oneview_network(conn_network_id)
             if self.get_oneview_network(conn_network_id):
                 sp_cons.append(connection)
 

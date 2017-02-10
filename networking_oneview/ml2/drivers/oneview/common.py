@@ -53,6 +53,16 @@ def get_uplinkset_by_name_from_list(uplinkset_list, uplinkset_name):
     return uplinkset_obj
 
 
+def get_uplinkset_by_name_in_lig(oneview_client, lig_id, uplinkset_name):
+    """Gets the uplinkset in a Logical Interconnect Group with that name.
+    """
+    lig = oneview_client.logical_interconnect_groups.get(lig_id)
+    uplinkset = (uls for uls in lig.get('uplinkSets') if
+                    uls.get('name') == uplinkset_name).next()
+
+    return uplinkset
+
+
 def get_logical_interconnect_group_by_id(oneview_client, lig_id):
     try:
         return oneview_client.logical_interconnect_groups.get(lig_id)

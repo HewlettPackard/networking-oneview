@@ -162,9 +162,6 @@ class Network(ResourceManager):
         return common.MAPPING_TYPE_NONE
 
     def _get_lig_list(self, physical_network, network_type):
-        print "physical_network", physical_network
-        print "network_type", network_type
-        print self.uplinkset_mappings
         mappings_by_type = self.uplinkset_mappings.get(network_type)
         if mappings_by_type is None:
             return None
@@ -261,12 +258,10 @@ class Network(ResourceManager):
             network_type)
         mappings = self.uplinkset_mappings.get(network_type).get(
             physical_network)
-        print mappings
         if mappings is None:
             mappings = []
         mapped_ligs = db_manager.list_oneview_network_lig(
             session, oneview_network_id=oneview_network_id)
-        print mapped_ligs
         for lig_bd_entry in mapped_ligs:
             if not self._is_lig_id_uplink_name_mapped(lig_bd_entry, mappings):
                 self._remove_network_from_lig_and_lis(
@@ -279,19 +274,18 @@ class Network(ResourceManager):
                     oneview_lig_id=lig_bd_entry.get('oneview_lig_id'),
                     oneview_uplinkset_name=lig_bd_entry.get(
                         'oneview_uplinkset_name'))
-        print "###########################"
-        print "###########################"
-        print "Mandou add to ligs"
         self._add_to_ligs(
             network_type, physical_network,
             self.oneview_client.ethernet_networks.get(oneview_network_id))
         for lig_id, uplinkset_name in zip(mappings[0::2], mappings[1::2]):
-            try:
+            network_mapped = db_manager.get_oneview_network_lig(session,
+                oneview_network_id=oneview_network_id,
+                oneview_lig_id=lig_id,
+                oneview_uplinkset_name=uplinkset_name)
+            if network_mapped is None:
                 db_manager.insert_oneview_network_lig(
                     session, oneview_network_id, lig_id, uplinkset_name
                 )
-            except exceptions.HPOneViewException as err:
-                LOG.error(err)
 
     def _is_lig_id_uplink_name_mapped(self, lig_bd_entry, mappings):
         mapped_lig_id = lig_bd_entry.get('oneview_lig_id')
@@ -304,15 +298,10 @@ class Network(ResourceManager):
 
     def _add_to_ligs(self, network_type, physical_network, oneview_network):
         lig_list = self._get_lig_list(physical_network, network_type)
-        print "###########################"
-        print "Lig List"
-        print lig_list
         if lig_list is None:
             return None
         uplinksets_list = self._get_uplinksets_from_lig(
             network_type, lig_list)
-        print uplinksets_list
-        print oneview_network.get('uri')
         self._add_network_to_logical_interconnect_group(
             lig_list, oneview_network.get('uri'))
         self._add_network_to_logical_interconnects(
@@ -328,7 +317,6 @@ class Network(ResourceManager):
         uplinkset = common.get_uplinkset_by_name_from_list(
             lig_uplinksets, uplinkset_name
         )
-        print uplinkset
         uplinkset['networkUris'].remove('/rest/ethernet-networks/'+network_id)
         self.oneview_client.logical_interconnect_groups.update(
             lig
