@@ -63,25 +63,6 @@ def get_neutron_network_with_segment(session, id):
             Network.id == NetworkSegment.network_id).first()
 
 
-# Neutron Ports
-# def get_port_by_mac_address(session, mac_address):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             Port
-#         ).filter_by(
-#             mac_address=mac_address
-#         ).first()
-#
-#
-# def list_port_with_network(session, network_id):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             Port
-#         ).filter(
-#             Port.network_id == network_id
-#         ).all()
-
-
 def get_port_with_binding_profile(session):
     with session.begin(subtransactions=True):
         return session.query(Port, PortBinding).filter(

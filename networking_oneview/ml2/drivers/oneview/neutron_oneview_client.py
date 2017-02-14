@@ -216,18 +216,19 @@ class Network(ResourceManager):
             uplinkset = common.get_uplinkset_by_name_from_list(
                 lig_uplinksets, uplinkset_name
             )
-            uplinkset['networkUris'].append(network_uri)
-
-            self.oneview_client.logical_interconnect_groups.update(
-                logical_interconnect_group
-            )
+            if network_uri not in uplinkset['networkUris']:
+                uplinkset['networkUris'].append(network_uri)
+                self.oneview_client.logical_interconnect_groups.update(
+                    logical_interconnect_group
+                )
 
     def _add_network_to_logical_interconnects(
         self, uplinkset_list, network_uri
     ):
         for uplinkset in uplinkset_list:
-            uplinkset['networkUris'].append(network_uri)
-            self.oneview_client.uplink_sets.update(uplinkset)
+            if network_uri not in uplinkset['networkUris']:
+                uplinkset['networkUris'].append(network_uri)
+                self.oneview_client.uplink_sets.update(uplinkset)
 
     def delete(self, session, network_dict):
         network_id = network_dict.get('id')
@@ -278,7 +279,8 @@ class Network(ResourceManager):
             network_type, physical_network,
             self.oneview_client.ethernet_networks.get(oneview_network_id))
         for lig_id, uplinkset_name in zip(mappings[0::2], mappings[1::2]):
-            network_mapped = db_manager.get_oneview_network_lig(session,
+            network_mapped = db_manager.get_oneview_network_lig(
+                session,
                 oneview_network_id=oneview_network_id,
                 oneview_lig_id=lig_id,
                 oneview_uplinkset_name=uplinkset_name)
@@ -513,7 +515,7 @@ class Port(ResourceManager):
                 return False
 
             server_hardware_id = switch_info.get('server_hardware_id')
-            if type(switch_info.get('bootable')) == type("u"):
+            if isinstance(switch_info.get('bootable'), str):
                 bootable = eval(switch_info.get('bootable'))
             else:
                 bootable = switch_info.get('bootable')
