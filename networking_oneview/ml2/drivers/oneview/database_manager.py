@@ -193,18 +193,8 @@ def delete_oneview_network_uplinkset_by_network(session, network_id):
     with session.begin(subtransactions=True):
         session.query(OneviewNetworkUplinkset).filter_by(
             oneview_network_id=network_id).delete()
-#
-#
-# def get_ml2_port_binding(session, neutron_port_id):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             PortBinding
-#         ).filter_by(
-#             port_id=neutron_port_id
-#         ).first()
 
 
-# LOGICAL_INTERCONNECT_GROUP
 def list_oneview_network_lig(session, **kwargs):
     with session.begin(subtransactions=True):
         return session.query(OneviewLogicalInterconnectGroup).filter_by(
@@ -231,20 +221,6 @@ def insert_oneview_network_lig(
             oneview_network_id, lig_id, uplinkset_name
         )
         session.add(oneview_network_lig)
-
-
-# def delete_oneview_network_uplinkset(
-#     session, uplinkset_id, network_id, commit=False
-# ):
-#     with session.begin(subtransactions=True):
-#         session.query(
-#             oneview_network_db.OneviewLogicalInterconnectGroup
-#         ).filter_by(
-#             oneview_uplinkset_id=uplinkset_id,
-#             oneview_network_id=network_id
-#         ).delete()
-#     if commit:
-#         session.commit()
 
 
 def delete_oneview_network_lig(session, **kwargs):
