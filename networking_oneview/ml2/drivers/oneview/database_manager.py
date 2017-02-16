@@ -23,6 +23,7 @@ from networking_oneview.db.oneview_network_db import (
     OneviewLogicalInterconnectGroup)
 from networking_oneview.db.oneview_network_db import NeutronOneviewNetwork
 
+
 # Neutron Network
 def get_neutron_network(session, id):
     with session.begin(subtransactions=True):
