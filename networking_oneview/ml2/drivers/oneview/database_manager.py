@@ -89,7 +89,7 @@ def map_neutron_network_to_oneview(
         session, neutron_network_id, oneview_network_id, manageable
     )
 
-    if mappings is None:
+    if not mappings:
         return
     for lig_id, uplinkset_name in zip(mappings[0::2], mappings[1::2]):
         insert_oneview_network_lig(
@@ -103,15 +103,6 @@ def list_neutron_oneview_network(session, **kwargs):
         return session.query(NeutronOneviewNetwork).filter_by(**kwargs).all()
 
 
-# def list_neutron_oneview_network_manageable(session):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             oneview_network_db.NeutronOneviewNetwork
-#         ).filter_by(
-#             manageable=False
-#         ).all()
-
-
 def insert_neutron_oneview_network(
     session, neutron_network_id, oneview_network_id, manageable=True
 ):
@@ -119,22 +110,6 @@ def insert_neutron_oneview_network(
         net = NeutronOneviewNetwork(
             neutron_network_id, oneview_network_id, manageable)
         session.add(net)
-
-
-# def update_neutron_oneview_network(session, neutron_id, new_oneview_id):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             oneview_network_db.NeutronOneviewNetwork
-#         ).all()
-
-
-# def get_management_neutron_network(session, network_id):
-#     with session.begin(subtransactions=True):
-#         return session.query(
-#             oneview_network_db.NeutronOneviewNetwork
-#         ).filter_by(
-#             neutron_network_id=network_id,
-#         ).first()
 
 
 def get_neutron_oneview_network(session, neutron_network_id):
@@ -173,20 +148,6 @@ def insert_oneview_network_uplinkset(
         oneview_network_uplinkset = OneviewNetworkUplinkset(
             oneview_network_id, uplinkset_id)
         session.add(oneview_network_uplinkset)
-
-
-# def delete_oneview_network_uplinkset(
-#     session, uplinkset_id, network_id, commit=False
-# ):
-#     with session.begin(subtransactions=True):
-#         session.query(
-#             oneview_network_db.OneviewNetworkUplinkset
-#         ).filter_by(
-#             oneview_uplinkset_id=uplinkset_id,
-#             oneview_network_id=network_id
-#         ).delete()
-#     if commit:
-#         session.commit()
 
 
 def delete_oneview_network_uplinkset_by_network(session, network_id):

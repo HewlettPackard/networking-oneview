@@ -32,16 +32,6 @@ class NeutronOneviewNetwork(model_base.BASEV2):
         self.manageable = manageable
 
 
-class OneviewNetworkUplinkset(model_base.BASEV2):
-    __tablename__ = 'oneview_network_uplinkset'
-    oneview_network_id = sa.Column(sa.String(36), primary_key=True)
-    oneview_uplinkset_id = sa.Column(sa.String(36), primary_key=True)
-
-    def __init__(self, oneview_network_id, oneview_uplinkset_id):
-        self.oneview_network_id = oneview_network_id
-        self.oneview_uplinkset_id = oneview_uplinkset_id
-
-
 class OneviewLogicalInterconnectGroup(model_base.BASEV2):
     __tablename__ = 'oneview_network_lig'
     oneview_network_id = sa.Column(sa.String(36), primary_key=True)

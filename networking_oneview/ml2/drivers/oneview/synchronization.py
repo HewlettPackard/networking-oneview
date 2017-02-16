@@ -38,6 +38,8 @@ class Synchronization(object):
         self.uplinkset_mappings = uplinkset_mappings
         self.check_unique_lig_per_provider_constraint()
         self.check_uplinkset_types_constraint()
+
+    def start_sync(self):
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=3600, initial_delay=0)
 
@@ -195,7 +197,7 @@ class Synchronization(object):
                 else:
                     physnet = network_segment.get('physical_network')
                     network_type = network_segment.get('network_type')
-                    if not self.neu_ov_client.network.is_managed(
+                    if not self.neu_ov_client.network.is_uplinkset_mapping(
                         physnet, network_type
                     ):
                         self._delete_connections(neutron_network_id)
@@ -215,8 +217,9 @@ class Synchronization(object):
                 port.get('mac_address'),
                 json.loads(port_binding.get('profile'))
             )
-            lli = common.local_link_information_from_port(port_dict)
-            server_hardware_id = lli[0].get('switch_info').get(
+            local_link_info = common.local_link_information_from_port(
+                port_dict)
+            server_hardware_id = local_link_info[0].get('switch_info').get(
                 'server_hardware_id'
             )
             server_profile = (
@@ -269,7 +272,7 @@ class Synchronization(object):
         )
 
     def create_connection(self):
-        """ Recreate connection that were deleted on Oneview.
+        """Recreate connection that were deleted on Oneview.
 
         Calls method to fix critical connections in the Server Profile that
         will be used.
@@ -285,9 +288,10 @@ class Synchronization(object):
                 port.get('mac_address'),
                 json.loads(port_binding.get('profile'))
             )
-            lli = common.local_link_information_from_port(port_dict)
+            local_link_info = common.local_link_information_from_port(
+                port_dict)
             server_hardware_id = (
-                lli[0].get('switch_info').get('server_hardware_id')
+                local_link_info[0].get('switch_info').get('server_hardware_id')
             )
             server_profile = (
                 self.neu_ov_client.port.server_profile_from_server_hardware(

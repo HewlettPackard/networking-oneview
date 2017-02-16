@@ -34,8 +34,7 @@ class ResourceManager(object):
         self.uplinkset_mappings = uplinkset_mappings
         self.flat_net_mappings = flat_net_mappings
 
-    # NOTE(nicodemos) Change method name
-    def is_managed(self, physical_network, network_type):
+    def is_uplinkset_mapping(self, physical_network, network_type):
         if self._is_physnet_in_uplinkset_mapping(
             physical_network, network_type
         ):
@@ -72,7 +71,7 @@ class ResourceManager(object):
 
     def check_server_profile_availability(self, server_hardware_id):
         while True:
-            if self.get_server_profile_state(server_hardware_id) != " ":
+            if self.get_server_profile_state(server_hardware_id):
                 return True
             time.sleep(5)
 
@@ -122,7 +121,7 @@ class Network(ResourceManager):
             physical_network, network_type
         )
 
-        if not self.is_managed(physical_network, network_type):
+        if not self.is_uplinkset_mapping(physical_network, network_type):
             return
 
         if db_manager.get_neutron_oneview_network(session, network_id):
@@ -142,6 +141,8 @@ class Network(ResourceManager):
                 network_type, physical_network, oneview_network)
         elif mapping_type == common.FLAT_NET_MAPPINGS_TYPE:
             oneview_network_id = self.flat_net_mappings.get(physical_network)
+        else:
+            LOG.warning("Network Type unsupported")
 
         db_manager.map_neutron_network_to_oneview(
             session, network_id, oneview_network_id,
@@ -163,7 +164,7 @@ class Network(ResourceManager):
 
     def _get_lig_list(self, physical_network, network_type):
         mappings_by_type = self.uplinkset_mappings.get(network_type)
-        if mappings_by_type is None:
+        if not mappings_by_type:
             return None
         mappings_by_physical_network = mappings_by_type.get(physical_network)
         return mappings_by_physical_network
@@ -284,7 +285,7 @@ class Network(ResourceManager):
                 oneview_network_id=oneview_network_id,
                 oneview_lig_id=lig_id,
                 oneview_uplinkset_name=uplinkset_name)
-            if network_mapped is None:
+            if not network_mapped:
                 db_manager.insert_oneview_network_lig(
                     session, oneview_network_id, lig_id, uplinkset_name
                 )
@@ -300,7 +301,7 @@ class Network(ResourceManager):
 
     def _add_to_ligs(self, network_type, physical_network, oneview_network):
         lig_list = self._get_lig_list(physical_network, network_type)
-        if lig_list is None:
+        if not lig_list:
             return None
         uplinksets_list = self._get_uplinksets_from_lig(
             network_type, lig_list)
@@ -319,7 +320,8 @@ class Network(ResourceManager):
         uplinkset = common.get_uplinkset_by_name_from_list(
             lig_uplinksets, uplinkset_name
         )
-        uplinkset['networkUris'].remove('/rest/ethernet-networks/'+network_id)
+        uplinkset['networkUris'].remove(
+            '/rest/ethernet-networks/' + network_id)
         self.oneview_client.logical_interconnect_groups.update(
             lig
         )
@@ -367,7 +369,7 @@ class Port(ResourceManager):
         physical_network = network_segment.get('physical_network')
         network_type = network_segment.get('network_type')
 
-        if not self.is_managed(physical_network, network_type):
+        if not self.is_uplinkset_mapping(physical_network, network_type):
             return
 
         local_link_information_list = common.local_link_information_from_port(
@@ -509,7 +511,7 @@ class Port(ResourceManager):
             local_link_information = local_link_information_list[0]
             switch_info = local_link_information.get('switch_info')
 
-            if switch_info is None:
+            if not switch_info:
                 LOG.warning(
                     "'local_link_information' must contain 'switch_info'.")
                 return False

@@ -74,7 +74,7 @@ def get_uplinkset_by_name_in_lig(oneview_client, lig_id, uplinkset_name):
     """
     lig = oneview_client.logical_interconnect_groups.get(lig_id)
     uplinkset = (uls for uls in lig.get(
-            'uplinkSets') if uls.get('name') == uplinkset_name).next()
+        'uplinkSets') if uls.get('name') == uplinkset_name).next()
 
     return uplinkset
 
@@ -102,14 +102,14 @@ def get_logical_interconnect_group_from_uplink(oneview_client,
     :param uplinkset_id: the id of the Uplinkset;
     :returns: the Logical Interconnect Group object
     """
-    us = oneview_client.uplink_sets.get(uplinkset_id)
-    li = oneview_client.logical_interconnects.get(
-        us.get('logicalInterconnectUri'))
-    lig = oneview_client.logical_interconnect_groups.get(
-        li.get('logicalInterconnectGroupUri')
-    )
+    uplinkset = oneview_client.uplink_sets.get(uplinkset_id)
+    logical_interconnect = oneview_client.logical_interconnects.get(
+        uplinkset.get('logicalInterconnectUri'))
+    logical_interconnect_group = (
+        oneview_client.logical_interconnect_groups.get(
+            logical_interconnect.get('logicalInterconnectGroupUri')))
 
-    return lig
+    return logical_interconnect_group
 
 
 def load_conf_option_to_dict(key_value_option):
