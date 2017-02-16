@@ -22,8 +22,6 @@ from neutron.plugins.ml2.models import PortBinding
 from networking_oneview.db.oneview_network_db import (
     OneviewLogicalInterconnectGroup)
 from networking_oneview.db.oneview_network_db import NeutronOneviewNetwork
-from networking_oneview.db.oneview_network_db import OneviewNetworkUplinkset
-
 
 # Neutron Network
 def get_neutron_network(session, id):
@@ -121,39 +119,6 @@ def get_neutron_oneview_network(session, neutron_network_id):
 def delete_neutron_oneview_network(session, **kwargs):
     with session.begin(subtransactions=True):
         session.query(NeutronOneviewNetwork).filter_by(**kwargs).delete()
-
-
-# OneView Network Uplinkset
-def list_oneview_network_uplinkset(session, **kwargs):
-    with session.begin(subtransactions=True):
-        return session.query(OneviewNetworkUplinkset).filter_by(**kwargs).all()
-
-
-def get_oneview_network_uplinkset(session, **kwargs):
-    with session.begin(subtransactions=True):
-        return session.query(OneviewNetworkUplinkset).filter_by(
-            **kwargs).first()
-
-
-def get_network_uplinksets(session, oneview_network_id):
-    with session.begin(subtransactions=True):
-        return session.query(OneviewNetworkUplinkset).filter_by(
-            oneview_network_id=oneview_network_id).all()
-
-
-def insert_oneview_network_uplinkset(
-    session, oneview_network_id, uplinkset_id
-):
-    with session.begin(subtransactions=True):
-        oneview_network_uplinkset = OneviewNetworkUplinkset(
-            oneview_network_id, uplinkset_id)
-        session.add(oneview_network_uplinkset)
-
-
-def delete_oneview_network_uplinkset_by_network(session, network_id):
-    with session.begin(subtransactions=True):
-        session.query(OneviewNetworkUplinkset).filter_by(
-            oneview_network_id=network_id).delete()
 
 
 def list_oneview_network_lig(session, **kwargs):
