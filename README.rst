@@ -1,21 +1,19 @@
-=======================================================
+==================================================
 HP OneView Mechanism Driver for Neutron ML2 plugin
-=======================================================
+==================================================
 
 Overview
-=============================
+========
 The mechanism driver interacts with Neutron and OneView to
 dynamically reflect networking operations made by OpenStack on OneView. With
 these operations it's possible to a OneView administrator to know what is
 happening in OpenStack System which is running in the Data Center and also
 automatizes some operations previously required to be manual.
 
-
 The diagram below provides an overview of how Neutron and OneView will
 interact using the OneView Mechanism Driver. OneView Mechanism
 Driver uses HPE Oneview SDK for Python to provide communication between
 Neutron and OneView through OneView's REST API.
-
 
 Flows:
 ::
@@ -42,9 +40,8 @@ The OneView Mechanism Driver aims at having the Ironic-Neutron
 integration for multi-tenancy working with nodes driven by the OneView
 drivers for Ironic.
 
-
 How the driver works
-=============================
+====================
 
 The OneView Mechanism Driver considers that not all networking operations that
 are performed in OpenStack need to be reflected in OneView. To identify if a certain
@@ -60,7 +57,7 @@ Operations of Networks with no mappings are just ignored by the driver.
 These mappings configuration can be made in the configuration file using the
 "uplinkset_mappings" and "flat_net_mappings" attributes, as follows:
 
-- "uplinkset_mappings" are used to define which provider networks from Neutron should be controlled by the OneView Mechanism Driver. In “uplinkset_mappings” attribute it’s necessary to define triple of [Provider_Network:Logical_Interconnect_Group_UUID:Uplink_Set_name] to represent desired mappings of Neutron networks to the Uplink Sets in Logical Interconnect Group the networks that will be created in OneView to reflect them might be attached to have external access. These mappings can be related with “Ethernet” Uplink Sets to support VLAN networks or “Untagged” Uplink Sets to support flat network. In the case of mappings using “Ethernet” Uplink Sets, OneView not allows that more than one network use the same VLAN ID in the same Uplink set and only one mapping is allowed per Logical Interconnect. In the case of “Untagged” Uplink Sets OneView restricts that only one network can be configured to use it.
+- "uplinkset_mappings" are used to define which provider networks from Neutron should be controlled by the OneView Mechanism Driver. In “uplinkset_mappings” attribute it’s necessary to define triple of [Provider_Network:Logical_Interconnect_Group_UUID:Uplink_Set_name] to represent desired mappings of Neutron networks to the Uplink Sets in Logical Interconnect Group the networks that will be created in OneView to reflect them might be attached to have external access. These mappings can be related with “Ethernet” Uplink Sets to support VLAN networks or “Untagged” Uplink Sets to support flat network. In the case of mappings using “Ethernet” Uplink Sets, OneView does not allow that more than one network use the same VLAN ID in the same Uplink set and only one mapping is allowed per Logical Interconnect. In the case of “Untagged” Uplink Sets OneView restricts that only one network can be configured to use it.
 
 - "flat_net_mappings" are used to define manual mappings of specific flat provider networks from Neutron to existing Untagged networks in OneView. This configuration can be done to allow OneView administrator to use a configured environment instead of create an entire new one interacting with OpenStack. When a network is mapped with "flat_net_mappings" no operations in OneView are performed since it is considered that all environment was correctly configured by OneView Administrator.
 
@@ -92,7 +89,6 @@ Considering these restrictions, OneView Mechanism Driver is capable of:
     - Works only with vif_type = baremetal
     - Expects Server Hardware UUID and boot priority in the local_link_information of the port
 
-
 OneView Mechanism Driver also implements a fault tolerance process to guarantee
 that all networks and ports that are present in Neutron are correctly reflected
 in OneView. To ensure that, the verification is executed in the startup of the
@@ -123,11 +119,13 @@ Mechanism Driver gets the information for each port and check if the Server
 Profile used by the indicated Server Hardware have a connection correctly
 representing this port, and if not, creates it.
 
-
-
 Ironic Configuration
-=============================
-By default, Ironic is configured to use flat networks during deployment process. To use Ironic-Neutron integration to provide networks isolation during deployment, some configurations are necessary. In ironic.conf file the following configuration should be done:
+====================
+By default, Ironic is configured to use flat networks during deployment process.
+To use Ironic-Neutron integration to provide networks isolation during deployment,
+some configurations are necessary. In ironic.conf file the following configuration
+should be done:
+
 ::
 
     [DEFAULT]
@@ -138,22 +136,33 @@ By default, Ironic is configured to use flat networks during deployment process.
     cleaning_network_uuid = neutron_cleaning_network_UUID
     provisioning_network_uuid = neutron_provisioning_network_UUID
 
-As mentioned in the previous section, the OneView Mechanism Driver needs to receive the “local_link_connection” from Ironic ports to perform networking ports operations. Once Ironic ports don’t have any information stored by default, it’s necessary to update existing ports with the desired data to data field as follow:
+As mentioned in the previous section, the OneView Mechanism Driver needs to receive
+the “local_link_connection” from Ironic ports to perform networking ports operations.
+Once Ironic ports don’t have any information stored by default, it’s necessary to
+update existing ports with the desired data to data field as follow:
+
 ::
 
-    ironic --ironic-api-version 1.22 port-update Ironic_node_ID replace local_link_connection="{\"switch_id\": \"aa:bb:cc:dd:ee:ff\", \"port_id\": \"\", \"switch_info\": \"{'server_hardware_uuid': 'value', 'bootable':'true/false'}\"}"
+    ironic --ironic-api-version 1.22 port-update IRONIC_NODE_ID replace local_link_connection="{\"switch_id\": \"aa:bb:cc:dd:ee:ff\", \"port_id\": \"\", \"switch_info\": \"{'server_hardware_uuid': 'value', 'bootable':'true/false'}\"}"
 
-In “local_link_connection”, switch_id and port_id are necessary to identify specific the switch/port where the operation should be performed, but as OneView Mechanism Driver doesn’t deals directly with switches, this information is not necessary. “switch_info” attribute can receive any information and because of it, will be to configured with information demanded by OneView Mechanism Driver. Two information need to be passed: ‘server_hardware_uuid’ and ‘bootable’. ‘server_hardware_uuid’ identifies in which Server Hardware the connection to represent the new port will be created and ‘bootable’ indicates if this connection will be bootable or not. To identify the port where the connection need to be created, the MAC address already configured in the Ironic port will be used.
+In “local_link_connection”, switch_id and port_id are necessary to identify specific
+the switch/port where the operation should be performed, but as OneView Mechanism Driver
+doesn’t deals directly with switches, this information is not necessary. “switch_info”
+attribute can receive any information and because of it, will be to configured with
+information demanded by OneView Mechanism Driver. Two information need to be passed:
+‘server_hardware_uuid’ and ‘bootable’. ‘server_hardware_uuid’ identifies in which
+Server Hardware the connection to represent the new port will be created and ‘bootable’
+indicates if this connection will be bootable or not. To identify the port where the
+connection need to be created, the MAC address already configured in the Ironic port will be used.
 
 Install using DevStack
-=============================
+======================
 
-
-1. Install with PIP
-
+1. Install with PIP:
+ 
 - Requirement: Python => 2.7.9
 
-- To install the ML2 Mechanism Driver, run:
+- To install the OneView Mechanism Driver, run:
 
 ::
 
@@ -161,8 +170,7 @@ Install using DevStack
 
 - Go to the Configuration section
 
-
-2. Install with GIT
+2. Install with GIT:
 
 - Make the git clone of the mech driver files for a folder of your choice <download_directory>:
 
@@ -186,9 +194,10 @@ Install using DevStack
 
 
 Configuration
-=============================
+=============
 
 1. Making ml2_conf.ini file configurations:
+
 - Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
 
 ::
@@ -200,7 +209,6 @@ Configuration
 ::
 
     tenant_network_types = vxlan,flat,vlan
-
 
 - Find the correspondent line and insert the flat physical networks:
 
@@ -218,16 +226,15 @@ Configuration
 
     network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>
 
-
 2. ml2_conf_oneview.ini file configurations:
+
 ::
 
-- Edit the /etc/neutron/plugins/ml2/ml2_conf_oneview.ini file.
+  Edit the /etc/neutron/plugins/ml2/ml2_conf_oneview.ini file.
 
 “ov_refresh_interval” is used to configure the period (in seconds) in which the mechanism driver will execute the periodic synchronization to check if any inconsistence exists between Neutron and OneView and correct them if possible. This attribute is optional and if not configured the default value is 3600 seconds.
 
 To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from OneView.
-
 
 - Examples of the lines are:
 
@@ -247,7 +254,6 @@ To set TLS options for the communication with OneView, it is necessary to downlo
 
     tls_cacert_file = /home/ubuntu/certificate/appliance.com.crt
 
-
 3. Restart Neutron and upgrade Database:
 
 - Upgrade Database:
@@ -262,18 +268,16 @@ $ neutron-db-manage upgrade heads
 
 $ /usr/local/bin/neutron-server --config-file /etc/neutron/neutron.conf --config-file /etc/neutron/plugins/ml2/ml2_conf.ini --config-file /etc/neutron/plugins/ml2/ml2_conf_oneview.ini & echo $! >/opt/stack/status/stack/q-svc.pid; fg || echo "q-svc failed to start" | tee "/opt/stack/status/stack/q-svc.failure"
 
-
 - If everything is well, the mechanism driver is working.
 
-
 Install using OpenStack
-=============================
+=======================
 
-To install the OneView Mechanism Driver, access the virtual environment Neutron Server Container on /openstack/venvs/neutron-master/ and execute:
+To install the OneView Mechanism Driver, access the virtual environment Neutron Server Container, execute:
 
 ::
 
- $ sudo source bin/activate
+ $ sudo source /openstack/venvs/neutron-master/bin/activate
 
 1. Install with PIP
 
@@ -286,7 +290,6 @@ To install the OneView Mechanism Driver, access the virtual environment Neutron 
     $ pip install networking-oneview
 
 - Go to the Configuration section
-
 
 2. Install with GIT
 
@@ -310,30 +313,28 @@ To install the OneView Mechanism Driver, access the virtual environment Neutron 
 
 - Go to the Configuration section
 
-
 Configuration
-=============================
+=============
 
 1. Making ml2_conf.ini file configurations:
+
 - Edit the /etc/neutron/plugins/ml2/ml2_conf.ini file. Find the correspondent line and insert the word *oneview* as follow:
 
 ::
 
     mechanism_drivers = <others Drivers>,oneview
 
-
 - Find the correspondent line and insert the words *flat,vlan* as follow:
 
-  These following configurations need to be made on both containers(Neutron Server and Neutron Agent): 
+  These following configurations need to be made on both containers (Neutron Server and Neutron Agent):
 
 ::
 
     tenant_network_types = vxlan,flat,vlan
 
-
 - Find the correspondent line and insert the flat physical networks:
 
-  These following configurations need to be made on both containers(Neutron Server and Neutron Agent): 
+  These following configurations need to be made on both containers (Neutron Server and Neutron Agent):
 
 ::
 
@@ -343,7 +344,7 @@ Configuration
 
 - Find the correspondent line and insert the vlan physical networks:
 
-  These following configurations need to be made on both containers(Neutron Server and Neutron Agent): 
+  These following configurations need to be made on both containers (Neutron Server and Neutron Agent):
 
 ::
 
@@ -351,16 +352,15 @@ Configuration
 
     network_vlan_ranges = public,<vlan-physical-network1-name>,<vlan-physical-network2-name>
 
-
 2. ml2_conf_oneview.ini file configurations:
+
 ::
 
-- Edit the /etc/neutron/plugins/ml2/ml2_conf_oneview.ini file.
+  Edit the /etc/neutron/plugins/ml2/ml2_conf_oneview.ini file.
 
 “ov_refresh_interval” is used to configure the period (in seconds) in which the mechanism driver will execute the periodic synchronization to check if any inconsistence exists between Neutron and OneView and correct them if possible. This attribute is optional and if not configured the default value is 3600 seconds.
 
 To set TLS options for the communication with OneView, it is necessary to download the credentials(appliance.com.crt) from OneView.
-
 
 - Examples of the lines are:
 
@@ -381,21 +381,19 @@ To set TLS options for the communication with OneView, it is necessary to downlo
     tls_cacert_file = /home/ubuntu/certificate/appliance.com.crt
 
 3. In Neutron Agent, edit /etc/neutron/plugins/ml2/linuxbridge_agent.ini to mapping neutron ports used by container as follow:
+
 ::
 
  [linux_bridge]
  physical_interface_mappings = <flat-physical-network1-name>:eth12,<vlan-physical-network1-name>:eth11
 
-
-4. Restart Neutron and upgrade Database
-:
+4. Restart Neutron and upgrade Database:
 
 - Upgrade Database in virtual environment:
 
 ::
 
 $ neutron-db-manage upgrade heads
-
 
 - Edit the /etc/systemd/system/neutron-server.service file.
 
@@ -411,51 +409,45 @@ $ neutron-db-manage upgrade heads
 
  systemctl daemon-reload && service neutron-server restart
 
-Restart the neutron-agent container: 
+Restart the neutron-agent container:
 
 ::
 
   service neutron-linuxbridge-agent restart
 
-
 - If everything is well, the mechanism driver is working.
 
-
-
-5. Configuring haproxy timeout in the outside container (host)
-:
+5. Configuring haproxy timeout in the outside container (host):
 
 - To set the time on haproxy, edit the files:
 
 ::
- 
+
 - Edit /etc/haproxy/conf.d/00-haproxy and /etc/haproxy/haproxy.cfg files
 
-- In the default sections of the files, change the lines to:
+- In the defaults section of the files, change the following lines to:
 
-::    
+::
 
- timeout client 5000s
-         timeout connect 10s
-         timeout server 5000s
+    timeout client 5000s
+    timeout connect 10s
+    timeout server 5000s
 
 Restart the haproxy service:
 
 ::
 
  systemctl restart haproxy.service
- 
- 
+
 License
-=============================
+=======
 
 OneView ML2 Mechanism Driver is distributed under the terms of the Apache
 License, Version 2.0. The full terms and conditions of this license are detailed
 in the LICENSE file.
 
-
 Contributing
-=============================
+============
 
 You know the drill. Fork it, branch it, change it, commit it, and pull-request
 it. We are passionate about improving this project, and glad to accept help to
