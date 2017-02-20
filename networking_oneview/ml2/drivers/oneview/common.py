@@ -233,7 +233,7 @@ def is_local_link_information_valid(local_link_information_list):
     server_hardware_uuid = switch_info.get('server_hardware_id')
     bootable = switch_info.get('bootable')
 
-    if not server_hardware_uuid or bootable is None:
+    if not server_hardware_uuid:
         return False
 
-    return type(bootable) == bool
+    return isinstance(bootable, bool)
