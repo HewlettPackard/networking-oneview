@@ -246,9 +246,6 @@ class Network(ResourceManager):
         db_manager.delete_neutron_oneview_network(
             session, neutron_network_id=network_id
         )
-        db_manager.delete_oneview_network_uplinkset_by_network(
-            session, oneview_network_id
-        )
         db_manager.delete_oneview_network_lig(
             session, oneview_network_id=oneview_network_id
         )
