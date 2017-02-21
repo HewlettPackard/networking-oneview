@@ -75,6 +75,7 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.oneview_client, self.neutron_oneview_client,
             CONF.database.connection, self.uplinkset_mappings
         )
+        sync.start()
 
     def bind_port(self, context):
         """Bind baremetal port to a network."""

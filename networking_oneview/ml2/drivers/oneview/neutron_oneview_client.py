@@ -19,7 +19,7 @@ import time
 
 from hpOneView import exceptions
 from oslo_log import log
-
+from oslo_utils import strutils
 from networking_oneview.ml2.drivers.oneview import (
     database_manager as db_manager)
 from networking_oneview.ml2.drivers.oneview import common
@@ -515,7 +515,8 @@ class Port(ResourceManager):
 
             server_hardware_id = switch_info.get('server_hardware_id')
             if isinstance(switch_info.get('bootable'), str):
-                bootable = eval(switch_info.get('bootable'))
+                bootable = strutils.bool_from_string(
+                    switch_info.get('bootable'))
             else:
                 bootable = switch_info.get('bootable')
 

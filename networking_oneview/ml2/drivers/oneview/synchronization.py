@@ -38,6 +38,8 @@ class Synchronization(object):
         self.uplinkset_mappings = uplinkset_mappings
         self.check_unique_lig_per_provider_constraint()
         self.check_uplinkset_types_constraint()
+
+    def start(self):
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=3600, initial_delay=0)
 

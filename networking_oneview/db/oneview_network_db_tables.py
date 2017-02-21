@@ -1,5 +1,3 @@
-import json
-
 from sqlalchemy.engine import create_engine
 
 from neutron.db.model_base import BASEV2
