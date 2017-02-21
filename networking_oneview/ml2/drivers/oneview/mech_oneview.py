@@ -41,7 +41,7 @@ opts = [
                default='',
                help="TLS File Path"),
     cfg.StrOpt('flat_net_mappings',
-               help='-'),
+               help='Flat Networks on Oneview that are managed by Neutron'),
     cfg.IntOpt('ov_refresh_interval',
                default=3600,
                help='Interval between periodic task executions in seconds')
