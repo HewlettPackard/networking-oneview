@@ -57,7 +57,13 @@ Operations of Networks with no mappings are just ignored by the driver.
 These mappings configuration can be made in the configuration file using the
 "uplinkset_mappings" and "flat_net_mappings" attributes, as follows:
 
-- "uplinkset_mappings" are used to define which provider networks from Neutron should be controlled by the OneView Mechanism Driver. In “uplinkset_mappings” attribute it’s necessary to define triple of [Provider_Network:Logical_Interconnect_Group_UUID:Uplink_Set_name] to represent desired mappings of Neutron networks to the Uplink Sets in Logical Interconnect Group the networks that will be created in OneView to reflect them might be attached to have external access. These mappings can be related with “Ethernet” Uplink Sets to support VLAN networks or “Untagged” Uplink Sets to support flat network. In the case of mappings using “Ethernet” Uplink Sets, OneView does not allow that more than one network use the same VLAN ID in the same Uplink set and only one mapping is allowed per Logical Interconnect. In the case of “Untagged” Uplink Sets OneView restricts that only one network can be configured to use it.
+- "uplinkset_mappings" are used to define which provider networks from Neutron should be controlled by the OneView Mechanism Driver.
+  The administrator defines comma-separated triples of [Provider_Network:Logical_Interconnect_Group_UUID:Uplink_Set_name] 
+  to represent each desired mapping of a Neutron network to the Logical Interconnect Group's Uplink Set in which it will 
+  be created in OneView. These mappings can be related to two types of Uplink Sets: “Ethernet” Uplink Sets to support VLAN
+  networks or “Untagged” Uplink Sets to support flat network. In the former, OneView does not allow more than one network
+  to use the same VLAN ID in the same Uplink Set and only one mapping is allowed per Logical Interconnect. In the latter,
+  OneView restricts that only one network can be configured to use it.
 
 - "flat_net_mappings" are used to define manual mappings of specific flat provider networks from Neutron to existing Untagged networks in OneView. This configuration can be done to allow OneView administrator to use a configured environment instead of create an entire new one interacting with OpenStack. When a network is mapped with "flat_net_mappings" no operations in OneView are performed since it is considered that all environment was correctly configured by OneView Administrator.
 
@@ -122,9 +128,9 @@ representing this port, and if not, creates it.
 Ironic Configuration
 ====================
 By default, Ironic is configured to use flat networks during deployment process.
-To use Ironic-Neutron integration to provide networks isolation during deployment,
-some configurations are necessary. In ironic.conf file the following configuration
-should be done:
+In order to use Ironic-Neutron integration to provide networks isolation during
+deployment, some configuration is necessary. In ironic.conf file the following
+configuration should be done:
 
 ::
 
@@ -145,8 +151,8 @@ update existing ports with the desired data to data field as follow:
 
     ironic --ironic-api-version 1.22 port-update IRONIC_NODE_ID replace local_link_connection="{\"switch_id\": \"aa:bb:cc:dd:ee:ff\", \"port_id\": \"\", \"switch_info\": \"{'server_hardware_uuid': 'value', 'bootable':'true/false'}\"}"
 
-In “local_link_connection”, switch_id and port_id are necessary to identify specific
-the switch/port where the operation should be performed, but as OneView Mechanism Driver
+In “local_link_connection”, switch_id and port_id are necessary to identify the specific
+switch/port where the operation should be performed, but as OneView Mechanism Driver
 doesn’t deals directly with switches, this information is not necessary. “switch_info”
 attribute can receive any information and because of it, will be to configured with
 information demanded by OneView Mechanism Driver. Two information need to be passed:
