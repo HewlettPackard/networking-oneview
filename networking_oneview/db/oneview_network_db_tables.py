@@ -1,16 +1,16 @@
 from sqlalchemy.engine import create_engine
 
-from neutron.db.model_base import BASEV2
+from neutron_lib.db import model_base
 
 
 def create_tables(connection):
     engine = create_engine(connection)
-    BASEV2.metadata.create_all(engine)
+    model_base.BASEV2.metadata.create_all(engine)
 
 
 def drop_tables(connection):
     engine = create_engine(connection)
-    BASEV2.metadata.drop_all(engine)
+    model_base.BASEV2.metadata.drop_all(engine)
 
 
 if __name__ == '__main__':
