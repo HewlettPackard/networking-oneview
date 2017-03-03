@@ -157,6 +157,10 @@ def network_dict_for_network_creation(
         'id': id,
     }
 
+def to_str(txt_unicode):
+    txt_string = txt_unicode.encode('utf-8')
+    return txt_string
+
 
 def port_dict_for_port_creation(
     network_id, vnic_type, mac_address, profile, host_id='host_id'
