@@ -488,7 +488,7 @@ class Port(ResourceManager):
 
         if type(switch_info) is unicode:
             switch_info = jsonutils.loads(switch_info)
-     
+
         server_hardware_id = switch_info.get('server_hardware_id')
         server_profile = self.server_profile_from_server_hardware(
             server_hardware_id
@@ -523,13 +523,10 @@ class Port(ResourceManager):
 
             local_link_information = local_link_information_list[0]
             switch_info = local_link_information.get('switch_info')
-            LOG.warning(type(switch_info))
-            LOG.warning(switch_info)
 
             if type(switch_info) is unicode:
                 switch_info = jsonutils.loads(switch_info)
 
-            LOG.warning(switch_info)
             if not switch_info:
                 LOG.warning(
                     "'local_link_information' must contain 'switch_info'.")
