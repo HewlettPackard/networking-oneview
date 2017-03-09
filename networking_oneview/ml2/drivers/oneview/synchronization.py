@@ -218,14 +218,11 @@ class Synchronization(object):
             neutron_network_id = oneview_network_mapped.neutron_network_id
             manageable = oneview_network_mapped.manageable
 
-            #LOG.error("###### DICIONARIO FLAT NET MAPPING#########")
-            #LOG.error(self.flat_net_mappings)
-
             if not manageable:
                 oneview_network_ids = []
-                for list in self.flat_net_mappings.values():
-                    for element in list:
-                        oneview_network_ids.append(element)
+                for flat_networks_ids in self.flat_net_mappings.values():
+                    for flat_network_id in flat_networks_ids:
+                        oneview_network_ids.append(flat_network_id)
                 if oneview_network_id not in oneview_network_ids:
                     db_manager.delete_neutron_oneview_network(
                         session, oneview_network_id=oneview_network_id)
