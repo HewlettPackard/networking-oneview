@@ -71,9 +71,12 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.oneview_client.connection.set_trusted_ssl_bundle(
                 CONF.oneview.tls_cacert_file
             )
+        self.fnm = common.load_conf_option_to_dict(
+            CONF.oneview.flat_net_mappings)
         sync = synchronization.Synchronization(
             self.oneview_client, self.neutron_oneview_client,
-            CONF.database.connection, self.uplinkset_mappings
+            CONF.database.connection, self.uplinkset_mappings,
+            self.fnm
         )
         sync.start()
 

@@ -31,11 +31,12 @@ LOG = log.getLogger(__name__)
 class Synchronization(object):
     def __init__(
             self, oneview_client, neutron_oneview_client, connection,
-            uplinkset_mappings):
+            uplinkset_mappings, flat_net_mappings):
         self.oneview_client = oneview_client
         self.neu_ov_client = neutron_oneview_client
         self.connection = connection
         self.uplinkset_mappings = uplinkset_mappings
+        self.flat_net_mappings = flat_net_mappings
         self.check_unique_lig_per_provider_constraint()
         self.check_uplinkset_types_constraint()
 
@@ -49,6 +50,7 @@ class Synchronization(object):
         return Session()
 
     def synchronize(self):
+        self.check_changed_ids_flat_mapped_networks()
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
         self.synchronize_uplinkset_from_mapped_networks()
@@ -188,7 +190,6 @@ class Synchronization(object):
                 network_segment = db_manager.get_network_segment(
                     session, neutron_network_id
                 )
-                LOG.error(neutron_network)
                 if neutron_network is None:
                     network = self.oneview_client.ethernet_networks.delete(
                         oneview_network_id
@@ -207,6 +208,27 @@ class Synchronization(object):
                         return self.neu_ov_client.network.delete(
                             session, {'id': neutron_network_id}
                         )
+
+    def check_changed_ids_flat_mapped_networks(self):
+        session = self.get_session()
+        for oneview_network_mapped in (
+            db_manager.list_neutron_oneview_network(session)
+        ):
+            oneview_network_id = oneview_network_mapped.oneview_network_id
+            neutron_network_id = oneview_network_mapped.neutron_network_id
+            manageable = oneview_network_mapped.manageable
+
+            #LOG.error("###### DICIONARIO FLAT NET MAPPING#########")
+            #LOG.error(self.flat_net_mappings)
+
+            if not manageable:
+                oneview_network_ids = []
+                for list in self.flat_net_mappings.values():
+                    for element in list:
+                        oneview_network_ids.append(element)
+                if oneview_network_id not in oneview_network_ids:
+                    db_manager.delete_neutron_oneview_network(
+                        session, oneview_network_id=oneview_network_id)
 
     def _delete_connections(self, neutron_network_id):
         session = self.get_session()
@@ -373,66 +395,3 @@ class Synchronization(object):
         self.neu_ov_client.port.update_server_hardware_power_state(
             server_profile.get('serverHardwareUri'), previous_power_state
         )
-
-        def check_flat_mapped_networks_on_db(self):
-            for neutron_network in db_manager.list_neutron_networks(
-                self.session
-            ):
-                segment = db_manager.get_network_segment(
-                    self.session, neutron_network.id
-                )
-
-                verify_mapping = self.client.network.verify_mapping_type(
-                    segment.physical_network, self.uplinkset_mappings_dict,
-                    self.oneview_network_mapping_dict
-                )
-                uplinkset_id_list = []
-
-                if verify_mapping is FLAT_NET_MAPPING:
-                    if db_manager.get_neutron_oneview_network(
-                        self.session, neutron_network.id
-                    )is not None:
-                        continue
-
-                    neutron_network_dict = {
-                        'id': neutron_network.id,
-                        'name': neutron_network.name,
-                        'provider:segmentation_id': segment.segmentation_id,
-                        'provider:physical_network': segment.physical_network,
-                        'provider:network_type': segment.network_type
-                    }
-                    self.client.network.create(
-                        self.session, neutron_network_dict, uplinkset_id_list,
-                        self.oneview_network_mapping_dict,
-                        self.uplinkset_mappings_dict, commit=True,
-                        manageable=False
-                    )
-
-    def check_changed_ids_flat_mapped_networks(self):
-        for oneview_network_mapped in (
-            db_manager.list_neutron_oneview_network_manageable(
-                self.session
-                )
-        ):
-
-            oneview_network_id = oneview_network_mapped.oneview_network_uuid
-            neutron_network_id = oneview_network_mapped.neutron_network_uuid
-
-            if oneview_network_id in (
-                self.oneview_network_mapping_dict.values()
-            ):
-                for neutron_network in db_manager.list_neutron_networks(
-                    self.session
-                ):
-                    if neutron_network.id == neutron_network_id:
-                        break
-                    else:
-                        db_manager.delete_neutron_oneview_network(
-                            self.session, neutron_network_id
-                        )
-            else:
-                db_manager.delete_neutron_oneview_network(
-                    self.session, neutron_network_id
-                )
-
-        self.check_flat_mapped_networks_on_db()
