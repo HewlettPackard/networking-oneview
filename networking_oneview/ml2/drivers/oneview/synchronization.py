@@ -191,13 +191,12 @@ class Synchronization(object):
                     session, neutron_network_id
                 )
                 if neutron_network is None:
-                    network = self.oneview_client.ethernet_networks.delete(
+                    self.oneview_client.ethernet_networks.delete(
                         oneview_network_id
                     )
                     self._remove_inconsistence_from_db(
                         session, neutron_network_id, oneview_network_id
                     )
-                    return network
                 else:
                     physnet = network_segment.get('physical_network')
                     network_type = network_segment.get('network_type')
@@ -211,6 +210,11 @@ class Synchronization(object):
 
     def check_changed_ids_flat_mapped_networks(self):
         session = self.get_session()
+        oneview_network_ids = []
+        for flat_networks_ids in self.flat_net_mappings.values():
+            for flat_network_id in flat_networks_ids:
+                oneview_network_ids.append(flat_network_id)
+
         for oneview_network_mapped in (
             db_manager.list_neutron_oneview_network(session)
         ):
@@ -219,10 +223,6 @@ class Synchronization(object):
             manageable = oneview_network_mapped.manageable
 
             if not manageable:
-                oneview_network_ids = []
-                for flat_networks_ids in self.flat_net_mappings.values():
-                    for flat_network_id in flat_networks_ids:
-                        oneview_network_ids.append(flat_network_id)
                 if oneview_network_id not in oneview_network_ids:
                     db_manager.delete_neutron_oneview_network(
                         session, oneview_network_id=oneview_network_id)
