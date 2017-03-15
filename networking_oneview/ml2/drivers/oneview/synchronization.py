@@ -50,7 +50,7 @@ class Synchronization(object):
         return Session()
 
     def synchronize(self):
-        self.check_changed_ids_flat_mapped_networks()
+        self.delete_outdated_flat_mapped_networks()
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
         self.synchronize_uplinkset_from_mapped_networks()
@@ -208,7 +208,7 @@ class Synchronization(object):
                             session, {'id': neutron_network_id}
                         )
 
-    def check_changed_ids_flat_mapped_networks(self):
+    def delete_outdated_flat_mapped_networks(self):
         session = self.get_session()
         oneview_network_ids = []
         for flat_networks_ids in self.flat_net_mappings.values():
