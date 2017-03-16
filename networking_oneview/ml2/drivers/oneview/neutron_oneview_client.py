@@ -402,8 +402,9 @@ class Port(ResourceManager):
         mac_address = port_dict.get('mac_address')
         port_id = self._port_id_from_mac(server_hardware_id, mac_address)
 
-        cons = server_profile.get('connections')
-        existing_connections = [c for c in cons if c.get('portId') == port_id]
+        connections = server_profile.get('connections')
+        existing_connections = [connection for connection in connections
+                                if connection.get('portId') == port_id]
 
         for connection in existing_connections:
             if connection.get('mac').upper() == mac_address.upper():
