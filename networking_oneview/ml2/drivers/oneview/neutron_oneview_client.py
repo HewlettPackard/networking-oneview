@@ -16,10 +16,12 @@
 import abc
 import six
 import time
+import json
 
 from hpOneView import exceptions
 from oslo_log import log
 from oslo_utils import strutils
+from oslo_serialization import jsonutils
 from networking_oneview.ml2.drivers.oneview import (
     database_manager as db_manager)
 from networking_oneview.ml2.drivers.oneview import common
@@ -381,6 +383,9 @@ class Port(ResourceManager):
 
         switch_info = local_link_information_list[0].get('switch_info')
 
+        if type(switch_info) is unicode:
+            switch_info = jsonutils.loads(switch_info)
+
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, network_id)
         network_uri = common.network_uri_from_id(
@@ -396,6 +401,14 @@ class Port(ResourceManager):
 
         mac_address = port_dict.get('mac_address')
         port_id = self._port_id_from_mac(server_hardware_id, mac_address)
+
+        connections = server_profile.get('connections')
+        existing_connections = [connection for connection in connections
+                                if connection.get('portId') == port_id]
+
+        for connection in existing_connections:
+            if connection.get('mac').upper() == mac_address.upper():
+                server_profile['connections'].remove(connection)
 
         server_profile['connections'].append({
             'name': "NeutronPort[" + mac_address + "]",
@@ -473,6 +486,10 @@ class Port(ResourceManager):
             return
 
         switch_info = local_link_information_list[0].get('switch_info')
+
+        if type(switch_info) is unicode:
+            switch_info = jsonutils.loads(switch_info)
+
         server_hardware_id = switch_info.get('server_hardware_id')
         server_profile = self.server_profile_from_server_hardware(
             server_hardware_id
@@ -508,13 +525,16 @@ class Port(ResourceManager):
             local_link_information = local_link_information_list[0]
             switch_info = local_link_information.get('switch_info')
 
+            if type(switch_info) is unicode:
+                switch_info = jsonutils.loads(switch_info)
+
             if not switch_info:
                 LOG.warning(
                     "'local_link_information' must contain 'switch_info'.")
                 return False
 
             server_hardware_id = switch_info.get('server_hardware_id')
-            if isinstance(switch_info.get('bootable'), str):
+            if strutils.is_valid_boolstr(switch_info.get('bootable')):
                 bootable = strutils.bool_from_string(
                     switch_info.get('bootable'))
             else:
