@@ -71,10 +71,11 @@ class OneViewDriver(driver_api.MechanismDriver):
             self.oneview_client.connection.set_trusted_ssl_bundle(
                 CONF.oneview.tls_cacert_file
             )
-        sync = synchronization.Synchronization(
-            self.oneview_client, self.neutron_oneview_client,
-            CONF.database.connection, self.uplinkset_mappings
-        )
+        sync = synchronization.Synchronization(self.oneview_client,
+                                               self.neutron_oneview_client,
+                                               CONF.database.connection,
+                                               self.uplinkset_mappings,
+                                               self.flat_net_mappings)
         sync.start()
 
     def bind_port(self, context):

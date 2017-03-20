@@ -16,7 +16,6 @@
 import abc
 import six
 import time
-import json
 
 from hpOneView import exceptions
 from oslo_log import log

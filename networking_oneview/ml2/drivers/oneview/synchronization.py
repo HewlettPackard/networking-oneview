@@ -24,6 +24,7 @@ from oslo_log import log
 from oslo_service import loopingcall
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from itertools import chain
 
 LOG = log.getLogger(__name__)
 
@@ -31,11 +32,12 @@ LOG = log.getLogger(__name__)
 class Synchronization(object):
     def __init__(
             self, oneview_client, neutron_oneview_client, connection,
-            uplinkset_mappings):
+            uplinkset_mappings, flat_net_mappings):
         self.oneview_client = oneview_client
         self.neu_ov_client = neutron_oneview_client
         self.connection = connection
         self.uplinkset_mappings = uplinkset_mappings
+        self.flat_net_mappings = flat_net_mappings
         self.check_unique_lig_per_provider_constraint()
         self.check_uplinkset_types_constraint()
 
@@ -49,6 +51,7 @@ class Synchronization(object):
         return Session()
 
     def synchronize(self):
+        self.delete_outdated_flat_mapped_networks()
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
         self.synchronize_uplinkset_from_mapped_networks()
@@ -66,7 +69,6 @@ class Synchronization(object):
         db_manager.delete_neutron_oneview_network(
             session, neutron_network_id=neutron_network_id
         )
-
         db_manager.delete_oneview_network_lig(
             session, oneview_network_id=oneview_network_id
         )
@@ -178,7 +180,6 @@ class Synchronization(object):
 
     def delete_unmapped_oneview_networks(self):
         session = self.get_session()
-
         for network in self.oneview_client.ethernet_networks.get_all():
             m = re.search('Neutron \[(.*)\]', network.get('name'))
             if m:
@@ -191,8 +192,11 @@ class Synchronization(object):
                     session, neutron_network_id
                 )
                 if neutron_network is None:
-                    return self.oneview_client.ethernet_networks.delete(
+                    self.oneview_client.ethernet_networks.delete(
                         oneview_network_id
+                    )
+                    self._remove_inconsistence_from_db(
+                        session, neutron_network_id, oneview_network_id
                     )
                 else:
                     physnet = network_segment.get('physical_network')
@@ -204,6 +208,22 @@ class Synchronization(object):
                         return self.neu_ov_client.network.delete(
                             session, {'id': neutron_network_id}
                         )
+
+    def delete_outdated_flat_mapped_networks(self):
+        session = self.get_session()
+        mappings = self.flat_net_mappings.values()
+        mapped_networks_uuids = list(chain.from_iterable(mappings))
+        oneview_networks_uuids = (
+            network.oneview_network_id for network
+            in db_manager.list_neutron_oneview_network(session)
+            if not network.manageable)
+        unmapped_networks_uuids = (
+            uuid for uuid
+            in oneview_networks_uuids
+            if uuid not in mapped_networks_uuids)
+        for uuid in unmapped_networks_uuids:
+            db_manager.delete_neutron_oneview_network(
+                session, oneview_network_id=uuid)
 
     def _delete_connections(self, neutron_network_id):
         session = self.get_session()
