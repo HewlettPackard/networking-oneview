@@ -205,7 +205,7 @@ class Synchronization(object):
                         physnet, network_type
                     ):
                         self._delete_connections(neutron_network_id)
-                        return self.neu_ov_client.network.delete(
+                        self.neu_ov_client.network.delete(
                             session, {'id': neutron_network_id}
                         )
 
