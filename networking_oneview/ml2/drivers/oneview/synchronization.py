@@ -24,6 +24,7 @@ from oslo_log import log
 from oslo_service import loopingcall
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from itertools import chain
 
 LOG = log.getLogger(__name__)
 
@@ -210,22 +211,19 @@ class Synchronization(object):
 
     def delete_outdated_flat_mapped_networks(self):
         session = self.get_session()
-        oneview_network_ids = []
-        for flat_networks_ids in self.flat_net_mappings.values():
-            for flat_network_id in flat_networks_ids:
-                oneview_network_ids.append(flat_network_id)
-
-        for oneview_network_mapped in (
-            db_manager.list_neutron_oneview_network(session)
-        ):
-            oneview_network_id = oneview_network_mapped.oneview_network_id
-            neutron_network_id = oneview_network_mapped.neutron_network_id
-            manageable = oneview_network_mapped.manageable
-
-            if not manageable:
-                if oneview_network_id not in oneview_network_ids:
-                    db_manager.delete_neutron_oneview_network(
-                        session, oneview_network_id=oneview_network_id)
+        mappings = self.flat_net_mappings.values()
+        mapped_networks_uuids = list(chain.from_iterable(mappings))
+        oneview_networks_uuids = (
+            network.oneview_network_id for network
+            in db_manager.list_neutron_oneview_network(session)
+            if not network.manageable)
+        unmapped_networks_uuids = (
+            uuid for uuid
+            in oneview_networks_uuids
+            if uuid not in mapped_networks_uuids)
+        for uuid in unmapped_networks_uuids:
+            db_manager.delete_neutron_oneview_network(
+                session, oneview_network_id=uuid)
 
     def _delete_connections(self, neutron_network_id):
         session = self.get_session()
