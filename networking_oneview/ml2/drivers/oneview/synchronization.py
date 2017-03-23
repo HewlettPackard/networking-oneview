@@ -21,6 +21,7 @@ from networking_oneview.ml2.drivers.oneview import (
     database_manager as db_manager)
 from networking_oneview.ml2.drivers.oneview import common
 from oslo_log import log
+from oslo_serialization import jsonutils
 from oslo_service import loopingcall
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -239,9 +240,11 @@ class Synchronization(object):
             )
             local_link_info = common.local_link_information_from_port(
                 port_dict)
-            server_hardware_id = local_link_info[0].get('switch_info').get(
-                'server_hardware_id'
-            )
+            switch_info = local_link_info[0].get('switch_info')
+
+            if isinstance(switch_info, unicode):
+                switch_info = jsonutils.loads(switch_info)
+            server_hardware_id = switch_info.get('server_hardware_id')
             server_profile = (
                 self.neu_ov_client.port.server_profile_from_server_hardware(
                     server_hardware_id
@@ -310,9 +313,11 @@ class Synchronization(object):
             )
             local_link_info = common.local_link_information_from_port(
                 port_dict)
-            server_hardware_id = (
-                local_link_info[0].get('switch_info').get('server_hardware_id')
-            )
+            switch_info = local_link_info[0].get('switch_info')
+
+            if isinstance(switch_info, unicode):
+                switch_info = jsonutils.loads(switch_info)
+            server_hardware_id = switch_info.get('server_hardware_id')
             server_profile = (
                 self.neu_ov_client.port.server_profile_from_server_hardware(
                     server_hardware_id

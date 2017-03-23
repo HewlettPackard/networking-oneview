@@ -382,7 +382,7 @@ class Port(ResourceManager):
 
         switch_info = local_link_information_list[0].get('switch_info')
 
-        if type(switch_info) is unicode:
+        if isinstance(switch_info, unicode):
             switch_info = jsonutils.loads(switch_info)
 
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
@@ -486,7 +486,7 @@ class Port(ResourceManager):
 
         switch_info = local_link_information_list[0].get('switch_info')
 
-        if type(switch_info) is unicode:
+        if isinstance(switch_info, unicode):
             switch_info = jsonutils.loads(switch_info)
 
         server_hardware_id = switch_info.get('server_hardware_id')
@@ -524,7 +524,7 @@ class Port(ResourceManager):
             local_link_information = local_link_information_list[0]
             switch_info = local_link_information.get('switch_info')
 
-            if type(switch_info) is unicode:
+            if isinstance(switch_info, unicode):
                 switch_info = jsonutils.loads(switch_info)
 
             if not switch_info:
