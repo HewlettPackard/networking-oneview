@@ -380,17 +380,14 @@ class Port(ResourceManager):
             LOG.info("Port not valid to reflect on OneView.")
             return
 
-        switch_info = local_link_information_list[0].get('switch_info')
-
-        if isinstance(switch_info, unicode):
-            switch_info = jsonutils.loads(switch_info)
-
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, network_id)
         network_uri = common.network_uri_from_id(
             neutron_oneview_network.oneview_network_id)
 
-        server_hardware_id = switch_info.get('server_hardware_id')
+        server_hardware_id = (
+            common.server_hardware_id_from_local_link__information_list(
+                local_link_information_list))
         server_profile = self.server_profile_from_server_hardware(
             server_hardware_id
         )
@@ -484,12 +481,9 @@ class Port(ResourceManager):
             LOG.info("Port not valid to reflect on OneView.")
             return
 
-        switch_info = local_link_information_list[0].get('switch_info')
-
-        if isinstance(switch_info, unicode):
-            switch_info = jsonutils.loads(switch_info)
-
-        server_hardware_id = switch_info.get('server_hardware_id')
+        server_hardware_id = (
+            common.server_hardware_id_from_local_link__information_list(
+                local_link_information_list))
         server_profile = self.server_profile_from_server_hardware(
             server_hardware_id
         )
@@ -524,15 +518,14 @@ class Port(ResourceManager):
             local_link_information = local_link_information_list[0]
             switch_info = local_link_information.get('switch_info')
 
-            if isinstance(switch_info, unicode):
-                switch_info = jsonutils.loads(switch_info)
-
             if not switch_info:
                 LOG.warning(
                     "'local_link_information' must contain 'switch_info'.")
                 return False
 
-            server_hardware_id = switch_info.get('server_hardware_id')
+            server_hardware_id = (
+                common.server_hardware_id_from_local_link__information_list(
+                    local_link_information_list))
             if strutils.is_valid_boolstr(switch_info.get('bootable')):
                 bootable = strutils.bool_from_string(
                     switch_info.get('bootable'))
