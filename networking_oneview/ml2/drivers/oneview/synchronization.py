@@ -240,7 +240,7 @@ class Synchronization(object):
             local_link_info = common.local_link_information_from_port(
                 port_dict)
             server_hardware_id = (
-                common.server_hardware_id_from_local_link__information_list(
+                common.server_hardware_id_from_local_link_information_list(
                     local_link_info))
             server_profile = (
                 self.neu_ov_client.port.server_profile_from_server_hardware(
@@ -311,7 +311,7 @@ class Synchronization(object):
             local_link_info = common.local_link_information_from_port(
                 port_dict)
             server_hardware_id = (
-                common.server_hardware_id_from_local_link__information_list(
+                common.server_hardware_id_from_local_link_information_list(
                 local_link_info))
             server_profile = (
                 self.neu_ov_client.port.server_profile_from_server_hardware(

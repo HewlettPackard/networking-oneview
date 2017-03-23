@@ -239,7 +239,7 @@ def is_local_link_information_valid(local_link_information_list):
 
     return isinstance(bootable, bool)
 
-def server_hardware_id_from_local_link__information_list(
+def server_hardware_id_from_local_link_information_list(
     local_link_information_list):
     switch_info = local_link_information_list[0].get('switch_info')
     if isinstance(switch_info, unicode):

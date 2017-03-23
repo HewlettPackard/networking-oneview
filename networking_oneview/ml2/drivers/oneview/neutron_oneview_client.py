@@ -386,7 +386,7 @@ class Port(ResourceManager):
             neutron_oneview_network.oneview_network_id)
 
         server_hardware_id = (
-            common.server_hardware_id_from_local_link__information_list(
+            common.server_hardware_id_from_local_link_information_list(
                 local_link_information_list))
         server_profile = self.server_profile_from_server_hardware(
             server_hardware_id
@@ -482,7 +482,7 @@ class Port(ResourceManager):
             return
 
         server_hardware_id = (
-            common.server_hardware_id_from_local_link__information_list(
+            common.server_hardware_id_from_local_link_information_list(
                 local_link_information_list))
         server_profile = self.server_profile_from_server_hardware(
             server_hardware_id
@@ -524,7 +524,7 @@ class Port(ResourceManager):
                 return False
 
             server_hardware_id = (
-                common.server_hardware_id_from_local_link__information_list(
+                common.server_hardware_id_from_local_link_information_list(
                     local_link_information_list))
             if strutils.is_valid_boolstr(switch_info.get('bootable')):
                 bootable = strutils.bool_from_string(
