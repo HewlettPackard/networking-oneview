@@ -16,7 +16,10 @@
 
 from neutron.db.models_v2 import Network
 from neutron.db.models_v2 import Port
-from neutron.db.segments_db import NetworkSegment
+try:
+    from neutron.db.models.segment import NetworkSegment
+except ImportError:
+    from neutron.db.segments_db import NetworkSegment
 from neutron.plugins.ml2.models import PortBinding
 
 from networking_oneview.db.oneview_network_db import (
