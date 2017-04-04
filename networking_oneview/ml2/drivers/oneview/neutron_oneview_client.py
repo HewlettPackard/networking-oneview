@@ -20,7 +20,7 @@ import time
 from hpOneView import exceptions
 from oslo_log import log
 from oslo_utils import strutils
-from oslo_serialization import jsonutils
+
 from networking_oneview.ml2.drivers.oneview import (
     database_manager as db_manager)
 from networking_oneview.ml2.drivers.oneview import common
@@ -57,51 +57,39 @@ class ResourceManager(object):
 
         return False
 
-    def check_server_hardware_availability(self, server_hardware_id):
+    def check_server_hardware_availability(self, server_hardware):
         while True:
-            if not self.get_server_hardware_power_lock_state(
-                    server_hardware_id):
+            if not server_hardware.get('powerLock'):
                 return True
             time.sleep(30)
 
-    def get_server_hardware_power_lock_state(self, server_hardware_id):
-        server_hardware_dict = self.oneview_client.server_hardware.get(
-            server_hardware_id
-        )
-        return server_hardware_dict.get('powerLock')
-
-    def check_server_profile_availability(self, server_hardware_id):
+    def check_server_profile_availability(self, server_hardware):
         while True:
-            if self.get_server_profile_state(server_hardware_id):
+            if self.get_server_profile_state(server_hardware):
                 return True
             time.sleep(5)
 
-    def get_server_profile_state(self, server_hardware_id):
+    def get_server_profile_state(self, server_hardware):
         server_profile_dict = self.server_profile_from_server_hardware(
-            server_hardware_id
+            server_hardware
         )
         return server_profile_dict.get('status')
 
-    def get_server_hardware_power_state(self, server_hardware_id):
-        server_hardware_dict = self.oneview_client.server_hardware.get(
-            server_hardware_id
-        )
-        return server_hardware_dict.get('powerState')
+    def get_server_hardware_power_state(self, server_hardware):
+        return server_hardware.get('powerState')
 
-    def update_server_hardware_power_state(self, server_hardware_id, state):
+    def update_server_hardware_power_state(self, server_hardware, state):
             configuration = {
                 "powerState": state,
                 "powerControl": "MomentaryPress"
             }
+            server_hardware_id = server_hardware.get('uuid')
 
             self.oneview_client.server_hardware.update_power_state(
                 configuration, server_hardware_id
             )
 
-    def server_profile_from_server_hardware(self, server_hardware_id):
-        server_hardware = self.oneview_client.server_hardware.get(
-            server_hardware_id
-        )
+    def server_profile_from_server_hardware(self, server_hardware):
         server_profile_uri = server_hardware.get('serverProfileUri')
         return self.oneview_client.server_profiles.get(server_profile_uri)
 
@@ -300,7 +288,7 @@ class Network(ResourceManager):
     def _add_to_ligs(self, network_type, physical_network, oneview_network):
         lig_list = self._get_lig_list(physical_network, network_type)
         if not lig_list:
-            return None
+            return
         uplinksets_list = self._get_uplinksets_from_lig(
             network_type, lig_list)
         self._add_network_to_logical_interconnect_group(
@@ -386,27 +374,26 @@ class Port(ResourceManager):
             neutron_oneview_network.oneview_network_id)
         switch_info = common.switch_info_from_local_link_information_list(
             local_link_information_list)
-        server_hardware_id = (
-            common.server_hardware_id_from_local_link_information_list(
-                local_link_information_list))
+        server_hardware = (
+            common.server_hardware_from_local_link_information_list(
+                self.oneview_client, local_link_information_list))
         server_profile = self.server_profile_from_server_hardware(
-            server_hardware_id
+            server_hardware
         )
-
         bootable = switch_info.get('bootable')
         boot_priority = self._get_boot_priority(server_profile, bootable)
-
         mac_address = port_dict.get('mac_address')
-        port_id = self._port_id_from_mac(server_hardware_id, mac_address)
 
+        if common.is_rack_server(server_hardware):
+            return
+
+        port_id = self._port_id_from_mac(server_hardware, mac_address)
         connections = server_profile.get('connections')
         existing_connections = [connection for connection in connections
                                 if connection.get('portId') == port_id]
-
         for connection in existing_connections:
             if connection.get('mac').upper() == mac_address.upper():
                 server_profile['connections'].remove(connection)
-
         server_profile['connections'].append({
             'name': "NeutronPort[" + mac_address + "]",
             'portId': port_id,
@@ -415,8 +402,8 @@ class Port(ResourceManager):
             'functionType': 'Ethernet'
         })
 
-        self._check_oneview_entities_availability(server_hardware_id)
-        self._update_oneview_entities(server_hardware_id, server_profile)
+        self._check_oneview_entities_availability(server_hardware)
+        self._update_oneview_entities(server_hardware, server_profile)
 
     def _get_boot_priority(self, server_profile, bootable):
         if bootable:
@@ -433,8 +420,8 @@ class Port(ResourceManager):
                 return False
         return True
 
-    def _port_id_from_mac(self, server_hardware_id, mac_address):
-        port_info = self._get_port_info(server_hardware_id, mac_address)
+    def _port_id_from_mac(self, server_hardware, mac_address):
+        port_info = self._get_port_info(server_hardware, mac_address)
 
         return (
             str(port_info.get('device_slot_location')) + " " +
@@ -443,10 +430,7 @@ class Port(ResourceManager):
             str(port_info.get('virtual_port_function'))
         )
 
-    def _get_port_info(self, server_hardware_id, mac_address):
-        server_hardware = self.oneview_client.server_hardware.get(
-            server_hardware_id
-        )
+    def _get_port_info(self, server_hardware, mac_address):
         port_map = server_hardware.get('portMap')
         device_slots = port_map.get('deviceSlots')
 
@@ -482,11 +466,11 @@ class Port(ResourceManager):
             LOG.info("Port not valid to reflect on OneView.")
             return
 
-        server_hardware_id = (
-            common.server_hardware_id_from_local_link_information_list(
-                local_link_information_list))
+        server_hardware = (
+            common.server_hardware_from_local_link_information_list(
+                self.oneview_client, local_link_information_list))
         server_profile = self.server_profile_from_server_hardware(
-            server_hardware_id
+            server_hardware
         )
 
         mac_address = port_dict.get('mac_address')
@@ -496,8 +480,8 @@ class Port(ResourceManager):
         if connection:
             server_profile.get('connections').remove(connection)
 
-        self._check_oneview_entities_availability(server_hardware_id)
-        self._update_oneview_entities(server_hardware_id, server_profile)
+        self._check_oneview_entities_availability(server_hardware)
+        self._update_oneview_entities(server_hardware, server_profile)
 
     def _connection_with_mac_address(self, connections, mac_address):
         for connection in connections:
@@ -524,9 +508,11 @@ class Port(ResourceManager):
                     "'local_link_information' must contain 'switch_info'.")
                 return False
 
-            server_hardware_id = (
-                common.server_hardware_id_from_local_link_information_list(
-                    local_link_information_list))
+            server_hardware = (
+                common.server_hardware_from_local_link_information_list(
+                    self.oneview_client, local_link_information_list))
+            server_hardware_id = server_hardware.get('uuid')
+
             if strutils.is_valid_boolstr(switch_info.get('bootable')):
                 bootable = strutils.bool_from_string(
                     switch_info.get('bootable'))
@@ -557,23 +543,23 @@ class Port(ResourceManager):
             return False
         return is_local_link_information_valid(local_link_information_list)
 
-    def _check_oneview_entities_availability(self, server_hardware_id):
-        self.check_server_profile_availability(server_hardware_id)
-        self.check_server_hardware_availability(server_hardware_id)
+    def _check_oneview_entities_availability(self, server_hardware):
+        self.check_server_profile_availability(server_hardware)
+        self.check_server_hardware_availability(server_hardware)
 
-    def _update_oneview_entities(self, server_hardware_id, server_profile):
+    def _update_oneview_entities(self, server_hardware, server_profile):
         previous_power_state = self.get_server_hardware_power_state(
-            server_hardware_id
+            server_hardware
         )
         self.update_server_hardware_power_state(
-            server_hardware_id, "Off"
+            server_hardware, "Off"
         )
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
         )
         self.update_server_hardware_power_state(
-            server_hardware_id, previous_power_state
+            server_hardware, previous_power_state
         )
 
 

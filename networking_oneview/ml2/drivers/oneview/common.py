@@ -12,10 +12,11 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
 import six
 
 from hpOneView import exceptions
+from hpOneView.oneview_client import OneViewClient
+from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 
@@ -28,6 +29,36 @@ NETWORK_TYPE_UNTAGGED = 'untagged'
 ETHERNET_NETWORK_PREFIX = '/rest/ethernet-networks/'
 
 LOG = log.getLogger(__name__)
+
+opts = [
+    cfg.StrOpt('oneview_host',
+               help='IP where OneView is available'),
+    cfg.StrOpt('username',
+               help='OneView username to be used'),
+    cfg.StrOpt('password',
+               secret=True,
+               help='OneView password to be used'),
+    cfg.StrOpt('uplinkset_mappings',
+               help='UplinkSets to be used'),
+    cfg.StrOpt('tls_cacert_file',
+               default='',
+               help="TLS File Path"),
+    cfg.StrOpt('flat_net_mappings',
+               help='Flat Networks on Oneview that are managed by Neutron'),
+    cfg.IntOpt('ov_refresh_interval',
+               default=3600,
+               help='Interval between periodic task executions in seconds')
+]
+
+CONF = cfg.CONF
+CONF.register_opts(opts, group='oneview')
+
+
+def get_oneview_client():
+    """Get the OneView Client."""
+    return OneViewClient({"ip": CONF.oneview.oneview_host,
+                          "credentials": {"userName": CONF.oneview.username,
+                                          "password": CONF.oneview.password}})
 
 
 # Utils
@@ -242,15 +273,43 @@ def is_local_link_information_valid(local_link_information_list):
     return isinstance(bootable, bool)
 
 
-def server_hardware_id_from_local_link_information_list(local_link_info_list):
-    switch_info = local_link_info_list[0].get('switch_info')
+def server_hardware_from_local_link_information_list(
+        oneview_client, local_link_information_list):
+    """Get the Server Hardware from Local Link Information.
+
+    :param oneview_client: a instance of the OneView Client;
+    :param local_link_information_list: an list of local link information;
+    :return: server_hardware;
+    """
+    switch_info = local_link_information_list[0].get('switch_info')
     if isinstance(switch_info, six.text_type):
         switch_info = jsonutils.loads(switch_info)
-    return switch_info.get('server_hardware_id')
+
+    server_hardware_id = switch_info.get('server_hardware_id')
+    server_hardware = oneview_client.server_hardware.get(
+        server_hardware_id
+    )
+
+    return server_hardware
 
 
 def switch_info_from_local_link_information_list(local_link_information_list):
+    """Get the switch_info from Local Link Information.
+
+    :param oneview_client: a instance of the OneView Client;
+    :param local_link_information_list: an list of local link information;
+    :return: switch_info;
+    """
     switch_info = local_link_information_list[0].get('switch_info')
     if isinstance(switch_info, six.text_type):
         switch_info = jsonutils.loads(switch_info)
     return switch_info
+
+
+def is_rack_server(server_hardware):
+    """Verify if Server Hardware is a Rack Server.
+
+    :param server_hardware: a server hardware object;
+    :return: True or False;
+    """
+    return False if server_hardware.get('locationUri') else True
