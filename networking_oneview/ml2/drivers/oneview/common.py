@@ -251,6 +251,6 @@ def server_hardware_id_from_local_link_information_list(local_link_info_list):
 
 def switch_info_from_local_link_information_list(local_link_information_list):
     switch_info = local_link_information_list[0].get('switch_info')
-    if isinstance(switch_info, six.text):
+    if isinstance(switch_info, six.text_type):
         switch_info = jsonutils.loads(switch_info)
     return switch_info
