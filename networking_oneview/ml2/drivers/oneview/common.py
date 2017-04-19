@@ -13,6 +13,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import six
+
 from hpOneView import exceptions
 from oslo_log import log
 from oslo_serialization import jsonutils
@@ -239,16 +241,16 @@ def is_local_link_information_valid(local_link_information_list):
 
     return isinstance(bootable, bool)
 
-def server_hardware_id_from_local_link_information_list(
-    local_link_information_list):
-    switch_info = local_link_information_list[0].get('switch_info')
-    if isinstance(switch_info, unicode):
+
+def server_hardware_id_from_local_link_information_list(local_link_info_list):
+    switch_info = local_link_info_list[0].get('switch_info')
+    if isinstance(switch_info, six.text_type):
         switch_info = jsonutils.loads(switch_info)
     return switch_info.get('server_hardware_id')
 
-def switch_info_from_local_link_information_list(
-    local_link_information_list):
+
+def switch_info_from_local_link_information_list(local_link_information_list):
     switch_info = local_link_information_list[0].get('switch_info')
-    if isinstance(switch_info, unicode):
+    if isinstance(switch_info, six.text_type):
         switch_info = jsonutils.loads(switch_info)
     return switch_info
