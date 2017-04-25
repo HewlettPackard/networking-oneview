@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from hpOneView.oneview_client import OneViewClient
-from oslo_config import cfg
 from oslo_log import log
 
 from networking_oneview.ml2.drivers.oneview import common
@@ -27,53 +25,24 @@ from neutron.plugins.ml2 import driver_api
 
 LOG = log.getLogger(__name__)
 
-opts = [
-    cfg.StrOpt('oneview_host',
-               help='IP where OneView is available'),
-    cfg.StrOpt('username',
-               help='OneView username to be used'),
-    cfg.StrOpt('password',
-               secret=True,
-               help='OneView password to be used'),
-    cfg.StrOpt('uplinkset_mappings',
-               help='UplinkSets to be used'),
-    cfg.StrOpt('tls_cacert_file',
-               default='',
-               help="TLS File Path"),
-    cfg.StrOpt('flat_net_mappings',
-               help='Flat Networks on Oneview that are managed by Neutron'),
-    cfg.IntOpt('ov_refresh_interval',
-               default=3600,
-               help='Interval between periodic task executions in seconds')
-]
-
-CONF = cfg.CONF
-CONF.register_opts(opts, group='oneview')
-
-
-def get_oneview_client():
-    return OneViewClient({"ip": CONF.oneview.oneview_host,
-                          "credentials": {"userName": CONF.oneview.username,
-                                          "password": CONF.oneview.password}})
-
 
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
-        self.oneview_client = get_oneview_client()
+        self.oneview_client = common.get_oneview_client()
         self.uplinkset_mappings = common.load_conf_option_to_dict(
-            CONF.oneview.uplinkset_mappings)
+            common.CONF.oneview.uplinkset_mappings)
         self.flat_net_mappings = common.load_conf_option_to_dict(
-            CONF.oneview.flat_net_mappings)
+            common.CONF.oneview.flat_net_mappings)
         self.neutron_oneview_client = Client(self.oneview_client,
                                              self.uplinkset_mappings,
                                              self.flat_net_mappings)
-        if CONF.oneview.tls_cacert_file.strip():
+        if common.CONF.oneview.tls_cacert_file.strip():
             self.oneview_client.connection.set_trusted_ssl_bundle(
-                CONF.oneview.tls_cacert_file
+                common.CONF.oneview.tls_cacert_file
             )
         sync = synchronization.Synchronization(self.oneview_client,
                                                self.neutron_oneview_client,
-                                               CONF.database.connection,
+                                               common.CONF.database.connection,
                                                self.uplinkset_mappings,
                                                self.flat_net_mappings)
         sync.start()
