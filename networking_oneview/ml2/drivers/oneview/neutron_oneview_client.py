@@ -91,7 +91,12 @@ class ResourceManager(object):
 
     def server_profile_from_server_hardware(self, server_hardware):
         server_profile_uri = server_hardware.get('serverProfileUri')
-        return self.oneview_client.server_profiles.get(server_profile_uri)
+        if(server_profile_uri):
+            LOG.info(
+               "There is Server Profile %s available.", server_profile_uri)
+            return self.oneview_client.server_profiles.get(server_profile_uri)
+        else:
+            LOG.info("There is no Server Profile available.")
 
 
 class Network(ResourceManager):
@@ -136,6 +141,8 @@ class Network(ResourceManager):
         db_manager.map_neutron_network_to_oneview(
             session, network_id, oneview_network_id,
             mapping_type == common.UPLINKSET_MAPPINGS_TYPE, mappings)
+
+        LOG.info("Network %s created.", network_id)
 
     def _get_network_mapping_type(self, physical_network, network_type):
         physnet_in_uplinkset_mapping = self._is_physnet_in_uplinkset_mapping(
@@ -238,6 +245,7 @@ class Network(ResourceManager):
         db_manager.delete_oneview_network_lig(
             session, oneview_network_id=oneview_network_id
         )
+        LOG.info("Network %s deleted", oneview_network_id)
 
     def update_network_lig(
         self, session, oneview_network_id, network_type, physical_network
@@ -380,30 +388,34 @@ class Port(ResourceManager):
         server_profile = self.server_profile_from_server_hardware(
             server_hardware
         )
-        bootable = switch_info.get('bootable')
-        boot_priority = self._get_boot_priority(server_profile, bootable)
-        mac_address = port_dict.get('mac_address')
+        if server_profile:
+            LOG.info("There is Server Profile %s available.", server_profile)
+            bootable = switch_info.get('bootable')
+            mac_address = port_dict.get('mac_address')
 
-        if common.is_rack_server(server_hardware):
-            return
+            if common.is_rack_server(server_hardware):
+                LOG.info("The server %s is a rack server.", server_hardware)
+                return
 
-        port_id = self._port_id_from_mac(server_hardware, mac_address)
-        connections = server_profile.get('connections')
-        existing_connections = [connection for connection in connections
-                                if connection.get('portId') == port_id]
-        for connection in existing_connections:
-            if connection.get('mac').upper() == mac_address.upper():
-                server_profile['connections'].remove(connection)
-        server_profile['connections'].append({
-            'name': "NeutronPort[" + mac_address + "]",
-            'portId': port_id,
-            'networkUri': network_uri,
-            'boot': {'priority': boot_priority},
-            'functionType': 'Ethernet'
-        })
+            port_id = self._port_id_from_mac(server_hardware, mac_address)
+            connections = server_profile.get('connections')
+            existing_connections = [connection for connection in connections
+                                    if connection.get('portId') == port_id]
+            for connection in existing_connections:
+                if connection.get('mac').upper() == mac_address.upper():
+                    server_profile['connections'].remove(connection)
+            boot_priority = self._get_boot_priority(server_profile, bootable)
+            server_profile['connections'].append({
+                'name': "NeutronPort[" + mac_address + "]",
+                'portId': port_id,
+                'networkUri': network_uri,
+                'boot': {'priority': boot_priority},
+                'functionType': 'Ethernet'
+            })
 
-        self._check_oneview_entities_availability(server_hardware)
-        self._update_oneview_entities(server_hardware, server_profile)
+            self._check_oneview_entities_availability(server_hardware)
+            self._update_oneview_entities(server_hardware, server_profile)
+            LOG.info("The requested connection %s was created.", port_id)
 
     def _get_boot_priority(self, server_profile, bootable):
         if bootable:
@@ -472,16 +484,21 @@ class Port(ResourceManager):
         server_profile = self.server_profile_from_server_hardware(
             server_hardware
         )
+        if server_profile:
+            LOG.info("There is Server Profile %s available.", server_profile)
+            mac_address = port_dict.get('mac_address')
+            connection = self._connection_with_mac_address(
+                server_profile.get('connections'), mac_address
+            )
+            if connection:
+                LOG.debug("There is Connection %s available.", connection)
+                server_profile.get('connections').remove(connection)
+            else:
+                LOG.debug("There is no Connection available.")
 
-        mac_address = port_dict.get('mac_address')
-        connection = self._connection_with_mac_address(
-            server_profile.get('connections'), mac_address
-        )
-        if connection:
-            server_profile.get('connections').remove(connection)
-
-        self._check_oneview_entities_availability(server_hardware)
-        self._update_oneview_entities(server_hardware, server_profile)
+            self._check_oneview_entities_availability(server_hardware)
+            self._update_oneview_entities(server_hardware, server_profile)
+            LOG.info("The requested port was deleted successfully.")
 
     def _connection_with_mac_address(self, connections, mac_address):
         for connection in connections:
