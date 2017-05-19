@@ -239,11 +239,10 @@ class Synchronization(object):
             )
             local_link_info = common.local_link_information_from_port(
                 port_dict)
-            server_hardware_id = (
+            server_hardware = (
                 common.server_hardware_from_local_link_information_list(
                     self.oneview_client, local_link_info))
-            server_hardware = self.oneview_client.server_hardware.get(
-                server_hardware_id)
+            
             server_profile = (
                 self.neutron_client.port.server_profile_from_server_hardware(
                     server_hardware
