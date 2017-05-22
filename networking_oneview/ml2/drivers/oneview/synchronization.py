@@ -239,25 +239,27 @@ class Synchronization(object):
             )
             local_link_info = common.local_link_information_from_port(
                 port_dict)
-            server_hardware_id = (
+            server_hardware = (
                 common.server_hardware_from_local_link_information_list(
                     self.oneview_client, local_link_info))
+            
             server_profile = (
                 self.neutron_client.port.server_profile_from_server_hardware(
-                    server_hardware_id
+                    server_hardware
                 )
             )
 
             self.neutron_client.port.check_server_hardware_availability(
-                server_hardware_id
+                    server_hardware
             )
             previous_power_state = (
                 self.neutron_client.port.get_server_hardware_power_state(
-                    server_hardware_id
+                    server_hardware
+                    )
                 )
-            )
+
             self.neutron_client.port.update_server_hardware_power_state(
-                server_hardware_id, "Off")
+                server_hardware, "Off")
 
             for connection in server_profile.get('connections'):
                 if connection.get('mac') == port.get('mac_address'):
@@ -265,7 +267,7 @@ class Synchronization(object):
                         server_profile, connection.get('id')
                     )
             self.neutron_client.port.update_server_hardware_power_state(
-                server_hardware_id, previous_power_state
+                server_hardware, previous_power_state
             )
 
     def _remove_connection(self, server_profile, connection_id):
@@ -341,28 +343,36 @@ class Synchronization(object):
     def update_connection(
         self, oneview_uri, server_profile, connection
     ):
+        server_hardware = self.oneview_client.server_hardware.get(
+            server_profile.get('serverHardwareUri')
+        )
         connection['networkUri'] = oneview_uri
         self.neutron_client.port.check_server_hardware_availability(
-            server_profile.get('uuid')
+            server_hardware
         )
         previous_power_state = (
             self.neutron_client.port.get_server_hardware_power_state(
-                server_profile.get('uuid')
+                server_hardware
             )
         )
         self.neutron_client.port.update_server_hardware_power_state(
-            server_profile.get('uuid'), "Off"
-        )
+                server_hardware, "Off"
+	    )
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
         )
         self.neutron_client.port.update_server_hardware_power_state(
-            server_profile.get('uuid'), previous_power_state
+            self.oneview_client.server_hardware.get(
+                server_profile.get('serverHardwareUri')), previous_power_state
         )
 
     def fix_connections_with_removed_networks(self, server_profile):
         sp_cons = []
+
+        server_hardware = self.oneview_client.server_hardware.get(
+            server_profile.get('serverHardwareUri')
+        )
 
         for connection in server_profile.get('connections'):
             conn_network_id = common.id_from_uri(
@@ -373,20 +383,22 @@ class Synchronization(object):
 
         server_profile['connections'] = sp_cons
         self.neutron_client.port.check_server_hardware_availability(
-            server_profile.get('serverHardwareUri')
+            server_hardware
         )
         previous_power_state = (
             self.neutron_client.port.get_server_hardware_power_state(
-                server_profile.get('serverHardwareUri')
+                server_hardware
             )
         )
 
         self.neutron_client.port.update_server_hardware_power_state(
-            server_profile.get('serverHardwareUri'), "Off")
+                server_hardware, "Off"
+        )
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
         )
         self.neutron_client.port.update_server_hardware_power_state(
-            server_profile.get('serverHardwareUri'), previous_power_state
+            self.oneview_client.server_hardware.get(
+                server_profile.get('serverHardwareUri')), previous_power_state
         )
