@@ -59,9 +59,14 @@ CONF.register_opts(opts, group='oneview')
 
 def get_oneview_client():
     """Get the OneView Client."""
-    return OneViewClient({"ip": CONF.oneview.oneview_host,
-                          "credentials": {"userName": CONF.oneview.username,
-                                          "password": CONF.oneview.password}})
+    LOG.debug("OneViewClient initialized.")
+    return OneViewClient({
+        "ip": CONF.oneview.oneview_host,
+        "credentials": {
+            "userName": CONF.oneview.username,
+            "password": CONF.oneview.password
+        }
+    })
 
 
 # Utils

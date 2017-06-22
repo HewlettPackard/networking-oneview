@@ -30,10 +30,9 @@ LOG = log.getLogger(__name__)
 
 
 class Synchronization(object):
-    def __init__(
-            self, oneview_client, neutron_oneview_client, connection,
-            uplinkset_mappings, flat_net_mappings):
-        self.oneview_client = oneview_client
+    def __init__(self, neutron_oneview_client, connection,
+                 uplinkset_mappings, flat_net_mappings):
+        self.oneview_client = common.get_oneview_client()
         self.neutron_client = neutron_oneview_client
         self.connection = connection
         self.uplinkset_mappings = uplinkset_mappings
@@ -51,11 +50,13 @@ class Synchronization(object):
         return Session()
 
     def synchronize(self):
+        self.oneview_client = common.get_oneview_client()
         self.delete_outdated_flat_mapped_networks()
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
         self.synchronize_uplinkset_from_mapped_networks()
         self.create_connection()
+        self.oneview_client.connection.logout()
 
     def get_oneview_network(self, oneview_net_id):
         try:
@@ -242,7 +243,7 @@ class Synchronization(object):
             server_hardware = (
                 common.server_hardware_from_local_link_information_list(
                     self.oneview_client, local_link_info))
-            
+
             server_profile = (
                 self.neutron_client.port.server_profile_from_server_hardware(
                     server_hardware

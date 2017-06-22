@@ -30,8 +30,8 @@ LOG = log.getLogger(__name__)
 
 @six.add_metaclass(abc.ABCMeta)
 class ResourceManager(object):
-    def __init__(self, oneview_client, uplinkset_mappings, flat_net_mappings):
-        self.oneview_client = oneview_client
+    def __init__(self, uplinkset_mappings, flat_net_mappings):
+        self.oneview_client = common.get_oneview_client()
         self.uplinkset_mappings = uplinkset_mappings
         self.flat_net_mappings = flat_net_mappings
 
@@ -79,22 +79,25 @@ class ResourceManager(object):
         return server_hardware.get('powerState')
 
     def update_server_hardware_power_state(self, server_hardware, state):
-            configuration = {
-                "powerState": state,
-                "powerControl": "MomentaryPress"
-            }
-            server_hardware_id = server_hardware.get('uuid')
+        self.oneview_client = common.get_oneview_client()
+        configuration = {
+            "powerState": state,
+            "powerControl": "MomentaryPress"
+        }
+        server_hardware_id = server_hardware.get('uuid')
 
-            self.oneview_client.server_hardware.update_power_state(
-                configuration, server_hardware_id
-            )
+        self.oneview_client.server_hardware.update_power_state(
+            configuration, server_hardware_id
+        )
 
     def server_profile_from_server_hardware(self, server_hardware):
+        self.oneview_client = common.get_oneview_client()
         server_profile_uri = server_hardware.get('serverProfileUri')
         if(server_profile_uri):
             LOG.info(
-               "There is Server Profile %s available.", server_profile_uri)
-            return self.oneview_client.server_profiles.get(server_profile_uri)
+                "There is Server Profile %s available.", server_profile_uri)
+            return self.oneview_client.server_profiles.get(
+                server_profile_uri)
         else:
             LOG.info("There is no Server Profile available.")
 
@@ -107,6 +110,7 @@ class Network(ResourceManager):
     }
 
     def create(self, session, network_dict):
+        self.oneview_client = common.get_oneview_client()
         network_id = network_dict.get('id')
         network_seg_id = network_dict.get('provider:segmentation_id')
         physical_network = network_dict.get('provider:physical_network')
@@ -142,6 +146,7 @@ class Network(ResourceManager):
             session, network_id, oneview_network_id,
             mapping_type == common.UPLINKSET_MAPPINGS_TYPE, mappings)
 
+        self.oneview_client.connection.logout()
         LOG.info("Network %s created.", network_id)
 
     def _get_network_mapping_type(self, physical_network, network_type):
@@ -228,6 +233,7 @@ class Network(ResourceManager):
                 self.oneview_client.uplink_sets.update(uplinkset)
 
     def delete(self, session, network_dict):
+        self.oneview_client = common.get_oneview_client()
         network_id = network_dict.get('id')
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, network_id
@@ -245,11 +251,13 @@ class Network(ResourceManager):
         db_manager.delete_oneview_network_lig(
             session, oneview_network_id=oneview_network_id
         )
+        self.oneview_client.connection.logout()
         LOG.info("Network %s deleted", oneview_network_id)
 
     def update_network_lig(
         self, session, oneview_network_id, network_type, physical_network
     ):
+        self.oneview_client = common.get_oneview_client()
         network_type = self.NEUTRON_NET_TYPE_TO_ONEVIEW_NET_TYPE.get(
             network_type)
         mappings = self.uplinkset_mappings.get(network_type).get(
@@ -283,6 +291,7 @@ class Network(ResourceManager):
                 db_manager.insert_oneview_network_lig(
                     session, oneview_network_id, lig_id, uplinkset_name
                 )
+        self.oneview_client.connection.logout()
 
     def _is_lig_id_uplink_name_mapped(self, lig_bd_entry, mappings):
         mapped_lig_id = lig_bd_entry.get('oneview_lig_id')
@@ -357,6 +366,7 @@ class Network(ResourceManager):
 
 class Port(ResourceManager):
     def create(self, session, port_dict):
+        self.oneview_client = common.get_oneview_client()
         network_id = port_dict.get('network_id')
 
         network_segment = db_manager.get_network_segment(session, network_id)
@@ -417,6 +427,8 @@ class Port(ResourceManager):
             self._update_oneview_entities(server_hardware, server_profile)
             LOG.info("The requested connection %s was created.", port_id)
 
+        self.oneview_client.connection.logout()
+
     def _get_boot_priority(self, server_profile, bootable):
         if bootable:
             connections = server_profile.get('connections')
@@ -469,6 +481,7 @@ class Port(ResourceManager):
                         }
 
     def delete(self, session, port_dict):
+        self.oneview_client = common.get_oneview_client()
         local_link_information_list = common.local_link_information_from_port(
             port_dict
         )
@@ -499,6 +512,8 @@ class Port(ResourceManager):
             self._check_oneview_entities_availability(server_hardware)
             self._update_oneview_entities(server_hardware, server_profile)
             LOG.info("The requested port was deleted successfully.")
+
+        self.oneview_client.connection.logout()
 
     def _connection_with_mac_address(self, connections, mac_address):
         for connection in connections:
@@ -581,18 +596,15 @@ class Port(ResourceManager):
 
 
 class Client(object):
-    def __init__(
-        self, oneview_client, uplinkset_mappings,
-        flat_net_mappings
-    ):
+    def __init__(self, uplinkset_mappings, flat_net_mappings):
         uplinkset_mappings = self._uplinkset_mappings_by_type(
-            oneview_client, uplinkset_mappings
+            common.get_oneview_client(), uplinkset_mappings
         )
         self.network = Network(
-            oneview_client, uplinkset_mappings, flat_net_mappings
+            uplinkset_mappings, flat_net_mappings
         )
         self.port = Port(
-            oneview_client, uplinkset_mappings, flat_net_mappings
+            uplinkset_mappings, flat_net_mappings
         )
 
     def _uplinkset_mappings_by_type(

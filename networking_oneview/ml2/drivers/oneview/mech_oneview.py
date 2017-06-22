@@ -29,23 +29,21 @@ LOG = log.getLogger(__name__)
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
         self.oneview_client = common.get_oneview_client()
+
         self.uplinkset_mappings = common.load_conf_option_to_dict(
             common.CONF.oneview.uplinkset_mappings)
         self.flat_net_mappings = common.load_conf_option_to_dict(
             common.CONF.oneview.flat_net_mappings)
-        self.neutron_oneview_client = Client(self.oneview_client,
-                                             self.uplinkset_mappings,
+        self.neutron_oneview_client = Client(self.uplinkset_mappings,
                                              self.flat_net_mappings)
         if common.CONF.oneview.tls_cacert_file.strip():
             self.oneview_client.connection.set_trusted_ssl_bundle(
                 common.CONF.oneview.tls_cacert_file
             )
         if not common.CONF.oneview.developer_mode:
-            sync = synchronization.Synchronization(self.oneview_client,
-                                                   self.neutron_oneview_client,
-                                                   common.CONF.database.connection,
-                                                   self.uplinkset_mappings,
-                                                   self.flat_net_mappings)
+            sync = synchronization.Synchronization(
+                self.neutron_oneview_client, common.CONF.database.connection,
+                self.uplinkset_mappings, self.flat_net_mappings)
             sync.start()
             LOG.debug('OneView synchronization tool was initialized.')
         else:
