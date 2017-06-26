@@ -55,18 +55,30 @@ opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(opts, group='oneview')
-
-
-def get_oneview_client():
-    """Get the OneView Client."""
-    LOG.debug("OneViewClient initialized.")
-    return OneViewClient({
+ONEVIEW_CONF = {
         "ip": CONF.oneview.oneview_host,
         "credentials": {
             "userName": CONF.oneview.username,
             "password": CONF.oneview.password
         }
-    })
+    }
+
+
+def get_oneview_client():
+    """Get the OneView Client."""
+    LOG.debug("OneViewClient initialized.")
+    return OneViewClient(ONEVIEW_CONF)
+
+
+def oneview_reauth(f):
+    def wrapper(self, *args, **kwargs):
+        LOG.debug("Reauthenticating to OneView.")
+        self.oneview_client.connection.login(ONEVIEW_CONF["credentials"])
+        ret = f(self, *args, **kwargs)
+        self.oneview_client.connection.logout()
+
+        return ret
+    return wrapper
 
 
 # Utils
