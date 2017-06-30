@@ -19,7 +19,10 @@ from networking_oneview.ml2.drivers.oneview import common
 from networking_oneview.ml2.drivers.oneview.neutron_oneview_client import (
     Client)
 from networking_oneview.ml2.drivers.oneview import synchronization
-from neutron_lib.api.definitions import portbindings
+try:
+    from neutron_lib.api.definitions import portbindings
+except ImportError:
+    from neutron.extensions import portbindings
 from neutron.plugins.common import constants as p_const
 from neutron.plugins.ml2 import driver_api
 
