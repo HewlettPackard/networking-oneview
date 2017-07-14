@@ -377,7 +377,8 @@ class Port(ResourceManager):
             session, port_dict, local_link_information_list
         ):
             LOG.warning(
-                 "Port %s is not valid to reflect on OneView.", neutron_port_id)
+                "Port %s is not valid to reflect on OneView.", neutron_port_id
+            )
             return
 
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
@@ -482,7 +483,8 @@ class Port(ResourceManager):
             session, port_dict, local_link_information_list
         ):
             LOG.warning(
-                 "Port %s is not valid to reflect on OneView.", neutron_port_id)
+                "Port %s is not valid to reflect on OneView.", neutron_port_id
+            )
             return
 
         server_hardware = (
