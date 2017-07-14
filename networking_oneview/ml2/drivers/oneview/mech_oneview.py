@@ -44,15 +44,17 @@ class OneViewDriver(driver_api.MechanismDriver):
                 common.CONF.oneview.tls_cacert_file
             )
         if not common.CONF.oneview.developer_mode:
-            sync = synchronization.Synchronization(self.oneview_client,
-                                                   self.neutron_oneview_client,
-                                                   common.CONF.database.connection,
-                                                   self.uplinkset_mappings,
-                                                   self.flat_net_mappings)
+            sync = synchronization.Synchronization(
+                self.oneview_client, self.neutron_oneview_client,
+                common.CONF.database.connection, self.uplinkset_mappings,
+                self.flat_net_mappings)
+
             sync.start()
-            LOG.debug('OneView synchronization tool was initialized.')
+            LOG.debug("OneView synchronization tool was initialized.")
         else:
-            LOG.warning('OneView synchronization tool will not be initialized due developer_mode.')
+            LOG.warning(
+                "OneView synchronization tool will "
+                "not be initialized due developer_mode.")
 
     def bind_port(self, context):
         """Bind baremetal port to a network."""
