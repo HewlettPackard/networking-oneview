@@ -15,6 +15,7 @@
 import six
 
 from hpOneView import exceptions
+from hpOneView.exceptions import HPOneViewException
 from hpOneView.oneview_client import OneViewClient
 from oslo_config import cfg
 from oslo_log import log
@@ -66,18 +67,18 @@ ONEVIEW_CONF = {
 
 def get_oneview_client():
     """Get the OneView Client."""
-    LOG.debug("OneViewClient initialized.")
+    LOG.debug("Creating a new OneViewClient instance.")
     return OneViewClient(ONEVIEW_CONF)
 
 
 def oneview_reauth(f):
     def wrapper(self, *args, **kwargs):
-        LOG.debug("Reauthenticating to OneView.")
-        self.oneview_client.connection.login(ONEVIEW_CONF["credentials"])
-        ret = f(self, *args, **kwargs)
-        self.oneview_client.connection.logout()
-
-        return ret
+        try:
+            self.oneview_client.connection.get('/rest/logindomains')
+        except HPOneViewException:
+            LOG.debug("Reauthenticating to OneView.")
+            self.oneview_client.connection.login(ONEVIEW_CONF["credentials"])
+        return f(self, *args, **kwargs)
     return wrapper
 
 
