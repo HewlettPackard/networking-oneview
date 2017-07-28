@@ -93,7 +93,7 @@ class ResourceManager(object):
         server_profile_uri = server_hardware.get('serverProfileUri')
         if(server_profile_uri):
             LOG.info(
-               "There is Server Profile %s available.", server_profile_uri)
+                "There is Server Profile %s available.", server_profile_uri)
             return self.oneview_client.server_profiles.get(server_profile_uri)
         else:
             LOG.info("There is no Server Profile available.")
@@ -358,12 +358,15 @@ class Network(ResourceManager):
 class Port(ResourceManager):
     def create(self, session, port_dict):
         network_id = port_dict.get('network_id')
+        neutron_port_id = port_dict.get('id')
 
         network_segment = db_manager.get_network_segment(session, network_id)
         physical_network = network_segment.get('physical_network')
         network_type = network_segment.get('network_type')
 
         if not self.is_uplinkset_mapping(physical_network, network_type):
+            LOG.warning(
+                "Port %s is not mapping in OneView conf", network_id)
             return
 
         local_link_information_list = common.local_link_information_from_port(
@@ -373,7 +376,9 @@ class Port(ResourceManager):
         if not self._is_port_valid_to_reflect_on_oneview(
             session, port_dict, local_link_information_list
         ):
-            LOG.info("Port not valid to reflect on OneView.")
+            LOG.warning(
+                "Port %s is not valid to reflect on OneView.", neutron_port_id
+            )
             return
 
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
@@ -472,10 +477,14 @@ class Port(ResourceManager):
         local_link_information_list = common.local_link_information_from_port(
             port_dict
         )
+        neutron_port_id = port_dict.get('id')
+
         if not self._is_port_valid_to_reflect_on_oneview(
             session, port_dict, local_link_information_list
         ):
-            LOG.info("Port not valid to reflect on OneView.")
+            LOG.warning(
+                "Port %s is not valid to reflect on OneView.", neutron_port_id
+            )
             return
 
         server_hardware = (

@@ -242,7 +242,7 @@ class Synchronization(object):
             server_hardware = (
                 common.server_hardware_from_local_link_information_list(
                     self.oneview_client, local_link_info))
-            
+
             server_profile = (
                 self.neutron_client.port.server_profile_from_server_hardware(
                     server_hardware
@@ -250,7 +250,7 @@ class Synchronization(object):
             )
 
             self.neutron_client.port.check_server_hardware_availability(
-                    server_hardware
+                server_hardware
             )
             previous_power_state = (
                 self.neutron_client.port.get_server_hardware_power_state(
@@ -356,8 +356,8 @@ class Synchronization(object):
             )
         )
         self.neutron_client.port.update_server_hardware_power_state(
-                server_hardware, "Off"
-	    )
+            server_hardware, "Off"
+        )
         self.oneview_client.server_profiles.update(
             resource=server_profile,
             id_or_uri=server_profile.get('uri')
@@ -392,7 +392,7 @@ class Synchronization(object):
         )
 
         self.neutron_client.port.update_server_hardware_power_state(
-                server_hardware, "Off"
+            server_hardware, "Off"
         )
         self.oneview_client.server_profiles.update(
             resource=server_profile,
