@@ -30,9 +30,8 @@ LOG = log.getLogger(__name__)
 
 
 class Synchronization(object):
-    def __init__(
-            self, oneview_client, neutron_oneview_client, connection,
-            uplinkset_mappings, flat_net_mappings):
+    def __init__(self, oneview_client, neutron_oneview_client, connection,
+                 uplinkset_mappings, flat_net_mappings):
         self.oneview_client = oneview_client
         self.neutron_client = neutron_oneview_client
         self.connection = connection
@@ -50,6 +49,7 @@ class Synchronization(object):
                                autocommit=True)
         return Session()
 
+    @common.oneview_reauth
     def synchronize(self):
         self.delete_outdated_flat_mapped_networks()
         self.create_oneview_networks_from_neutron()

@@ -32,13 +32,16 @@ LOG = log.getLogger(__name__)
 class OneViewDriver(driver_api.MechanismDriver):
     def initialize(self):
         self.oneview_client = common.get_oneview_client()
+
         self.uplinkset_mappings = common.load_conf_option_to_dict(
             common.CONF.oneview.uplinkset_mappings)
         self.flat_net_mappings = common.load_conf_option_to_dict(
             common.CONF.oneview.flat_net_mappings)
-        self.neutron_oneview_client = Client(self.oneview_client,
-                                             self.uplinkset_mappings,
-                                             self.flat_net_mappings)
+        self.neutron_oneview_client = Client(
+                self.oneview_client,
+                self.uplinkset_mappings,
+                self.flat_net_mappings
+        )
         if common.CONF.oneview.tls_cacert_file.strip():
             self.oneview_client.connection.set_trusted_ssl_bundle(
                 common.CONF.oneview.tls_cacert_file
@@ -46,9 +49,9 @@ class OneViewDriver(driver_api.MechanismDriver):
         if not common.CONF.oneview.developer_mode:
             sync = synchronization.Synchronization(
                 self.oneview_client, self.neutron_oneview_client,
-                common.CONF.database.connection, self.uplinkset_mappings,
-                self.flat_net_mappings)
-
+                common.CONF.database.connection,
+                self.uplinkset_mappings, self.flat_net_mappings
+            )
             sync.start()
             LOG.debug("OneView synchronization tool was initialized.")
         else:
@@ -56,6 +59,7 @@ class OneViewDriver(driver_api.MechanismDriver):
                 "OneView synchronization tool will "
                 "not be initialized due developer_mode.")
 
+    @common.oneview_reauth
     def bind_port(self, context):
         """Bind baremetal port to a network."""
         session = common.session_from_context(context)
@@ -85,21 +89,25 @@ class OneViewDriver(driver_api.MechanismDriver):
                 }
             )
 
+    @common.oneview_reauth
     def create_network_postcommit(self, context):
         session = common.session_from_context(context)
         network_dict = common.network_from_context(context)
 
         self.neutron_oneview_client.network.create(session, network_dict)
 
+    @common.oneview_reauth
     def delete_network_postcommit(self, context):
         session = common.session_from_context(context)
         network_dict = common.network_from_context(context)
 
         self.neutron_oneview_client.network.delete(session, network_dict)
 
+    @common.oneview_reauth
     def create_port_postcommit(self, context):
         pass
 
+    @common.oneview_reauth
     def delete_port_postcommit(self, context):
         session = common.session_from_context(context)
         port_dict = common.port_from_context(context)

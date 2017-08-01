@@ -79,22 +79,23 @@ class ResourceManager(object):
         return server_hardware.get('powerState')
 
     def update_server_hardware_power_state(self, server_hardware, state):
-            configuration = {
-                "powerState": state,
-                "powerControl": "MomentaryPress"
-            }
-            server_hardware_id = server_hardware.get('uuid')
+        configuration = {
+            "powerState": state,
+            "powerControl": "MomentaryPress"
+        }
+        server_hardware_id = server_hardware.get('uuid')
 
-            self.oneview_client.server_hardware.update_power_state(
-                configuration, server_hardware_id
-            )
+        self.oneview_client.server_hardware.update_power_state(
+            configuration, server_hardware_id
+        )
 
     def server_profile_from_server_hardware(self, server_hardware):
         server_profile_uri = server_hardware.get('serverProfileUri')
         if(server_profile_uri):
             LOG.info(
                 "There is Server Profile %s available.", server_profile_uri)
-            return self.oneview_client.server_profiles.get(server_profile_uri)
+            return self.oneview_client.server_profiles.get(
+                server_profile_uri)
         else:
             LOG.info("There is no Server Profile available.")
 
@@ -125,6 +126,7 @@ class Network(ResourceManager):
             return
 
         mappings = []
+        oneview_network_id = None
         if mapping_type == common.UPLINKSET_MAPPINGS_TYPE:
             network_type = 'tagged' if network_seg_id else 'untagged'
             oneview_network = self._create_network_on_oneview(
@@ -590,50 +592,45 @@ class Port(ResourceManager):
 
 
 class Client(object):
-    def __init__(
-        self, oneview_client, uplinkset_mappings,
-        flat_net_mappings
-    ):
-        uplinkset_mappings = self._uplinkset_mappings_by_type(
-            oneview_client, uplinkset_mappings
+    def __init__(self, oneview_client, uplinkset_mappings, flat_net_mappings):
+        self.oneview_client = oneview_client
+        self.uplinkset_mappings = self._uplinkset_mappings_by_type(
+            uplinkset_mappings
         )
         self.network = Network(
-            oneview_client, uplinkset_mappings, flat_net_mappings
+            self.oneview_client, self.uplinkset_mappings, flat_net_mappings
         )
         self.port = Port(
-            oneview_client, uplinkset_mappings, flat_net_mappings
+            self.oneview_client, self.uplinkset_mappings, flat_net_mappings
         )
 
-    def _uplinkset_mappings_by_type(
-        self, oneview_client, uplinkset_mappings
-    ):
+    def _uplinkset_mappings_by_type(self, uplinkset_mappings):
         uplinkset_mappings_by_type = {}
 
         uplinkset_mappings_by_type[common.NETWORK_TYPE_TAGGED] = (
             self._get_uplinkset_by_type(
-                oneview_client, uplinkset_mappings, common.NETWORK_TYPE_TAGGED
+                uplinkset_mappings,
+                common.NETWORK_TYPE_TAGGED
             )
         )
 
         uplinkset_mappings_by_type[common.NETWORK_TYPE_UNTAGGED] = (
             self._get_uplinkset_by_type(
-                oneview_client, uplinkset_mappings,
+                uplinkset_mappings,
                 common.NETWORK_TYPE_UNTAGGED
             )
         )
 
         return uplinkset_mappings_by_type
 
-    def _get_uplinkset_by_type(
-        self, oneview_client, uplinkset_mappings, net_type
-    ):
+    def _get_uplinkset_by_type(self, uplinkset_mappings, net_type):
         uplinksets_by_type = {}
 
         for physnet in uplinkset_mappings:
             provider = uplinkset_mappings.get(physnet)
             for lig_id, uplinkset_name in zip(provider[0::2], provider[1::2]):
                 lig = common.get_logical_interconnect_group_by_id(
-                    oneview_client, lig_id)
+                    self.oneview_client, lig_id)
                 lig_uplinksets = lig.get('uplinkSets')
 
                 uplinkset = common.get_uplinkset_by_name_from_list(
