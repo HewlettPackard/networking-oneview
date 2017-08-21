@@ -1,4 +1,3 @@
-#
 # Copyright 2016 Hewlett Packard Development Company, LP
 # Copyright 2016 Universidade Federal de Campina Grande
 #

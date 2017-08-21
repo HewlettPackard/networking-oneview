@@ -57,12 +57,12 @@ opts = [
 CONF = cfg.CONF
 CONF.register_opts(opts, group='oneview')
 ONEVIEW_CONF = {
-        "ip": CONF.oneview.oneview_host,
-        "credentials": {
-            "userName": CONF.oneview.username,
-            "password": CONF.oneview.password
-        }
+    "ip": CONF.oneview.oneview_host,
+    "credentials": {
+        "userName": CONF.oneview.username,
+        "password": CONF.oneview.password
     }
+}
 
 
 def get_oneview_client():
