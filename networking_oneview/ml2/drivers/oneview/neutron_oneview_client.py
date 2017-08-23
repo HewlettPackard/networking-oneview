@@ -137,6 +137,7 @@ class Network(ResourceManager):
                 network_type, physical_network, oneview_network)
         elif mapping_type == common.FLAT_NET_MAPPINGS_TYPE:
             oneview_network_id = self.flat_net_mappings.get(physical_network)
+        # BUG(nicodemos) This is not reachable because line 126
         else:
             LOG.warning("Network Type unsupported")
 
@@ -150,12 +151,15 @@ class Network(ResourceManager):
         physnet_in_uplinkset_mapping = self._is_physnet_in_uplinkset_mapping(
             physical_network, network_type
         )
-
         if network_type == 'vlan' and physnet_in_uplinkset_mapping:
             return common.UPLINKSET_MAPPINGS_TYPE
         elif physical_network in self.flat_net_mappings:
             return common.FLAT_NET_MAPPINGS_TYPE
-        elif physnet_in_uplinkset_mapping:
+        # BUG(nicodemos) if a network provider:physical_network is mapped
+        # in uplinkset_mappings and using any 'provider:network_type' != flat
+        # we return this.
+        # NOTE(nicodemos) adding network_type == 'flat' is the rigth call?
+        elif network_type == 'flat' and physnet_in_uplinkset_mapping:
             return common.UPLINKSET_MAPPINGS_TYPE
 
         return common.MAPPING_TYPE_NONE
@@ -636,10 +640,8 @@ class Client(object):
                 uplinkset = common.get_uplinkset_by_name_from_list(
                     lig_uplinksets, uplinkset_name
                 )
-
                 if uplinkset.get('ethernetNetworkType').lower() == net_type:
                     uplinksets_by_type.setdefault(physnet, []).extend(
                         [lig_id, uplinkset_name]
                     )
-
         return uplinksets_by_type

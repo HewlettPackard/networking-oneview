@@ -108,9 +108,9 @@ def get_uplinkset_by_name_from_list(uplinkset_list, uplinkset_name):
     :raise Exception: Uplinkset name not found in Uplinkset list;
     """
     try:
-        uplinkset_obj = (
+        uplinkset_obj = next(
             uplinkset for uplinkset in uplinkset_list if uplinkset.get(
-                'name') == uplinkset_name).next()
+                'name') == uplinkset_name)
     except Exception:
         err_msg = "Uplinkset not found in Uplinkset List"
         LOG.error(err_msg)
