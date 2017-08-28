@@ -71,8 +71,10 @@ FAKE_TAGGED_UPLINKSET = {
 UPLINKSET_MAPPINGS = {
     'physnet': ['lig_123', 'uplinkset_flat', 'lig_123', 'uplinkset_vlan']
 }
-FLAT_NET_MAPPINGS = {'physnet-mapped': ['ONEVIEW_NET1']}
-FAKE_UPLINKSETS = [FAKE_TAGGED_UPLINKSET, FAKE_UNTAGGED_UPLINKSET]
+FLAT_NET_MAPPINGS = {'physnet-mapped': ['112233AA']}
+FAKE_LIG = {
+    'uplinkSets': [FAKE_TAGGED_UPLINKSET, FAKE_UNTAGGED_UPLINKSET]
+}
 
 FAKE_PORT = {
     'id': '1',
@@ -96,6 +98,7 @@ FAKE_SERVER_PROFILE = {
     'status': 'ok',
     'connections': [{
         'portId': '1234',
+        'networkUri': '/fake_net_uri',
         'mac': 'aa:11:cc:33:ee:44',
         'boot': {'priority': 'primary'}
     }]
@@ -142,6 +145,7 @@ class FakePlugin(object):
 class FakeNetwork(object):
     def __init__(self):
         self.oneview_network_id = '12345'
+        self.neutron_network_id = '54321'
         self.manageable = True
 
 
@@ -149,9 +153,7 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
     def setUp(self):
         super(OneViewMechanismDriverTestCase, self).setUp()
         oneview_client = mock.MagicMock()
-        oneview_client.logical_interconnect_groups.get.return_value = {
-            'uplinkSets': FAKE_UPLINKSETS
-        }
+        oneview_client.logical_interconnect_groups.get.return_value = FAKE_LIG
         database_manager.get_neutron_oneview_network = mock.Mock(
             return_value=False
         )
@@ -177,7 +179,7 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         mock_map_net.assert_called_with(
             network_context._plugin_context._session,
             FAKE_FLAT_ONEVIEW_NETWORK.get('id'),
-            ['ONEVIEW_NET1'], False, [])
+            ['112233AA'], False, [])
 
     @mock.patch.object(database_manager, 'map_neutron_network_to_oneview')
     def test_create_network_postcommit_flat(self, mock_map_net):

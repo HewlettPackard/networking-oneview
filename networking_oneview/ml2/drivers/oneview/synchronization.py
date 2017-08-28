@@ -17,14 +17,15 @@ import re
 
 from hpOneView import exceptions
 from itertools import chain
-from networking_oneview.ml2.drivers.oneview import (
-    database_manager as db_manager)
-from networking_oneview.ml2.drivers.oneview import common
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_service import loopingcall
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
+from networking_oneview.ml2.drivers.oneview import (
+    database_manager as db_manager)
+from networking_oneview.ml2.drivers.oneview import common
 
 LOG = log.getLogger(__name__)
 
@@ -37,10 +38,11 @@ class Synchronization(object):
         self.connection = connection
         self.uplinkset_mappings = uplinkset_mappings
         self.flat_net_mappings = flat_net_mappings
-        self.check_unique_lig_per_provider_constraint()
-        self.check_uplinkset_types_constraint()
 
     def start(self):
+        self.check_uplinkset_types_constraint()
+        self.check_unique_lig_per_provider_constraint()
+
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=3600, initial_delay=0)
 
@@ -55,7 +57,7 @@ class Synchronization(object):
         self.create_oneview_networks_from_neutron()
         self.delete_unmapped_oneview_networks()
         self.synchronize_uplinkset_from_mapped_networks()
-        self.create_connection()
+        self.recreate_connection()
 
     def get_oneview_network(self, oneview_net_id):
         try:
@@ -127,7 +129,7 @@ class Synchronization(object):
                             "The providers %(prov1)s and %(prov2)s are being "
                             "mapped to the same Logical Interconnect Group "
                             "and the same Uplinkset.\n"
-                            "The LIG ids and Uplink names are:\n"
+                            "The LIG ids and Uplink names are: "
                             "%(identical_mappings)s"
                         ) % err_message_attrs
                         LOG.error(err)
@@ -181,6 +183,7 @@ class Synchronization(object):
     def delete_unmapped_oneview_networks(self):
         session = self.get_session()
         for network in self.oneview_client.ethernet_networks.get_all():
+            # NOTE(nicodemos) m?
             m = re.search('Neutron \[(.*)\]', network.get('name'))
             if m:
                 oneview_network_id = common.id_from_uri(network.get('uri'))
@@ -191,13 +194,14 @@ class Synchronization(object):
                 network_segment = db_manager.get_network_segment(
                     session, neutron_network_id
                 )
-                if neutron_network is None:
+                if not neutron_network:
                     self.oneview_client.ethernet_networks.delete(
                         oneview_network_id
                     )
                     self._remove_inconsistence_from_db(
                         session, neutron_network_id, oneview_network_id
                     )
+                # NOTE(nicodemos) network_segment will always exists?
                 else:
                     physnet = network_segment.get('physical_network')
                     network_type = network_segment.get('network_type')
@@ -293,7 +297,7 @@ class Synchronization(object):
             id_or_uri=server_profile_to_update.get('uri')
         )
 
-    def create_connection(self):
+    def recreate_connection(self):
         """Recreate connection that were deleted on Oneview.
 
         Calls method to fix critical connections in the Server Profile that
@@ -328,19 +332,19 @@ class Synchronization(object):
                 oneview_uri = "/rest/ethernet-networks/" + (
                     neutron_oneview_network[0].oneview_network_id
                 )
-                self.fix_connections_with_removed_networks(
+                self._fix_connections_with_removed_networks(
                     server_profile
                 )
                 for c in server_profile.get('connections'):
                     if c.get('mac') == port.get('mac_address'):
                         connection_updated = True
                         if c.get('networkUri') != oneview_uri:
-                            self.update_connection(
+                            self._update_connection(
                                 oneview_uri, server_profile, c)
             if not connection_updated:
                 self.neutron_client.port.create(session, port_dict)
 
-    def update_connection(
+    def _update_connection(
         self, oneview_uri, server_profile, connection
     ):
         server_hardware = self.oneview_client.server_hardware.get(
@@ -367,7 +371,7 @@ class Synchronization(object):
                 server_profile.get('serverHardwareUri')), previous_power_state
         )
 
-    def fix_connections_with_removed_networks(self, server_profile):
+    def _fix_connections_with_removed_networks(self, server_profile):
         sp_cons = []
 
         server_hardware = self.oneview_client.server_hardware.get(

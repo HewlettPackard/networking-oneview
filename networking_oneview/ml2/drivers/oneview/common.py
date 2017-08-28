@@ -203,13 +203,13 @@ def network_uri_from_id(network_id):
 
 
 def network_dict_for_network_creation(
-    physical_network, network_type, id, segmentation_id=None
+    physical_network, network_type, net_id, segmentation_id=None
 ):
     return {
         'provider:physical_network': physical_network,
         'provider:network_type': network_type,
         'provider:segmentation_id': segmentation_id,
-        'id': id,
+        'id': net_id,
     }
 
 

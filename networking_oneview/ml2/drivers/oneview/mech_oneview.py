@@ -47,6 +47,7 @@ class OneViewDriver(driver_api.MechanismDriver):
                 common.CONF.oneview.tls_cacert_file
             )
         if not common.CONF.oneview.developer_mode:
+            # NOTE(nicodemos): What connection is this?
             sync = synchronization.Synchronization(
                 self.oneview_client, self.neutron_oneview_client,
                 common.CONF.database.connection,
