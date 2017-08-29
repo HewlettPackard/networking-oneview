@@ -1,5 +1,5 @@
-# Copyright 2016 Hewlett Packard Development Company, LP
-# Copyright 2016 Universidade Federal de Campina Grande
+# Copyright (2016-2017) Hewlett Packard Enterprise Development LP.
+# Copyright (2016-2017) Universidade Federal de Campina Grande
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -38,9 +38,9 @@ class OneViewDriver(driver_api.MechanismDriver):
         self.flat_net_mappings = common.load_conf_option_to_dict(
             common.CONF.oneview.flat_net_mappings)
         self.neutron_oneview_client = Client(
-                self.oneview_client,
-                self.uplinkset_mappings,
-                self.flat_net_mappings
+            self.oneview_client,
+            self.uplinkset_mappings,
+            self.flat_net_mappings
         )
         if common.CONF.oneview.tls_cacert_file.strip():
             self.oneview_client.connection.set_trusted_ssl_bundle(

@@ -1,5 +1,5 @@
-# Copyright 2016 Hewlett Packard Development Company, LP
-# Copyright 2016 Universidade Federal de Campina Grande
+# Copyright (2016-2017) Hewlett Packard Enterprise Development LP.
+# Copyright (2016-2017) Universidade Federal de Campina Grande
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -57,12 +57,12 @@ opts = [
 CONF = cfg.CONF
 CONF.register_opts(opts, group='oneview')
 ONEVIEW_CONF = {
-        "ip": CONF.oneview.oneview_host,
-        "credentials": {
-            "userName": CONF.oneview.username,
-            "password": CONF.oneview.password
-        }
+    "ip": CONF.oneview.oneview_host,
+    "credentials": {
+        "userName": CONF.oneview.username,
+        "password": CONF.oneview.password
     }
+}
 
 
 def get_oneview_client():
