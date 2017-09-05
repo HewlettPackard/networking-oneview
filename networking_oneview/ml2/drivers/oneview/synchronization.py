@@ -183,11 +183,11 @@ class Synchronization(object):
     def delete_unmapped_oneview_networks(self):
         session = self.get_session()
         for network in self.oneview_client.ethernet_networks.get_all():
-            # NOTE(nicodemos) m?
-            m = re.search('Neutron \[(.*)\]', network.get('name'))
-            if m:
+            mmanaged_network = re.search('Neutron \[(.*)\]', network.get(
+                'name'))
+            if mmanaged_network:
                 oneview_network_id = common.id_from_uri(network.get('uri'))
-                neutron_network_id = m.group(1)
+                neutron_network_id = mmanaged_network.group(1)
                 neutron_network = db_manager.get_neutron_network(
                     session, neutron_network_id
                 )
@@ -202,6 +202,9 @@ class Synchronization(object):
                         session, neutron_network_id, oneview_network_id
                     )
                 # NOTE(nicodemos) network_segment will always exists?
+                # NOTE(mrtenio) network_segments are created by Neutron when
+                #  a Network is created. I think we can assume they always
+                #  exist
                 else:
                     physnet = network_segment.get('physical_network')
                     network_type = network_segment.get('network_type')

@@ -376,7 +376,7 @@ class Port(ResourceManager):
         if not self.is_uplinkset_mapping(physical_network, network_type):
             LOG.warning(
                 "The port's network %s is not mapping in OneView "
-                "file configuration", network_id)
+                "configuration file", network_id)
             return
 
         local_link_information_list = common.local_link_information_from_port(
@@ -531,7 +531,7 @@ class Port(ResourceManager):
         def is_local_link_information_valid(local_link_information_list):
             if not local_link_information_list:
                 LOG.warning(
-                    "The port must have 'local_link_information'")
+                    "The port %s must have 'local_link_information'" % port_id)
                 return False
 
             if len(local_link_information_list) > 1:
@@ -565,8 +565,10 @@ class Port(ResourceManager):
             return True
 
         vnic_type = port_dict.get('binding:vnic_type')
+        port_id = port_dict.get("id")
         if vnic_type != 'baremetal':
-            LOG.warning("'vnic_type' of the port must be baremetal")
+            LOG.warning("'vnic_type' of the port %s must be baremetal" %
+                        port_id)
             return False
 
         network_id = port_dict.get('network_id')
@@ -575,7 +577,7 @@ class Port(ResourceManager):
         )
         if not neutron_oneview_network:
             LOG.warning(
-                "There is no network created for this port")
+                "There is no network created for the port %s" % port_id)
             return False
 
         return is_local_link_information_valid(local_link_information_list)

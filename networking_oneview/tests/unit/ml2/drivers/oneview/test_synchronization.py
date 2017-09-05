@@ -119,8 +119,8 @@ class SynchronizationTestCase(base.BaseTestCase):
                        'list_networks_and_segments_with_physnet')
     @mock.patch.object(sync, 'get_session')
     def test_create_oneview_networks_from_neutron(
-            self, mock_session, mock_phys_net, mock_del_net,
-            mock_del_lig, mock_get_net):
+            self, mock_session, mock_phys_net, mock_del_lig, mock_del_net,
+            mock_get_net):
         session = mock_session()
         client = self.sync.oneview_client
         client.ethernet_networks.get.return_value = True
@@ -152,8 +152,8 @@ class SynchronizationTestCase(base.BaseTestCase):
                        'list_networks_and_segments_with_physnet')
     @mock.patch.object(sync, 'get_session')
     def test_create_oneview_networks_from_neutron_inconsistent(
-            self, mock_session, mock_phys_net, mock_del_net,
-            mock_del_lig, mock_get_net):
+            self, mock_session, mock_phys_net, mock_del_lig, mock_del_net,
+            mock_get_net):
         client = self.sync.oneview_client
         client.ethernet_networks.get.return_value = None
         mock_phys_net.return_value = [[

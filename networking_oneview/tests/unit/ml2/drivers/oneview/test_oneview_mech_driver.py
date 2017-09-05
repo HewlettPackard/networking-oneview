@@ -133,9 +133,6 @@ class FakeContext(object):
         self.current = copy.deepcopy(FAKE_PORT)
         self.segments_to_bind = []
 
-        # def set_binding(self, driver_api, vif_type, vif_details, active):
-        #     pass
-
 
 class FakePlugin(object):
     def __init__(self):
