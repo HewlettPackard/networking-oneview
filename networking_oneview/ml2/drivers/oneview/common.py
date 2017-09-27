@@ -108,9 +108,9 @@ def get_uplinkset_by_name_from_list(uplinkset_list, uplinkset_name):
     :raise Exception: Uplinkset name not found in Uplinkset list;
     """
     try:
-        uplinkset_obj = (
+        uplinkset_obj = next(
             uplinkset for uplinkset in uplinkset_list if uplinkset.get(
-                'name') == uplinkset_name).next()
+                'name') == uplinkset_name)
     except Exception:
         err_msg = "Uplinkset not found in Uplinkset List"
         LOG.error(err_msg)
@@ -203,13 +203,13 @@ def network_uri_from_id(network_id):
 
 
 def network_dict_for_network_creation(
-    physical_network, network_type, id, segmentation_id=None
+    physical_network, network_type, neutron_net_id, segmentation_id=None
 ):
     return {
         'provider:physical_network': physical_network,
         'provider:network_type': network_type,
         'provider:segmentation_id': segmentation_id,
-        'id': id,
+        'id': neutron_net_id,
     }
 
 

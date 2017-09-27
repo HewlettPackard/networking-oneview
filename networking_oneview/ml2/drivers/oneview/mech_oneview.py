@@ -47,6 +47,7 @@ class OneViewDriver(driver_api.MechanismDriver):
                 common.CONF.oneview.tls_cacert_file
             )
         if not common.CONF.oneview.developer_mode:
+            # NOTE(nicodemos): What connection is this?
             sync = synchronization.Synchronization(
                 self.oneview_client, self.neutron_oneview_client,
                 common.CONF.database.connection,
@@ -67,11 +68,6 @@ class OneViewDriver(driver_api.MechanismDriver):
         self.neutron_oneview_client.port.create(session, port_dict)
 
         port = context.current
-        vnic_type = port['binding:vnic_type']
-
-        if vnic_type != portbindings.VNIC_BAREMETAL:
-            return
-
         vif_type = portbindings.VIF_TYPE_OTHER
         vif_details = {portbindings.VIF_DETAILS_VLAN: True}
 

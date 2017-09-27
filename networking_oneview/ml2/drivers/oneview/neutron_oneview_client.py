@@ -91,13 +91,13 @@ class ResourceManager(object):
 
     def server_profile_from_server_hardware(self, server_hardware):
         server_profile_uri = server_hardware.get('serverProfileUri')
-        if(server_profile_uri):
+        if server_profile_uri:
             LOG.info(
                 "There is Server Profile %s available.", server_profile_uri)
             return self.oneview_client.server_profiles.get(
                 server_profile_uri)
         else:
-            LOG.info("There is no Server Profile available.")
+            LOG.warning("There is no Server Profile available.")
 
 
 class Network(ResourceManager):
@@ -117,12 +117,19 @@ class Network(ResourceManager):
         )
 
         if not self.is_uplinkset_mapping(physical_network, network_type):
+            LOG.warning(
+                "The network %s is not mapped in OneView "
+                "configuration file.", network_id)
             return
 
         if db_manager.get_neutron_oneview_network(session, network_id):
+            LOG.warning(
+                "The network %s is already created.", network_id)
             return
 
-        if mapping_type == common.MAPPING_TYPE_NONE:
+        if not mapping_type:
+            LOG.warning(
+                "The network: %s type is not supported.", network_id)
             return
 
         mappings = []
@@ -137,6 +144,7 @@ class Network(ResourceManager):
                 network_type, physical_network, oneview_network)
         elif mapping_type == common.FLAT_NET_MAPPINGS_TYPE:
             oneview_network_id = self.flat_net_mappings.get(physical_network)
+        # BUG(nicodemos) This is not reachable. see: line 126
         else:
             LOG.warning("Network Type unsupported")
 
@@ -150,20 +158,21 @@ class Network(ResourceManager):
         physnet_in_uplinkset_mapping = self._is_physnet_in_uplinkset_mapping(
             physical_network, network_type
         )
-
         if network_type == 'vlan' and physnet_in_uplinkset_mapping:
             return common.UPLINKSET_MAPPINGS_TYPE
         elif physical_network in self.flat_net_mappings:
             return common.FLAT_NET_MAPPINGS_TYPE
-        elif physnet_in_uplinkset_mapping:
+        # BUG(nicodemos) if a network provider:physical_network is mapped
+        # in uplinkset_mappings and using any 'provider:network_type' != flat
+        # we return this.
+        # NOTE(nicodemos) adding network_type == 'flat' is the rigth call?
+        elif network_type == 'flat' and physnet_in_uplinkset_mapping:
             return common.UPLINKSET_MAPPINGS_TYPE
 
         return common.MAPPING_TYPE_NONE
 
     def _get_lig_list(self, physical_network, network_type):
         mappings_by_type = self.uplinkset_mappings.get(network_type)
-        if not mappings_by_type:
-            return None
         mappings_by_physical_network = mappings_by_type.get(physical_network)
         return mappings_by_physical_network
 
@@ -297,8 +306,6 @@ class Network(ResourceManager):
 
     def _add_to_ligs(self, network_type, physical_network, oneview_network):
         lig_list = self._get_lig_list(physical_network, network_type)
-        if not lig_list:
-            return
         uplinksets_list = self._get_uplinksets_from_lig(
             network_type, lig_list)
         self._add_network_to_logical_interconnect_group(
@@ -368,7 +375,8 @@ class Port(ResourceManager):
 
         if not self.is_uplinkset_mapping(physical_network, network_type):
             LOG.warning(
-                "Port %s is not mapping in OneView conf", network_id)
+                "The port's network %s is not mapping in OneView "
+                "configuration file", network_id)
             return
 
         local_link_information_list = common.local_link_information_from_port(
@@ -401,7 +409,8 @@ class Port(ResourceManager):
             mac_address = port_dict.get('mac_address')
 
             if common.is_rack_server(server_hardware):
-                LOG.info("The server %s is a rack server.", server_hardware)
+                LOG.warning("The server hardware %s is a rack server.",
+                            server_hardware.get('uuid'))
                 return
 
             port_id = self._port_id_from_mac(server_hardware, mac_address)
@@ -413,7 +422,7 @@ class Port(ResourceManager):
                     server_profile['connections'].remove(connection)
             boot_priority = self._get_boot_priority(server_profile, bootable)
             server_profile['connections'].append({
-                'name': "NeutronPort[" + mac_address + "]",
+                'name': "NeutronPort[%s]" % mac_address,
                 'portId': port_id,
                 'networkUri': network_uri,
                 'boot': {'priority': boot_priority},
@@ -459,7 +468,7 @@ class Port(ResourceManager):
                 virtual_ports = physical_port.get('virtualPorts')
                 for virtual_port in virtual_ports:
                     mac = virtual_port.get('mac')
-                    if mac == mac_address.upper():
+                    if mac.upper() == mac_address.upper():
                         return {
                             'virtual_port_function': virtual_port.get(
                                 'portFunction'
@@ -521,6 +530,8 @@ class Port(ResourceManager):
     ):
         def is_local_link_information_valid(local_link_information_list):
             if not local_link_information_list:
+                LOG.warning(
+                    "The port %s must have 'local_link_information'" % port_id)
                 return False
 
             if len(local_link_information_list) > 1:
@@ -536,39 +547,39 @@ class Port(ResourceManager):
                     "'local_link_information' must contain 'switch_info'.")
                 return False
 
-            server_hardware = (
-                common.server_hardware_from_local_link_information_list(
-                    self.oneview_client, local_link_information_list))
-            server_hardware_id = server_hardware.get('uuid')
+            server_hardware_id = switch_info.get('server_hardware_id')
 
-            if strutils.is_valid_boolstr(switch_info.get('bootable')):
+            try:
                 bootable = strutils.bool_from_string(
                     switch_info.get('bootable'))
-            else:
-                bootable = switch_info.get('bootable')
+            except Exception:
+                LOG.warning("'bootable' must be a boolean.")
+                return False
 
-            if not (server_hardware_id or bootable):
+            if not (server_hardware_id and bootable):
                 LOG.warning(
                     "'local_link_information' must contain "
                     "'server_hardware_id' and 'bootable'.")
                 return False
 
-            if not isinstance(bootable, bool):
-                LOG.warning("'bootable' must be a boolean.")
-                return False
-
             return True
 
         vnic_type = port_dict.get('binding:vnic_type')
+        port_id = port_dict.get("id")
+        if vnic_type != 'baremetal':
+            LOG.warning("'vnic_type' of the port %s must be baremetal" %
+                        port_id)
+            return False
+
         network_id = port_dict.get('network_id')
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, network_id
         )
-
-        if vnic_type != 'baremetal':
-            return False
         if not neutron_oneview_network:
+            LOG.warning(
+                "There is no network created for the port %s" % port_id)
             return False
+
         return is_local_link_information_valid(local_link_information_list)
 
     def _check_oneview_entities_availability(self, server_hardware):
@@ -636,10 +647,8 @@ class Client(object):
                 uplinkset = common.get_uplinkset_by_name_from_list(
                     lig_uplinksets, uplinkset_name
                 )
-
                 if uplinkset.get('ethernetNetworkType').lower() == net_type:
                     uplinksets_by_type.setdefault(physnet, []).extend(
                         [lig_id, uplinkset_name]
                     )
-
         return uplinksets_by_type
