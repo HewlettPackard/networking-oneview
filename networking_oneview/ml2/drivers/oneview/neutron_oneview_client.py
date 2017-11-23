@@ -378,7 +378,6 @@ class Port(ResourceManager):
                 "The port's network %s is not mapping in OneView "
                 "configuration file", network_id)
             return
-
         local_link_information_list = common.local_link_information_from_port(
             port_dict
         )
@@ -390,7 +389,6 @@ class Port(ResourceManager):
                 "Port %s is not valid to reflect on OneView.", neutron_port_id
             )
             return
-
         neutron_oneview_network = db_manager.get_neutron_oneview_network(
             session, network_id)
         network_uri = common.network_uri_from_id(
@@ -407,7 +405,6 @@ class Port(ResourceManager):
             LOG.info("There is Server Profile %s available.", server_profile)
             bootable = switch_info.get('bootable')
             mac_address = port_dict.get('mac_address')
-
             if common.is_rack_server(server_hardware):
                 LOG.warning("The server hardware %s is a rack server.",
                             server_hardware.get('uuid'))
@@ -417,21 +414,26 @@ class Port(ResourceManager):
             connections = server_profile.get('connections')
             existing_connections = [connection for connection in connections
                                     if connection.get('portId') == port_id]
+            boot_priority = self._get_boot_priority(server_profile, bootable)
+
+            create_new_connection = True
             for connection in existing_connections:
                 if connection.get('mac').upper() == mac_address.upper():
-                    server_profile['connections'].remove(connection)
-            boot_priority = self._get_boot_priority(server_profile, bootable)
-            server_profile['connections'].append({
-                'name': "NeutronPort[%s]" % mac_address,
-                'portId': port_id,
-                'networkUri': network_uri,
-                'boot': {'priority': boot_priority},
-                'functionType': 'Ethernet'
-            })
+                    connection['networkUri'] = network_uri
+                    create_new_connection = False
+            if create_new_connection:
+                server_profile['connections'].append({
+                    'name': "NeutronPort[%s]" % mac_address,
+                    'portId': port_id,
+                    'networkUri': network_uri,
+                    'boot': {'priority': boot_priority},
+                    'functionType': 'Ethernet'
+                })
 
             self._check_oneview_entities_availability(server_hardware)
             self._update_oneview_entities(server_hardware, server_profile)
-            LOG.info("The requested connection %s was created.", port_id)
+            LOG.info("The requested connection %s was updated/created.",
+                     port_id)
 
     def _get_boot_priority(self, server_profile, bootable):
         if bootable:
