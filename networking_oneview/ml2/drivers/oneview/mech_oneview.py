@@ -24,12 +24,12 @@ try:
 except ImportError:
     from neutron.extensions import portbindings
 from neutron.plugins.common import constants as p_const
-from neutron.plugins.ml2 import driver_api
+from neutron_lib.plugins.ml2 import api
 
 LOG = log.getLogger(__name__)
 
 
-class OneViewDriver(driver_api.MechanismDriver):
+class OneViewDriver(api.MechanismDriver):
     def initialize(self):
         self.oneview_client = common.get_oneview_client()
 
@@ -73,10 +73,10 @@ class OneViewDriver(driver_api.MechanismDriver):
 
         for segment in context.segments_to_bind:
             vif_details[portbindings.VIF_DETAILS_VLAN] = (
-                str(segment[driver_api.SEGMENTATION_ID])
+                str(segment[api.SEGMENTATION_ID])
             )
             context.set_binding(
-                segment[driver_api.ID], vif_type, vif_details, p_const.ACTIVE
+                segment[api.ID], vif_type, vif_details, p_const.ACTIVE
             )
             LOG.debug(
                 "OneViewDriver: bound port info- port ID %(id)s "
