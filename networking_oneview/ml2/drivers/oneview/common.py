@@ -41,8 +41,10 @@ opts = [
                help='OneView password to be used'),
     cfg.StrOpt('uplinkset_mappings',
                help='UplinkSets to be used'),
+    cfg.BoolOpt('allow_insecure_connections',
+                default=False,
+                help="Option to allow insecure connection with OneView."),
     cfg.StrOpt('tls_cacert_file',
-               default='',
                help="TLS File Path"),
     cfg.StrOpt('flat_net_mappings',
                help='Flat Networks on Oneview that are managed by Neutron'),
@@ -56,19 +58,36 @@ opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(opts, group='oneview')
-ONEVIEW_CONF = {
-    "ip": CONF.oneview.oneview_host,
-    "credentials": {
-        "userName": CONF.oneview.username,
-        "password": CONF.oneview.password
+
+
+def get_oneview_conf():
+    """Get OneView Access Configuration."""
+    insecure = CONF.oneview.allow_insecure_connections
+    ssl_certificate = CONF.oneview.tls_cacert_file
+
+    if not (insecure or ssl_certificate):
+        msg = "TLS CA certificate file missing."
+        raise exceptions.HPOneViewException(msg)
+
+    if insecure and ssl_certificate:
+        ssl_certificate = None
+
+    oneview_conf = {
+        "ip": CONF.oneview.oneview_host,
+        "credentials": {
+            "userName": CONF.oneview.username,
+            "password": CONF.oneview.password
+        },
+        "ssl_certificate": ssl_certificate
     }
-}
+
+    return oneview_conf
 
 
 def get_oneview_client():
     """Get the OneView Client."""
     LOG.debug("Creating a new OneViewClient instance.")
-    return OneViewClient(ONEVIEW_CONF)
+    return OneViewClient(get_oneview_conf())
 
 
 def oneview_reauth(f):
@@ -77,7 +96,8 @@ def oneview_reauth(f):
             self.oneview_client.connection.get('/rest/logindomains')
         except HPOneViewException:
             LOG.debug("Reauthenticating to OneView.")
-            self.oneview_client.connection.login(ONEVIEW_CONF["credentials"])
+            oneview_conf = get_oneview_conf()
+            self.oneview_client.connection.login(oneview_conf["credentials"])
         return f(self, *args, **kwargs)
     return wrapper
 
