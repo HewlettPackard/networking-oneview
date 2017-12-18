@@ -14,17 +14,23 @@
 #    under the License.
 
 from oslo_log import log
+try:
+    from neutron_lib.api.definitions import portbindings
+except ImportError:
+    from neutron.extensions import portbindings
+try:
+    from neutron_lib.plugins import constants as p_const
+except ImportError:
+    from neutron.plugins.common import constants as p_const
+try:
+    from neutron_lib.plugins.ml2 import api
+except ImportError:
+    from neutron.plugins.ml2 import driver_api as api
 
 from networking_oneview.ml2.drivers.oneview import common
 from networking_oneview.ml2.drivers.oneview.neutron_oneview_client import (
     Client)
 from networking_oneview.ml2.drivers.oneview import synchronization
-try:
-    from neutron_lib.api.definitions import portbindings
-except ImportError:
-    from neutron.extensions import portbindings
-from neutron.plugins.common import constants as p_const
-from neutron_lib.plugins.ml2 import api
 
 LOG = log.getLogger(__name__)
 
