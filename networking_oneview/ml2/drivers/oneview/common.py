@@ -20,6 +20,8 @@ from hpOneView.oneview_client import OneViewClient
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
+from oslo_utils import importutils
+
 
 MAPPING_TYPE_NONE = 0
 FLAT_NET_MAPPINGS_TYPE = 1
@@ -30,6 +32,8 @@ NETWORK_TYPE_UNTAGGED = 'untagged'
 ETHERNET_NETWORK_PREFIX = '/rest/ethernet-networks/'
 
 LOG = log.getLogger(__name__)
+
+oneview_exceptions = importutils.try_import('hpOneView.exceptions')
 
 opts = [
     cfg.StrOpt('oneview_host',
@@ -66,11 +70,20 @@ def get_oneview_conf():
     ssl_certificate = CONF.oneview.tls_cacert_file
 
     if not (insecure or ssl_certificate):
-        msg = "TLS CA certificate file missing."
-        raise exceptions.HPOneViewException(msg)
+        raise exceptions.HPOneViewException(
+            "Failed to start Networking OneView. Attempting to open secure "
+            "connection to OneView but CA certificate file is missing. Please "
+            "check your configuration file.")
 
-    if insecure and ssl_certificate:
-        ssl_certificate = None
+    if insecure:
+        LOG.info("Networking OneView is opening an insecure connection to "
+                 "HPE OneView. We recommend you to configure secure "
+                 "connections with a CA certificate file.")
+
+        if ssl_certificate:
+            LOG.info("Insecure connection to OneView, the CA certificate: %s "
+                     "will be ignored." % ssl_certificate)
+            ssl_certificate = None
 
     oneview_conf = {
         "ip": CONF.oneview.oneview_host,
@@ -87,7 +100,14 @@ def get_oneview_conf():
 def get_oneview_client():
     """Get the OneView Client."""
     LOG.debug("Creating a new OneViewClient instance.")
-    return OneViewClient(get_oneview_conf())
+    try:
+        client = OneViewClient(get_oneview_conf())
+    except oneview_exceptions.HPOneViewException as ex:
+        LOG.info("Networking OneView could not open a connection to "
+                 "HPE OneView. Check credentials and/or CA certificate file. "
+                 "See details on error below:\n")
+        raise ex
+    return client
 
 
 def oneview_reauth(f):
