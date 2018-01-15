@@ -42,10 +42,6 @@ class OneViewDriver(api.MechanismDriver):
             self.uplinkset_mappings,
             self.flat_net_mappings
         )
-        if common.CONF.oneview.tls_cacert_file.strip():
-            self.oneview_client.connection.set_trusted_ssl_bundle(
-                common.CONF.oneview.tls_cacert_file
-            )
         if not common.CONF.oneview.developer_mode:
             # NOTE(nicodemos): What connection is this?
             sync = synchronization.Synchronization(

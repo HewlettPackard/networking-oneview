@@ -20,6 +20,8 @@ from hpOneView.oneview_client import OneViewClient
 from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
+from oslo_utils import importutils
+
 
 MAPPING_TYPE_NONE = 0
 FLAT_NET_MAPPINGS_TYPE = 1
@@ -31,6 +33,8 @@ ETHERNET_NETWORK_PREFIX = '/rest/ethernet-networks/'
 
 LOG = log.getLogger(__name__)
 
+oneview_exceptions = importutils.try_import('hpOneView.exceptions')
+
 opts = [
     cfg.StrOpt('oneview_host',
                help='IP where OneView is available'),
@@ -41,8 +45,10 @@ opts = [
                help='OneView password to be used'),
     cfg.StrOpt('uplinkset_mappings',
                help='UplinkSets to be used'),
+    cfg.BoolOpt('allow_insecure_connections',
+                default=False,
+                help="Option to allow insecure connection with OneView."),
     cfg.StrOpt('tls_cacert_file',
-               default='',
                help="TLS File Path"),
     cfg.StrOpt('flat_net_mappings',
                help='Flat Networks on Oneview that are managed by Neutron'),
@@ -56,19 +62,52 @@ opts = [
 
 CONF = cfg.CONF
 CONF.register_opts(opts, group='oneview')
-ONEVIEW_CONF = {
-    "ip": CONF.oneview.oneview_host,
-    "credentials": {
-        "userName": CONF.oneview.username,
-        "password": CONF.oneview.password
+
+
+def get_oneview_conf():
+    """Get OneView Access Configuration."""
+    insecure = CONF.oneview.allow_insecure_connections
+    ssl_certificate = CONF.oneview.tls_cacert_file
+
+    if not (insecure or ssl_certificate):
+        raise exceptions.HPOneViewException(
+            "Failed to start Networking OneView. Attempting to open secure "
+            "connection to OneView but CA certificate file is missing. Please "
+            "check your configuration file.")
+
+    if insecure:
+        LOG.info("Networking OneView is opening an insecure connection to "
+                 "HPE OneView. We recommend you to configure secure "
+                 "connections with a CA certificate file.")
+
+        if ssl_certificate:
+            LOG.info("Insecure connection to OneView, the CA certificate: %s "
+                     "will be ignored." % ssl_certificate)
+            ssl_certificate = None
+
+    oneview_conf = {
+        "ip": CONF.oneview.oneview_host,
+        "credentials": {
+            "userName": CONF.oneview.username,
+            "password": CONF.oneview.password
+        },
+        "ssl_certificate": ssl_certificate
     }
-}
+
+    return oneview_conf
 
 
 def get_oneview_client():
     """Get the OneView Client."""
     LOG.debug("Creating a new OneViewClient instance.")
-    return OneViewClient(ONEVIEW_CONF)
+    try:
+        client = OneViewClient(get_oneview_conf())
+    except oneview_exceptions.HPOneViewException as ex:
+        LOG.info("Networking OneView could not open a connection to "
+                 "HPE OneView. Check credentials and/or CA certificate file. "
+                 "See details on error below:\n")
+        raise ex
+    return client
 
 
 def oneview_reauth(f):
@@ -77,7 +116,8 @@ def oneview_reauth(f):
             self.oneview_client.connection.get('/rest/logindomains')
         except HPOneViewException:
             LOG.debug("Reauthenticating to OneView.")
-            self.oneview_client.connection.login(ONEVIEW_CONF["credentials"])
+            oneview_conf = get_oneview_conf()
+            self.oneview_client.connection.login(oneview_conf["credentials"])
         return f(self, *args, **kwargs)
     return wrapper
 
