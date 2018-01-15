@@ -351,6 +351,41 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
                 'connections': self.server_profile['connections']
             })
 
+    @mock.patch.object(database_manager, 'get_neutron_oneview_network')
+    @mock.patch.object(database_manager, 'get_network_segment')
+    def test_create_port_existing_conn(self, mock_net_segment, mock_get_net):
+        port_context = FakeContext()
+        mock_net_segment.return_value = FAKE_NETWORK_SEGMENT
+        fake_network_obj = FakeNetwork()
+        mock_get_net.return_value = fake_network_obj
+        client = self.driver.oneview_client
+        client.server_hardware.get.return_value = self.server_hardware
+        client.server_profiles.get.return_value = self.server_profile
+
+        self.server_profile["connections"][0]["portId"] = "Flb 1:1-a"
+        old_connections = copy.deepcopy(self.server_profile['connections'])
+        self.driver.bind_port(port_context)
+        new_connections = self.server_profile['connections']
+
+        for old_conn in old_connections:
+            for new_conn in new_connections:
+                if old_conn.get('mac') == new_conn.get('mac'):
+                    self.assertEqual(old_conn.get('portId'),
+                                     new_conn.get('portId'))
+                    self.assertNotEqual(old_conn.get('networkUri'),
+                                        new_conn.get('networkUri'))
+                    self.assertEqual(old_conn.get('boot'),
+                                     new_conn.get('boot'))
+
+        self.assertEqual(len(old_connections), len(new_connections))
+        client.server_profiles.update.assert_called_with(
+            id_or_uri=self.server_profile.get('uri'),
+            resource={
+                'uri': self.server_profile.get('uri'),
+                'status': self.server_profile.get('status'),
+                'connections': self.server_profile['connections']
+            })
+
     @mock.patch.object(database_manager, 'get_network_segment')
     def test_create_port_net_not_mapped(self, mock_net_segment):
         port_context = FakeContext()
