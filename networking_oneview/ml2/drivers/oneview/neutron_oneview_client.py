@@ -165,6 +165,14 @@ class Network(ResourceManager):
         return uplinksets
 
     def _create_network_on_oneview(self, name, network_type, seg_id):
+        comparator = lambda network:(
+                                     network.name == name and
+                                     network.ethernetNetworkType == network_type
+                                     and network.vlanId == seg_id)
+        compatible_networks = self.oneview_client.ethernet_networks.get_all(filter=comparator)
+        if compatible_networks:
+            return compatible_networks[0]
+
         options = {
             'name': name,
             'ethernetNetworkType': network_type,
