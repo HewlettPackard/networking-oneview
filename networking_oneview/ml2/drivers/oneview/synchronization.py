@@ -56,9 +56,11 @@ class Synchronization(object):
     def synchronize(self):
         self.delete_outdated_flat_mapped_networks()
         self.create_oneview_networks_from_neutron()
-        self.delete_unmapped_oneview_networks()
-        self.synchronize_uplinkset_from_mapped_networks()
-        self.recreate_connection()
+
+        if common.CONF.oneview.force_sync_delete_ops:
+            self.delete_unmapped_oneview_networks()
+            self.synchronize_uplinkset_from_mapped_networks()
+            self.recreate_connection()
 
     def get_oneview_network(self, oneview_net_id):
         try:

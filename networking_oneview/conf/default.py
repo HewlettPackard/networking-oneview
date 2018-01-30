@@ -26,9 +26,10 @@ opts = [
     cfg.IntOpt('sync_interval',
                default=3600,
                help='Interval between synchronization executions in seconds.'),
-    cfg.BoolOpt('developer_mode',
+    cfg.BoolOpt('force_sync_delete_ops',
                 default=False,
-                help='Only set this option as true if under developer mode.')
+                help='Set this option as true allow sync ro delete outdated '
+                     'network and connections.')
 ]
 
 
