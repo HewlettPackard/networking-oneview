@@ -185,6 +185,7 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         network_context = FakeContext()
         network_context._network = FAKE_FLAT_NETWORK
         client = self.driver.oneview_client
+        client.ethernet_networks.get_all.return_value = []
         flat_network = {
             'name': 'Neutron [%s]' % FAKE_FLAT_NETWORK.get('id'),
             'ethernetNetworkType': 'Untagged',
@@ -205,10 +206,38 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
             mock.ANY, True, ['lig_123', 'uplinkset_flat'])
 
     @mock.patch.object(database_manager, 'map_neutron_network_to_oneview')
+    def test_create_already_existing_network_postcommit_flat(
+        self, mock_map_net
+    ):
+        network_context = FakeContext()
+        network_context._network = FAKE_FLAT_NETWORK
+        client = self.driver.oneview_client
+        flat_network = {
+            'name': 'Neutron [%s]' % FAKE_FLAT_NETWORK.get('id'),
+            'ethernetNetworkType': 'Untagged',
+            'vlanId': None,
+            'purpose': 'General',
+            'smartLink': False,
+            'privateNetwork': False,
+        }
+
+        client.ethernet_networks.get_all.return_value = [flat_network]
+        self.driver.create_network_postcommit(network_context)
+
+        assert not client.ethernet_networks.create.called
+        # NOTE(gustavo) parameters: session, network_id, oneview_network_id,
+        # manageable, mapping
+        mock_map_net.assert_called_with(
+            network_context._plugin_context._session,
+            FAKE_FLAT_NETWORK.get('id'),
+            mock.ANY, True, ['lig_123', 'uplinkset_flat'])
+
+    @mock.patch.object(database_manager, 'map_neutron_network_to_oneview')
     def test_create_network_postcommit_vlan(self, mock_map_net):
         network_context = FakeContext()
         network_context._network = FAKE_VLAN_NETWORK
         client = self.driver.oneview_client
+        client.ethernet_networks.get_all.return_value = []
         vlan_network = {
             'name': 'Neutron [%s]' % FAKE_VLAN_NETWORK.get('id'),
             'ethernetNetworkType': 'Tagged',
@@ -222,6 +251,33 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
 
         client.ethernet_networks.create.assert_called_with(vlan_network)
         # NOTE(nicodemos) parameters: session, network_id, oneview_network_id,
+        # manageable, mapping
+        mock_map_net.assert_called_with(
+            network_context._plugin_context._session,
+            FAKE_VLAN_NETWORK.get('id'),
+            mock.ANY, True, ['lig_123', 'uplinkset_vlan'])
+
+    @mock.patch.object(database_manager, 'map_neutron_network_to_oneview')
+    def test_create_already_existing_network_postcommit_vlan(
+        self, mock_map_net
+    ):
+        network_context = FakeContext()
+        network_context._network = FAKE_VLAN_NETWORK
+        client = self.driver.oneview_client
+        vlan_network = {
+            'name': 'Neutron [%s]' % FAKE_VLAN_NETWORK.get('id'),
+            'ethernetNetworkType': 'Tagged',
+            'vlanId': '%s' % FAKE_VLAN_NETWORK.get('provider:segmentation_id'),
+            'purpose': 'General',
+            'smartLink': False,
+            'privateNetwork': False,
+        }
+        client.ethernet_networks.get_all.return_value = [vlan_network]
+
+        self.driver.create_network_postcommit(network_context)
+
+        assert not client.ethernet_networks.create.called
+        # NOTE(gustavo) parameters: session, network_id, oneview_network_id,
         # manageable, mapping
         mock_map_net.assert_called_with(
             network_context._plugin_context._session,

@@ -165,11 +165,9 @@ class Network(ResourceManager):
         return uplinksets
 
     def _create_network_on_oneview(self, name, network_type, seg_id):
-        comparator = lambda network:(
-                                     network.name == name and
-                                     network.ethernetNetworkType == network_type
-                                     and network.vlanId == seg_id)
-        compatible_networks = self.oneview_client.ethernet_networks.get_all(filter=comparator)
+        compatible_networks = self._verify_network_existence(name,
+                                                             network_type,
+                                                             seg_id)
         if compatible_networks:
             return compatible_networks[0]
 
@@ -182,6 +180,12 @@ class Network(ResourceManager):
             'privateNetwork': False,
         }
         return self.oneview_client.ethernet_networks.create(options)
+
+    def _verify_network_existence(self, name, type, seg_id):
+        comparator = lambda network: (network.name == name and
+                                      network.ethernetNetworkType == type and
+                                      network.vlanId == seg_id)
+        return self.oneview_client.ethernet_networks.get_all(filter=comparator)
 
     def _add_network_to_logical_interconnect_group(
             self, uplinkset_mappings, network_uri):
