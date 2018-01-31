@@ -90,7 +90,14 @@ class SynchronizationTestCase(base.BaseTestCase):
 
     @mock.patch.object(sync, 'get_session')
     def test_synchronize(self, mock_session):
+        functions_to_sync = 2
+        self.sync.synchronize()
+        self.assertEqual(functions_to_sync, mock_session.call_count)
+
+    @mock.patch.object(sync, 'get_session')
+    def test_synchronize_with_force_sync_delete(self, mock_session):
         functions_to_sync = 5
+        common.CONF.oneview.force_sync_delete_ops = True
         self.sync.synchronize()
         self.assertEqual(functions_to_sync, mock_session.call_count)
 

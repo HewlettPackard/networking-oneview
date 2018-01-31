@@ -30,7 +30,7 @@ opts = [
                 default=False,
                 help="Option to allow insecure connection with OneView."),
     cfg.StrOpt('tls_cacert_file',
-               help="OneView CA cert File Path.")
+               help="OneView CA cert file Path.")
 ]
 
 
