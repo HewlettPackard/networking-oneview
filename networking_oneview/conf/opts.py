@@ -13,27 +13,27 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import networking_oneview.ml2.drivers.oneview.mech_oneview
+import networking_oneview.conf
 
 _opts = [
     ('oneview',
-        networking_oneview.ml2.drivers.oneview.mech_oneview.opts)
+        networking_oneview.conf.oneview.opts)
 ]
 
 
 def list_opts():
-    """Return a list of oslo.config options available in Ironic-OneView Daemon.
+    """Return a list of oslo.config options available in Networking OneView.
 
     The returned list includes all oslo.config options. Each element of
     the list is a tuple. The first element is the name of the group, the
     second element is the options.
 
-    The function is discoverable via the 'ironic-oneviewd' entry point under
+    The function is discoverable via the 'networking-oneview' entry point under
     the 'oslo.config.opts' namespace.
 
     The function is used by Oslo sample config file generator to discover the
     options.
 
-    :returns: a list of (group, options) tuples
+    :returns: a list of (group, options) tuples.
     """
     return _opts
