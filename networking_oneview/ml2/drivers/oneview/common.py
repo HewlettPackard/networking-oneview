@@ -14,14 +14,15 @@
 #    under the License.
 import six
 
-from hpOneView import exceptions
-from hpOneView.exceptions import HPOneViewException
-from hpOneView.oneview_client import OneViewClient
-from oslo_config import cfg
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_utils import importutils
 
+from hpOneView import exceptions
+from hpOneView.exceptions import HPOneViewException
+from hpOneView.oneview_client import OneViewClient
+
+from networking_oneview.conf import CONF
 
 MAPPING_TYPE_NONE = 0
 FLAT_NET_MAPPINGS_TYPE = 1
@@ -34,34 +35,6 @@ ETHERNET_NETWORK_PREFIX = '/rest/ethernet-networks/'
 LOG = log.getLogger(__name__)
 
 oneview_exceptions = importutils.try_import('hpOneView.exceptions')
-
-opts = [
-    cfg.StrOpt('oneview_host',
-               help='IP where OneView is available'),
-    cfg.StrOpt('username',
-               help='OneView username to be used'),
-    cfg.StrOpt('password',
-               secret=True,
-               help='OneView password to be used'),
-    cfg.StrOpt('uplinkset_mappings',
-               help='UplinkSets to be used'),
-    cfg.BoolOpt('allow_insecure_connections',
-                default=False,
-                help="Option to allow insecure connection with OneView."),
-    cfg.StrOpt('tls_cacert_file',
-               help="TLS File Path"),
-    cfg.StrOpt('flat_net_mappings',
-               help='Flat Networks on Oneview that are managed by Neutron'),
-    cfg.IntOpt('ov_refresh_interval',
-               default=3600,
-               help='Interval between periodic task executions in seconds'),
-    cfg.BoolOpt('developer_mode',
-                default=False,
-                help='Only set this option as true if under developer mode')
-]
-
-CONF = cfg.CONF
-CONF.register_opts(opts, group='oneview')
 
 
 def get_oneview_conf():

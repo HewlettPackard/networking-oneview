@@ -27,6 +27,7 @@ try:
 except ImportError:
     from neutron.plugins.ml2 import driver_api as api
 
+from networking_oneview.conf import CONF
 from networking_oneview.ml2.drivers.oneview import common
 from networking_oneview.ml2.drivers.oneview.neutron_oneview_client import (
     Client)
@@ -40,19 +41,19 @@ class OneViewDriver(api.MechanismDriver):
         self.oneview_client = common.get_oneview_client()
 
         self.uplinkset_mappings = common.load_conf_option_to_dict(
-            common.CONF.oneview.uplinkset_mappings)
+            CONF.oneview.uplinkset_mappings)
         self.flat_net_mappings = common.load_conf_option_to_dict(
-            common.CONF.oneview.flat_net_mappings)
+            CONF.oneview.flat_net_mappings)
         self.neutron_oneview_client = Client(
             self.oneview_client,
             self.uplinkset_mappings,
             self.flat_net_mappings
         )
-        if not common.CONF.oneview.developer_mode:
+        if not CONF.oneview.developer_mode:
             # NOTE(nicodemos): What connection is this?
             sync = synchronization.Synchronization(
                 self.oneview_client, self.neutron_oneview_client,
-                common.CONF.database.connection,
+                CONF.database.connection,
                 self.uplinkset_mappings, self.flat_net_mappings
             )
             sync.start()

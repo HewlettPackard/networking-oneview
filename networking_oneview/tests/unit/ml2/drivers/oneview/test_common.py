@@ -19,6 +19,7 @@ import mock
 from hpOneView import exceptions
 from neutron.tests.unit.plugins.ml2 import _test_mech_agent as base
 
+from networking_oneview.conf import CONF
 from networking_oneview.ml2.drivers.oneview import common
 
 
@@ -32,7 +33,7 @@ class CommonTestCase(base.AgentMechanismBaseTestCase):
         self.ov_password = "password"
         self.tls_cacert_file = "cacert_file"
 
-        self.conf = common.CONF
+        self.conf = CONF
         self.conf.allow_insecure_connections = self.allow_insecure_connections
         self.conf.oneview.oneview_host = self.ov_manager_url
         self.conf.oneview.username = self.ov_username
