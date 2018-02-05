@@ -12,17 +12,21 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import six
 
-from oslo_log import log
-from oslo_serialization import jsonutils
-from oslo_utils import importutils
+import time
+
+import six
 
 from hpOneView import exceptions
 from hpOneView.exceptions import HPOneViewException
 from hpOneView.oneview_client import OneViewClient
+from oslo_log import log
+from oslo_serialization import jsonutils
+from oslo_utils import importutils
+from oslo_utils import strutils
 
 from networking_oneview.conf import CONF
+from networking_oneview.ml2.drivers.oneview import database_manager
 
 MAPPING_TYPE_NONE = 0
 FLAT_NET_MAPPINGS_TYPE = 1
@@ -97,8 +101,9 @@ def oneview_reauth(f):
 
 # Utils
 def id_from_uri(uri):
-    if uri:
-        return uri.split("/")[-1]
+    if not uri:
+        return None
+    return uri.split("/")[-1]
 
 
 def id_list_from_uri_list(uri_list):
@@ -216,8 +221,7 @@ def network_uri_from_id(network_id):
 
 
 def network_dict_for_network_creation(
-    physical_network, network_type, neutron_net_id, segmentation_id=None
-):
+        physical_network, network_type, neutron_net_id, segmentation_id=None):
     return {
         'provider:physical_network': physical_network,
         'provider:network_type': network_type,
@@ -227,8 +231,7 @@ def network_dict_for_network_creation(
 
 
 def port_dict_for_port_creation(
-    network_id, vnic_type, mac_address, profile, host_id='host_id'
-):
+        network_id, vnic_type, mac_address, profile, host_id='host_id'):
     return {
         'network_id': network_id,
         'binding:vnic_type': vnic_type,
@@ -347,3 +350,193 @@ def is_rack_server(server_hardware):
     :return: True or False;
     """
     return False if server_hardware.get('locationUri') else True
+
+
+def check_oneview_entities_availability(oneview_client, server_hardware):
+    _check_server_hardware_availability(server_hardware)
+    _check_server_profile_availability(oneview_client, server_hardware)
+
+
+def _check_server_profile_availability(oneview_client, server_hardware):
+    while True:
+        if _get_server_profile_state(oneview_client, server_hardware):
+            return True
+        time.sleep(5)
+
+
+def _check_server_hardware_availability(server_hardware):
+    while True:
+        if not server_hardware.get('powerLock'):
+            return True
+        time.sleep(30)
+
+
+def _get_server_profile_state(oneview_client, server_hardware):
+    server_profile_dict = server_profile_from_server_hardware(
+        oneview_client, server_hardware
+    )
+    return server_profile_dict.get('status')
+
+
+def server_profile_from_server_hardware(oneview_client, server_hardware):
+    server_profile_uri = server_hardware.get('serverProfileUri')
+
+    if not server_profile_uri:
+        LOG.warning("There is no Server Profile available on "
+                    "Server Hardware: %s." % server_hardware.get('uuid'))
+        return None
+
+    LOG.info("There is Server Profile %s available.", server_profile_uri)
+    return oneview_client.server_profiles.get(server_profile_uri)
+
+
+def get_server_hardware_power_state(server_hardware):
+    return server_hardware.get('powerState')
+
+
+def is_lig_id_uplink_name_mapped(lig_bd_entry, mappings):
+    mapped_lig_id = lig_bd_entry.get('oneview_lig_id')
+    mapped_uplink_name = lig_bd_entry.get('oneview_uplinkset_name')
+    for lig_id, uplinkset_name in zip(mappings[0::2], mappings[1::2]):
+        if lig_id == mapped_lig_id and (
+                uplinkset_name == mapped_uplink_name):
+            return True
+    return False
+
+
+def get_boot_priority(server_profile, bootable):
+    if bootable:
+        connections = server_profile.get('connections')
+        if _is_boot_priority_available(connections, 'Primary'):
+            return 'Primary'
+        elif _is_boot_priority_available(connections, 'Secondary'):
+            return 'Secondary'
+    return 'NotBootable'
+
+
+def _is_boot_priority_available(connections, boot_priority):
+    for connection in connections:
+        if connection.get('boot').get('priority') == boot_priority:
+            return False
+    return True
+
+
+def port_id_from_mac(server_hardware, mac_address):
+    port_info = _get_port_info(server_hardware, mac_address)
+    if not port_info:
+        return None
+
+    return (
+        str(port_info.get('device_slot_location')) + " " +
+        str(port_info.get('device_slot_port_number')) + ":" +
+        str(port_info.get('physical_port_number')) + "-" +
+        str(port_info.get('virtual_port_function'))
+    )
+
+
+def _get_port_info(server_hardware, mac_address):
+    port_map = server_hardware.get('portMap')
+    device_slots = port_map.get('deviceSlots')
+    try:
+        for device_slot in device_slots:
+            physical_ports = device_slot.get('physicalPorts')
+            for physical_port in physical_ports:
+                virtual_ports = physical_port.get('virtualPorts')
+                for virtual_port in virtual_ports:
+                    mac = virtual_port.get('mac')
+                    if mac.upper() == mac_address.upper():
+                        return {
+                            'virtual_port_function': virtual_port.get(
+                                'portFunction'
+                            ),
+                            'physical_port_number': physical_port.get(
+                                'portNumber'
+                            ),
+                            'device_slot_port_number': device_slot.get(
+                                'slotNumber'
+                            ),
+                            'device_slot_location': device_slot.get(
+                                'location'
+                            ),
+                        }
+        return None
+    except oneview_exceptions.HPOneViewException as ex:
+        LOG.warning("Could not get port information on the Server "
+                    "Hardware: %s" % server_hardware.get('uuid'))
+        raise ex
+
+
+def connection_with_mac_address(connections, mac_address):
+    for connection in connections:
+        if connection.get('mac') == mac_address:
+            return connection
+    return None
+
+
+def is_port_valid_to_reflect_on_oneview(
+        session, port_dict, local_link_information):
+
+    vnic_type = port_dict.get('binding:vnic_type')
+    port_id = port_dict.get("id")
+    if vnic_type != 'baremetal':
+        LOG.warning("'vnic_type' of the port %s must be baremetal" %
+                    port_id)
+        return False
+
+    network_id = port_dict.get('network_id')
+    neutron_oneview_network = database_manager.get_neutron_oneview_network(
+        session, network_id
+    )
+    if not neutron_oneview_network:
+        LOG.warning(
+            "There is no network created for the port %s" % port_id)
+        return False
+
+    return _is_local_link_information_valid(port_id, local_link_information)
+
+
+def _is_local_link_information_valid(port_id, local_link_information):
+    if not local_link_information:
+        LOG.warning(
+            "The port %s must have 'local_link_information'" % port_id)
+        return False
+
+    if len(local_link_information) > 1:
+        LOG.warning(
+            "'local_link_information' must have only one value")
+        return False
+
+    switch_info = switch_info_from_local_link_information_list(
+        local_link_information)
+
+    if not switch_info:
+        LOG.warning(
+            "'local_link_information' must contain 'switch_info'.")
+        return False
+
+    server_hardware_id = switch_info.get('server_hardware_id')
+
+    try:
+        bootable = strutils.bool_from_string(
+            switch_info.get('bootable'))
+    except ValueError:
+        LOG.warning("'bootable' must be a boolean.")
+        return False
+
+    if not (server_hardware_id and bootable):
+        LOG.warning(
+            "'local_link_information' must contain "
+            "'server_hardware_id' and 'bootable'.")
+        return False
+
+    return True
+
+
+def remove_inconsistence_from_db(
+        session, neutron_network_id, oneview_network_id):
+    database_manager.delete_neutron_oneview_network(
+        session, neutron_network_id=neutron_network_id
+    )
+    database_manager.delete_oneview_network_lig(
+        session, oneview_network_id=oneview_network_id
+    )

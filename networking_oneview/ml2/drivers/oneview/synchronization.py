@@ -15,8 +15,9 @@
 
 import re
 
-from hpOneView import exceptions
 from itertools import chain
+
+from hpOneView import exceptions
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_service import loopingcall
@@ -33,6 +34,7 @@ LOG = log.getLogger(__name__)
 class Synchronization(object):
     def __init__(self, oneview_client, neutron_oneview_client, connection,
                  uplinkset_mappings, flat_net_mappings):
+        # NOTE(nicodemos): When remove the checks, return to oneview_client
         self.oneview_client = oneview_client
         self.neutron_client = neutron_oneview_client
         self.connection = connection
@@ -64,16 +66,6 @@ class Synchronization(object):
             return self.oneview_client.ethernet_networks.get(oneview_net_id)
         except exceptions.HPOneViewException as err:
             LOG.error(err)
-
-    def _remove_inconsistence_from_db(
-        self, session, neutron_network_id, oneview_network_id
-    ):
-        db_manager.delete_neutron_oneview_network(
-            session, neutron_network_id=neutron_network_id
-        )
-        db_manager.delete_oneview_network_lig(
-            session, oneview_network_id=oneview_network_id
-        )
 
     def check_uplinkset_types_constraint(self):
         """Check the number of uplinkset types for a provider in a LIG.
@@ -122,7 +114,7 @@ class Synchronization(object):
                             "prov2": provider2,
                             "identical_mappings": "\n".join(
                                 (", ".join(mapping)
-                                    for mapping in identical_mappings)
+                                 for mapping in identical_mappings)
                             )
                         }
                         err = (
@@ -138,8 +130,7 @@ class Synchronization(object):
     def create_oneview_networks_from_neutron(self):
         session = self.get_session()
         for network, network_segment in (
-            db_manager.list_networks_and_segments_with_physnet(session)
-        ):
+                db_manager.list_networks_and_segments_with_physnet(session)):
             net_id = network.get('id')
             neutron_oneview_network = db_manager.get_neutron_oneview_network(
                 session, net_id
@@ -149,7 +140,7 @@ class Synchronization(object):
                     neutron_oneview_network.oneview_network_id
                 )
                 if not oneview_network:
-                    self._remove_inconsistence_from_db(
+                    common.remove_inconsistence_from_db(
                         session,
                         neutron_oneview_network.neutron_network_id,
                         neutron_oneview_network.oneview_network_id
@@ -167,8 +158,7 @@ class Synchronization(object):
     def synchronize_uplinkset_from_mapped_networks(self):
         session = self.get_session()
         for neutron_oneview_network in (
-            db_manager.list_neutron_oneview_network(session)
-        ):
+                db_manager.list_neutron_oneview_network(session)):
             oneview_network_id = neutron_oneview_network.oneview_network_id
             neutron_network_id = neutron_oneview_network.neutron_network_id
             network_segment = db_manager.get_network_segment(
@@ -178,12 +168,12 @@ class Synchronization(object):
                 self.neutron_client.network.update_network_lig(
                     session, oneview_network_id, network_segment.get(
                         'network_type'), network_segment.get(
-                        'physical_network'))
+                            'physical_network'))
 
     def delete_unmapped_oneview_networks(self):
         session = self.get_session()
         for network in self.oneview_client.ethernet_networks.get_all():
-            mmanaged_network = re.search('Neutron \[(.*)\]', network.get(
+            mmanaged_network = re.search(r'Neutron \[(.*)\]', network.get(
                 'name'))
             if mmanaged_network:
                 oneview_network_id = common.id_from_uri(network.get('uri'))
@@ -198,7 +188,7 @@ class Synchronization(object):
                     self.oneview_client.ethernet_networks.delete(
                         oneview_network_id
                     )
-                    self._remove_inconsistence_from_db(
+                    common.remove_inconsistence_from_db(
                         session, neutron_network_id, oneview_network_id
                     )
                 # NOTE(nicodemos) network_segment will always exists?
@@ -209,8 +199,7 @@ class Synchronization(object):
                     physnet = network_segment.get('physical_network')
                     network_type = network_segment.get('network_type')
                     if not self.neutron_client.network.is_uplinkset_mapping(
-                        physnet, network_type
-                    ):
+                            physnet, network_type):
                         self._delete_connections(neutron_network_id)
                         self.neutron_client.network.delete(
                             session, {'id': neutron_network_id}
@@ -235,10 +224,8 @@ class Synchronization(object):
     def _delete_connections(self, neutron_network_id):
         session = self.get_session()
         for port, port_binding in (
-            db_manager.get_port_with_binding_profile_by_net(
-                session, neutron_network_id
-            )
-        ):
+                db_manager.get_port_with_binding_profile_by_net(
+                    session, neutron_network_id)):
             port_dict = common.port_dict_for_port_creation(
                 port.get('network_id'), port_binding.get('vnic_type'),
                 port.get('mac_address'),
@@ -287,10 +274,8 @@ class Synchronization(object):
                 connection_primary = True
 
         for connection in connections:
-            if (
-                (connection.get('boot').get('priority') == 'Secondary') and
-                connection_primary
-            ):
+            if (connection.get('boot').get('priority') == 'Secondary' and
+                    connection_primary):
                 connection['boot']['priority'] = 'Primary'
 
         server_profile_to_update = server_profile.copy()
@@ -309,8 +294,7 @@ class Synchronization(object):
         session = self.get_session()
 
         for port, port_binding in db_manager.get_port_with_binding_profile(
-            session
-        ):
+                session):
             port_dict = common.port_dict_for_port_creation(
                 port.get('network_id'),
                 port_binding.get('vnic_type'),
@@ -331,7 +315,7 @@ class Synchronization(object):
                 session, neutron_network_id=port.get('network_id')
             )
             connection_updated = False
-            if len(neutron_oneview_network) > 0:
+            if neutron_oneview_network:
                 oneview_uri = "/rest/ethernet-networks/" + (
                     neutron_oneview_network[0].oneview_network_id
                 )
@@ -348,8 +332,7 @@ class Synchronization(object):
                 self.neutron_client.port.create(session, port_dict)
 
     def _update_connection(
-        self, oneview_uri, server_profile, connection
-    ):
+            self, oneview_uri, server_profile, connection):
         server_hardware = self.oneview_client.server_hardware.get(
             server_profile.get('serverHardwareUri')
         )

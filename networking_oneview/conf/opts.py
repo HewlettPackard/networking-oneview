@@ -15,10 +15,7 @@
 
 import networking_oneview.conf
 
-_opts = [
-    ('oneview',
-        networking_oneview.conf.oneview.opts)
-]
+_opts = [('oneview', networking_oneview.conf.oneview.opts)]
 
 
 def list_opts():

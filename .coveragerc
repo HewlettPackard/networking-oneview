@@ -1,6 +1,9 @@
 [run]
-branch = True
-source = networking-oneview
+source =
+  networking_oneview
 
 [report]
-ignore_errors = True
+include =
+  networking_oneview/*
+omit =
+  */tests/*
