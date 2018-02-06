@@ -19,6 +19,7 @@ import mock
 
 from neutron.tests.unit.plugins.ml2 import _test_mech_agent as base
 
+from networking_oneview.ml2.drivers.oneview import common
 from networking_oneview.ml2.drivers.oneview import database_manager
 from networking_oneview.ml2.drivers.oneview import mech_oneview
 from networking_oneview.ml2.drivers.oneview import neutron_oneview_client
@@ -149,7 +150,8 @@ class FakeNetwork(object):
 class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
     def setUp(self):
         super(OneViewMechanismDriverTestCase, self).setUp()
-        oneview_client = mock.MagicMock()
+        common.get_oneview_client = mock.MagicMock()
+        oneview_client = common.get_oneview_client()
         oneview_client.logical_interconnect_groups.get.return_value = FAKE_LIG
         database_manager.get_neutron_oneview_network = mock.Mock(
             return_value=False

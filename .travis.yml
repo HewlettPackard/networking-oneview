@@ -1,0 +1,20 @@
+language: python
+matrix:
+  include:
+    - python: 2.7
+      env: TOXENV=py27
+    - python: 3.5-dev
+      env: TOXENV=py35
+    - python: 3.5
+      env: TOXENV=pylint,pep8,cover
+before_install:
+  - uname -a
+install:
+  - pip install -U setuptools
+  - pip install tox codecov
+  - virtualenv --version
+  - tox --version
+script:
+  - tox -e $TOXENV
+after_success:
+  - codecov

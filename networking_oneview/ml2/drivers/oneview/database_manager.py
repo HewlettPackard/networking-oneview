@@ -27,9 +27,9 @@ from networking_oneview.db.oneview_network_db import NeutronOneviewNetwork
 
 
 # Neutron Network
-def get_neutron_network(session, id):
+def get_neutron_network(session, network_id):
     with session.begin(subtransactions=True):
-        return session.query(Network).get(id)
+        return session.query(Network).get(network_id)
 
 
 def list_neutron_networks(session):
@@ -57,10 +57,10 @@ def list_networks_and_segments_with_physnet(session):
             NetworkSegment.physical_network.isnot(None)).all()
 
 
-def get_neutron_network_with_segment(session, id):
+def get_neutron_network_with_segment(session, network_id):
     with session.begin(subtransactions=True):
         return session.query(Network, NetworkSegment).filter(
-            Network.id == id,
+            Network.id == network_id,
             Network.id == NetworkSegment.network_id).first()
 
 
@@ -83,9 +83,7 @@ def get_port_with_binding_profile_by_net(session, network_id):
 
 # OneView Mechanism driver_api
 def map_neutron_network_to_oneview(
-    session, neutron_network_id, oneview_network_id,
-    manageable, mappings
-):
+        session, neutron_network_id, oneview_network_id, manageable, mappings):
     insert_neutron_oneview_network(
         session, neutron_network_id, oneview_network_id, manageable
     )
@@ -105,8 +103,7 @@ def list_neutron_oneview_network(session, **kwargs):
 
 
 def insert_neutron_oneview_network(
-    session, neutron_network_id, oneview_network_id, manageable=True
-):
+        session, neutron_network_id, oneview_network_id, manageable=True):
     with session.begin(subtransactions=True):
         net = NeutronOneviewNetwork(
             neutron_network_id, oneview_network_id, manageable)
@@ -143,8 +140,7 @@ def get_network_lig(session, oneview_network_id):
 
 
 def insert_oneview_network_lig(
-    session, oneview_network_id, lig_id, uplinkset_name
-):
+        session, oneview_network_id, lig_id, uplinkset_name):
     with session.begin(subtransactions=True):
         oneview_network_lig = OneviewLogicalInterconnectGroup(
             oneview_network_id, lig_id, uplinkset_name
