@@ -125,6 +125,24 @@ FAKE_SERVER_HARDWARE = {
     }
 }
 
+FAKE_OV_FLAT_NETWORK = {
+    'name': 'Neutron [%s]' % FAKE_FLAT_NETWORK.get('id'),
+    'ethernetNetworkType': 'Untagged',
+    'vlanId': None,
+    'purpose': 'General',
+    'smartLink': False,
+    'privateNetwork': False,
+}
+
+FAKE_OV_VLAN_NETWORK = {
+    'name': 'Neutron [%s]' % FAKE_VLAN_NETWORK.get('id'),
+    'ethernetNetworkType': 'Tagged',
+    'vlanId': '%s' % FAKE_VLAN_NETWORK.get('provider:segmentation_id'),
+    'purpose': 'General',
+    'smartLink': False,
+    'privateNetwork': False,
+}
+
 
 class FakeContext(object):
     def __init__(self):
@@ -185,19 +203,13 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         network_context = FakeContext()
         network_context._network = FAKE_FLAT_NETWORK
         client = self.driver.oneview_client
-        client.ethernet_networks.get_all.return_value = []
-        flat_network = {
-            'name': 'Neutron [%s]' % FAKE_FLAT_NETWORK.get('id'),
-            'ethernetNetworkType': 'Untagged',
-            'vlanId': None,
-            'purpose': 'General',
-            'smartLink': False,
-            'privateNetwork': False,
-        }
 
+        client.ethernet_networks.get_by.return_value = []
         self.driver.create_network_postcommit(network_context)
 
-        client.ethernet_networks.create.assert_called_with(flat_network)
+        client.ethernet_networks.create.assert_called_with(
+            FAKE_OV_FLAT_NETWORK
+        )
         # NOTE(nicodemos) parameters: session, network_id, oneview_network_id,
         # manageable, mapping
         mock_map_net.assert_called_with(
@@ -212,19 +224,11 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         network_context = FakeContext()
         network_context._network = FAKE_FLAT_NETWORK
         client = self.driver.oneview_client
-        flat_network = {
-            'name': 'Neutron [%s]' % FAKE_FLAT_NETWORK.get('id'),
-            'ethernetNetworkType': 'Untagged',
-            'vlanId': None,
-            'purpose': 'General',
-            'smartLink': False,
-            'privateNetwork': False,
-        }
 
-        client.ethernet_networks.get_all.return_value = [flat_network]
+        client.ethernet_networks.get_by.return_value = [FAKE_OV_FLAT_NETWORK]
         self.driver.create_network_postcommit(network_context)
 
-        assert not client.ethernet_networks.create.called
+        self.assertFalse(client.ethernet_networks.create.called)
         # NOTE(gustavo) parameters: session, network_id, oneview_network_id,
         # manageable, mapping
         mock_map_net.assert_called_with(
@@ -237,19 +241,12 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         network_context = FakeContext()
         network_context._network = FAKE_VLAN_NETWORK
         client = self.driver.oneview_client
-        client.ethernet_networks.get_all.return_value = []
-        vlan_network = {
-            'name': 'Neutron [%s]' % FAKE_VLAN_NETWORK.get('id'),
-            'ethernetNetworkType': 'Tagged',
-            'vlanId': '%s' % FAKE_VLAN_NETWORK.get('provider:segmentation_id'),
-            'purpose': 'General',
-            'smartLink': False,
-            'privateNetwork': False,
-        }
+        client.ethernet_networks.get_by.return_value = []
 
         self.driver.create_network_postcommit(network_context)
-
-        client.ethernet_networks.create.assert_called_with(vlan_network)
+        client.ethernet_networks.create.assert_called_with(
+            FAKE_OV_VLAN_NETWORK
+        )
         # NOTE(nicodemos) parameters: session, network_id, oneview_network_id,
         # manageable, mapping
         mock_map_net.assert_called_with(
@@ -264,19 +261,11 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         network_context = FakeContext()
         network_context._network = FAKE_VLAN_NETWORK
         client = self.driver.oneview_client
-        vlan_network = {
-            'name': 'Neutron [%s]' % FAKE_VLAN_NETWORK.get('id'),
-            'ethernetNetworkType': 'Tagged',
-            'vlanId': '%s' % FAKE_VLAN_NETWORK.get('provider:segmentation_id'),
-            'purpose': 'General',
-            'smartLink': False,
-            'privateNetwork': False,
-        }
-        client.ethernet_networks.get_all.return_value = [vlan_network]
+        client.ethernet_networks.get_by.return_value = [FAKE_OV_VLAN_NETWORK]
 
         self.driver.create_network_postcommit(network_context)
 
-        assert not client.ethernet_networks.create.called
+        self.assertFalse(client.ethernet_networks.create.called)
         # NOTE(gustavo) parameters: session, network_id, oneview_network_id,
         # manageable, mapping
         mock_map_net.assert_called_with(
