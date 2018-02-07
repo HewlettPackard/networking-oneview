@@ -35,9 +35,9 @@ class OneViewDriver(api.MechanismDriver):
     def __init__(self):
         self.oneview_client = common.get_oneview_client()
         self.uplinkset_mappings = common.load_conf_option_to_dict(
-            CONF.oneview.uplinkset_mappings)
+            CONF.DEFAULT.uplinkset_mappings)
         self.flat_net_mappings = common.load_conf_option_to_dict(
-            CONF.oneview.flat_net_mappings)
+            CONF.DEFAULT.flat_net_mappings)
         self.neutron_oneview_client = neutron_oneview_client.Client(
             self.oneview_client,
             self.uplinkset_mappings,
@@ -45,7 +45,7 @@ class OneViewDriver(api.MechanismDriver):
         )
 
     def initialize(self):
-        if not CONF.oneview.developer_mode:
+        if not CONF.DEFAULT.developer_mode:
             sync = synchronization.Synchronization(
                 self.oneview_client, self.neutron_oneview_client,
                 CONF.database.connection,

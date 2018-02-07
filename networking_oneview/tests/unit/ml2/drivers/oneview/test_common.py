@@ -27,14 +27,14 @@ from networking_oneview.ml2.drivers.oneview import common
 class CommonTestCase(base.AgentMechanismBaseTestCase):
     def setUp(self):
         super(CommonTestCase, self).setUp()
-        self.allow_insecure_connections = False
+        self.insecure = False
         self.ov_manager_url = "https://1.2.3.4"
         self.ov_username = "user"
         self.ov_password = "password"
         self.tls_cacert_file = "cacert_file"
 
         self.conf = CONF
-        self.conf.allow_insecure_connections = self.allow_insecure_connections
+        self.conf.oneview.allow_insecure_connections = self.insecure
         self.conf.oneview.oneview_host = self.ov_manager_url
         self.conf.oneview.username = self.ov_username
         self.conf.oneview.password = self.ov_password

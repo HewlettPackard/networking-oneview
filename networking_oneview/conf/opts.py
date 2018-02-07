@@ -1,5 +1,5 @@
-# Copyright 2016 Hewlett Packard Enterprise Development LP.
-# Copyright 2016 Universidade Federal de Campina Grande
+# Copyright (2016-2018) Hewlett Packard Enterprise Development LP.
+# Copyright (2016-2018) Universidade Federal de Campina Grande
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -15,7 +15,10 @@
 
 import networking_oneview.conf
 
-_opts = [('oneview', networking_oneview.conf.oneview.opts)]
+_opts = [
+    ('DEFAULT', networking_oneview.conf.default.opts),
+    ('oneview', networking_oneview.conf.oneview.opts)
+]
 
 
 def list_opts():
