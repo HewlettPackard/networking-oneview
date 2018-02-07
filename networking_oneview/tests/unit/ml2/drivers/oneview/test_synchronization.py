@@ -88,18 +88,40 @@ class SynchronizationTestCase(base.BaseTestCase):
             Exception, self.sync.check_uplinkset_types_constraint
         )
 
-    @mock.patch.object(sync, 'get_session')
-    def test_synchronize(self, mock_session):
-        functions_to_sync = 2
+    @mock.patch.object(sync, 'recreate_connection')
+    @mock.patch.object(sync, 'synchronize_uplinkset_from_mapped_networks')
+    @mock.patch.object(sync, 'delete_unmapped_oneview_networks')
+    @mock.patch.object(sync, 'create_oneview_networks_from_neutron')
+    @mock.patch.object(sync, 'delete_outdated_flat_mapped_networks')
+    def test_synchronize(
+        self, mock_delete_outdated, mock_create_networks, mock_delete_unmapped,
+        mock_synchronize_uplinkset, mock_recreate_connection
+    ):
         self.sync.synchronize()
-        self.assertEqual(functions_to_sync, mock_session.call_count)
 
-    @mock.patch.object(sync, 'get_session')
-    def test_synchronize_with_force_sync_delete(self, mock_session):
-        functions_to_sync = 5
+        self.assertTrue(mock_delete_outdated.called)
+        self.assertTrue(mock_create_networks.called)
+        self.assertFalse(mock_delete_unmapped.called)
+        self.assertFalse(mock_synchronize_uplinkset.called)
+        self.assertFalse(mock_recreate_connection.called)
+
+    @mock.patch.object(sync, 'recreate_connection')
+    @mock.patch.object(sync, 'synchronize_uplinkset_from_mapped_networks')
+    @mock.patch.object(sync, 'delete_unmapped_oneview_networks')
+    @mock.patch.object(sync, 'create_oneview_networks_from_neutron')
+    @mock.patch.object(sync, 'delete_outdated_flat_mapped_networks')
+    def test_synchronize_with_force_sync_delete(
+        self, mock_delete_outdated, mock_create_networks, mock_delete_unmapped,
+        mock_synchronize_uplinkset, mock_recreate_connection
+    ):
         common.CONF.oneview.force_sync_delete_ops = True
         self.sync.synchronize()
-        self.assertEqual(functions_to_sync, mock_session.call_count)
+
+        self.assertTrue(mock_delete_outdated.called)
+        self.assertTrue(mock_create_networks.called)
+        self.assertTrue(mock_delete_unmapped.called)
+        self.assertTrue(mock_synchronize_uplinkset.called)
+        self.assertTrue(mock_recreate_connection.called)
 
     @mock.patch.object(database_manager, 'delete_neutron_oneview_network')
     @mock.patch.object(sync, 'get_session')

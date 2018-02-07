@@ -51,7 +51,7 @@ class OneViewDriver(api.MechanismDriver):
             self.uplinkset_mappings, self.flat_net_mappings
         )
         sync.start()
-        LOG.debug("OneView synchronization tool was initialized.")
+        LOG.info("OneView synchronization tool was initialized.")
 
     @common.oneview_reauth
     def bind_port(self, context):

@@ -57,7 +57,10 @@ class Synchronization(object):
         self.delete_outdated_flat_mapped_networks()
         self.create_oneview_networks_from_neutron()
 
-        if common.CONF.oneview.force_sync_delete_ops:
+        force_delete = common.CONF.oneview.force_sync_delete_ops
+
+        LOG.debug("'force_sync_delete_ops' is set to", force_delete)
+        if force_delete:
             self.delete_unmapped_oneview_networks()
             self.synchronize_uplinkset_from_mapped_networks()
             self.recreate_connection()
