@@ -592,3 +592,20 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         self.assertFalse(client.server_hardware.get.called)
         self.assertFalse(client.server_profiles.get.called)
         self.assertFalse(client.server_profiles.update.called)
+
+    @mock.patch.object(database_manager, 'get_neutron_oneview_network')
+    @mock.patch.object(database_manager, 'get_network_segment')
+    def test_delete_port_rack_server(self, mock_net_segment, mock_get_net):
+        port_context = FakeContext()
+        mock_net_segment.return_value = FAKE_NETWORK_SEGMENT
+        fake_network_obj = FakeNetwork()
+        mock_get_net.return_value = fake_network_obj
+        client = self.driver.oneview_client
+        self.server_hardware['locationUri'] = None
+        client.server_hardware.get.return_value = self.server_hardware
+
+        self.driver.delete_port_postcommit(port_context)
+
+        self.assertTrue(client.server_hardware.get.called)
+        self.assertFalse(client.server_profiles.get.called)
+        self.assertFalse(client.server_profiles.update.called)
