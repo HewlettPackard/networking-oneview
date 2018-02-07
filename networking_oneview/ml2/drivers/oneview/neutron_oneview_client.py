@@ -403,9 +403,13 @@ class Port(ResourceManager):
         server_hardware = (
             common.server_hardware_from_local_link_information_list(
                 self.oneview_client, local_link_information_list))
+        if common.is_rack_server(server_hardware):
+            LOG.warning("The server hardware: %s is a rack server.",
+                        server_hardware.get('uuid'))
+            return
+
         server_profile = common.server_profile_from_server_hardware(
-            self.oneview_client, server_hardware
-        )
+            self.oneview_client, server_hardware)
         if server_profile:
             LOG.info("There is Server Profile %s available.", server_profile)
             mac_address = port_dict.get('mac_address')
