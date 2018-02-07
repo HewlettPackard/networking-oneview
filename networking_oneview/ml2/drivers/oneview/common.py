@@ -411,6 +411,7 @@ def get_boot_priority(server_profile, bootable):
             return 'Primary'
         elif _is_boot_priority_available(connections, 'Secondary'):
             return 'Secondary'
+        return None
     return 'NotBootable'
 
 
@@ -517,16 +518,14 @@ def _is_local_link_information_valid(port_id, local_link_information):
     server_hardware_id = switch_info.get('server_hardware_id')
 
     try:
-        bootable = strutils.bool_from_string(
-            switch_info.get('bootable'))
+        strutils.bool_from_string(switch_info.get('bootable'))
     except ValueError:
         LOG.warning("'bootable' must be a boolean.")
         return False
 
-    if not (server_hardware_id and bootable):
+    if not server_hardware_id:
         LOG.warning(
-            "'local_link_information' must contain "
-            "'server_hardware_id' and 'bootable'.")
+            "'local_link_information' must contain `server_hardware_id`.")
         return False
 
     return True
