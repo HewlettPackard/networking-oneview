@@ -114,7 +114,7 @@ class SynchronizationTestCase(base.BaseTestCase):
         self, mock_delete_outdated, mock_create_networks, mock_delete_unmapped,
         mock_synchronize_uplinkset, mock_recreate_connection
     ):
-        common.CONF.oneview.force_sync_delete_ops = True
+        common.CONF.DEFAULT.force_sync_delete_ops = True
         self.sync.synchronize()
 
         self.assertTrue(mock_delete_outdated.called)

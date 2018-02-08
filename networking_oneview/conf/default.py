@@ -28,8 +28,8 @@ opts = [
                help='Interval between synchronization executions in seconds.'),
     cfg.BoolOpt('force_sync_delete_ops',
                 default=False,
-                help='Set this option as true allow sync ro delete outdated '
-                     'network and connections.')
+                help='If set to true, Networking OneView Synchronization is '
+                     'allowed to delete outdated network and connections.')
 ]
 
 
