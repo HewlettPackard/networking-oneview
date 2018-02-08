@@ -1,5 +1,21 @@
 [DEFAULT]
 
+#
+# From networking-oneview
+#
+
+# UplinkSets to be used. (string value)
+#uplinkset_mappings = <None>
+
+# Flat Networks on Oneview that are managed by Neutron. (string value)
+#flat_net_mappings = <None>
+
+# Interval between synchronization executions in seconds. (integer value)
+#sync_interval = 3600
+
+# Only set this option as true if under developer mode. (boolean value)
+#developer_mode = false
+
 
 [oneview]
 
@@ -21,15 +37,3 @@
 
 # TLS File Path. (string value)
 #tls_cacert_file = <None>
-
-# UplinkSets to be used. (string value)
-#uplinkset_mappings = <None>
-
-# Flat Networks on Oneview that are managed by Neutron. (string value)
-#flat_net_mappings = <None>
-
-# Interval between periodic task executions in seconds. (integer value)
-#ov_refresh_interval = 3600
-
-# Only set this option as true if under developer mode. (boolean value)
-#developer_mode = false

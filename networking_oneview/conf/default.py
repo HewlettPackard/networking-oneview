@@ -1,4 +1,4 @@
-# Copyright 2018 Hewlett Packard Enterprise Development LP.
+# Copyright 2018 Hewlett Packard Enterprise Development LP
 # Copyright 2018 Universidade Federal de Campina Grande
 # All Rights Reserved.
 #
@@ -16,10 +16,21 @@
 
 from oslo_config import cfg
 
-from networking_oneview.conf import default
-from networking_oneview.conf import oneview
-
 CONF = cfg.CONF
 
-default.register_opts(CONF)
-oneview.register_opts(CONF)
+opts = [
+    cfg.StrOpt('uplinkset_mappings',
+               help='UplinkSets to be used.'),
+    cfg.StrOpt('flat_net_mappings',
+               help='Flat Networks on Oneview that are managed by Neutron.'),
+    cfg.IntOpt('sync_interval',
+               default=3600,
+               help='Interval between synchronization executions in seconds.'),
+    cfg.BoolOpt('developer_mode',
+                default=False,
+                help='Only set this option as true if under developer mode.')
+]
+
+
+def register_opts(conf):
+    conf.register_opts(opts, group='DEFAULT')

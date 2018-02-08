@@ -24,9 +24,9 @@ from oslo_service import loopingcall
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from networking_oneview.ml2.drivers.oneview import (
-    database_manager as db_manager)
+from networking_oneview.conf import CONF
 from networking_oneview.ml2.drivers.oneview import common
+from networking_oneview.ml2.drivers.oneview import database_manager
 
 LOG = log.getLogger(__name__)
 
@@ -34,7 +34,6 @@ LOG = log.getLogger(__name__)
 class Synchronization(object):
     def __init__(self, oneview_client, neutron_oneview_client, connection,
                  uplinkset_mappings, flat_net_mappings):
-        # NOTE(nicodemos): When remove the checks, return to oneview_client
         self.oneview_client = oneview_client
         self.neutron_client = neutron_oneview_client
         self.connection = connection
@@ -46,7 +45,7 @@ class Synchronization(object):
         self.check_unique_lig_per_provider_constraint()
 
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
-        heartbeat.start(interval=3600, initial_delay=0)
+        heartbeat.start(interval=CONF.DEFAULT.sync_interval, initial_delay=0)
 
     def get_session(self):
         Session = sessionmaker(bind=create_engine(self.connection),
@@ -130,11 +129,12 @@ class Synchronization(object):
     def create_oneview_networks_from_neutron(self):
         session = self.get_session()
         for network, network_segment in (
-                db_manager.list_networks_and_segments_with_physnet(session)):
+                database_manager.list_networks_and_segments_with_physnet(
+                    session)):
             net_id = network.get('id')
-            neutron_oneview_network = db_manager.get_neutron_oneview_network(
-                session, net_id
-            )
+            neutron_oneview_network = (
+                database_manager.get_neutron_oneview_network(
+                    session, net_id))
             if neutron_oneview_network:
                 oneview_network = self.get_oneview_network(
                     neutron_oneview_network.oneview_network_id
@@ -158,10 +158,10 @@ class Synchronization(object):
     def synchronize_uplinkset_from_mapped_networks(self):
         session = self.get_session()
         for neutron_oneview_network in (
-                db_manager.list_neutron_oneview_network(session)):
+                database_manager.list_neutron_oneview_network(session)):
             oneview_network_id = neutron_oneview_network.oneview_network_id
             neutron_network_id = neutron_oneview_network.neutron_network_id
-            network_segment = db_manager.get_network_segment(
+            network_segment = database_manager.get_network_segment(
                 session, neutron_network_id
             )
             if network_segment:
@@ -178,10 +178,10 @@ class Synchronization(object):
             if mmanaged_network:
                 oneview_network_id = common.id_from_uri(network.get('uri'))
                 neutron_network_id = mmanaged_network.group(1)
-                neutron_network = db_manager.get_neutron_network(
+                neutron_network = database_manager.get_neutron_network(
                     session, neutron_network_id
                 )
-                network_segment = db_manager.get_network_segment(
+                network_segment = database_manager.get_network_segment(
                     session, neutron_network_id
                 )
                 if not neutron_network:
@@ -211,20 +211,20 @@ class Synchronization(object):
         mapped_networks_uuids = list(chain.from_iterable(mappings))
         oneview_networks_uuids = (
             network.oneview_network_id for network
-            in db_manager.list_neutron_oneview_network(session)
+            in database_manager.list_neutron_oneview_network(session)
             if not network.manageable)
         unmapped_networks_uuids = (
             uuid for uuid
             in oneview_networks_uuids
             if uuid not in mapped_networks_uuids)
         for uuid in unmapped_networks_uuids:
-            db_manager.delete_neutron_oneview_network(
+            database_manager.delete_neutron_oneview_network(
                 session, oneview_network_id=uuid)
 
     def _delete_connections(self, neutron_network_id):
         session = self.get_session()
         for port, port_binding in (
-                db_manager.get_port_with_binding_profile_by_net(
+                database_manager.get_port_with_binding_profile_by_net(
                     session, neutron_network_id)):
             port_dict = common.port_dict_for_port_creation(
                 port.get('network_id'), port_binding.get('vnic_type'),
@@ -293,8 +293,8 @@ class Synchronization(object):
         """
         session = self.get_session()
 
-        for port, port_binding in db_manager.get_port_with_binding_profile(
-                session):
+        for port, port_binding in (
+                database_manager.get_port_with_binding_profile(session)):
             port_dict = common.port_dict_for_port_creation(
                 port.get('network_id'),
                 port_binding.get('vnic_type'),
@@ -311,9 +311,9 @@ class Synchronization(object):
                     server_hardware_id
                 )
             )
-            neutron_oneview_network = db_manager.list_neutron_oneview_network(
-                session, neutron_network_id=port.get('network_id')
-            )
+            neutron_oneview_network = (
+                database_manager.list_neutron_oneview_network(
+                    session, neutron_network_id=port.get('network_id')))
             connection_updated = False
             if neutron_oneview_network:
                 oneview_uri = "/rest/ethernet-networks/" + (

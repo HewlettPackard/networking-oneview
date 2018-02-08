@@ -30,17 +30,7 @@ opts = [
                 default=False,
                 help="Option to allow insecure connection with OneView."),
     cfg.StrOpt('tls_cacert_file',
-               help="TLS File Path."),
-    cfg.StrOpt('uplinkset_mappings',
-               help='UplinkSets to be used.'),
-    cfg.StrOpt('flat_net_mappings',
-               help='Flat Networks on Oneview that are managed by Neutron.'),
-    cfg.IntOpt('ov_refresh_interval',
-               default=3600,
-               help='Interval between periodic task executions in seconds.'),
-    cfg.BoolOpt('developer_mode',
-                default=False,
-                help='Only set this option as true if under developer mode.')
+               help="TLS File Path.")
 ]
 
 
