@@ -345,8 +345,6 @@ class Port(ResourceManager):
             session, network_id)
         network_uri = common.network_uri_from_id(
             neutron_oneview_network.oneview_network_id)
-        switch_info = common.switch_info_from_local_link_information_list(
-            local_link_information_list)
         server_hardware = (
             common.server_hardware_from_local_link_information_list(
                 self.oneview_client, local_link_information_list))
@@ -355,7 +353,7 @@ class Port(ResourceManager):
         )
         if server_profile:
             LOG.info("There is Server Profile %s available.", server_profile)
-            bootable = switch_info.get('bootable')
+
             mac_address = port_dict.get('mac_address')
             if common.is_rack_server(server_hardware):
                 LOG.warning("The server hardware %s is a rack server.",
@@ -366,7 +364,16 @@ class Port(ResourceManager):
             connections = server_profile.get('connections')
             existing_connections = [connection for connection in connections
                                     if connection.get('portId') == port_id]
+            switch_info = common.switch_info_from_local_link_information_list(
+                local_link_information_list)
+            bootable = switch_info.get('bootable')
             boot_priority = common.get_boot_priority(server_profile, bootable)
+
+            if not boot_priority:
+                LOG.warning("The server profile: %s already has PXE primary "
+                            "and secondary bootable connections." %
+                            server_profile.get('uuid'))
+                return
 
             create_new_connection = True
             for connection in existing_connections:

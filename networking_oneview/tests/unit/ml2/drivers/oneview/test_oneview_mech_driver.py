@@ -101,7 +101,7 @@ FAKE_SERVER_PROFILE = {
         'portId': '1234',
         'networkUri': '/fake_net_uri',
         'mac': 'aa:11:cc:33:ee:44',
-        'boot': {'priority': 'primary'}
+        'boot': {'priority': 'Primary'}
     }]
 }
 FAKE_SERVER_HARDWARE = {
@@ -493,12 +493,25 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         fake_network_obj = FakeNetwork()
         mock_get_net.return_value = fake_network_obj
         client = self.driver.oneview_client
+        client.server_hardware.get.return_value = self.server_hardware
+        client.server_profiles.get.return_value = self.server_profile
 
+        old_connections = copy.deepcopy(self.server_profile['connections'])
         self.driver.bind_port(port_context)
+        new_connections = self.server_profile['connections']
+        boot_info = new_connections[1].get('boot').get('priority')
 
-        self.assertFalse(client.server_hardware.get.called)
-        self.assertFalse(client.server_profiles.get.called)
-        self.assertFalse(client.server_profiles.update.called)
+        self.assertNotEqual(old_connections, new_connections)
+        self.assertTrue(client.server_hardware.get.called)
+        self.assertTrue(client.server_profiles.get.called)
+        self.assertEqual(boot_info, 'NotBootable')
+        client.server_profiles.update.assert_called_with(
+            id_or_uri=self.server_profile.get('uri'),
+            resource={
+                'uri': self.server_profile.get('uri'),
+                'status': self.server_profile.get('status'),
+                'connections': self.server_profile['connections']
+            })
 
     @mock.patch.object(database_manager, 'get_neutron_oneview_network')
     @mock.patch.object(database_manager, 'get_network_segment')
@@ -548,6 +561,31 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         client = self.driver.oneview_client
         self.server_hardware['locationUri'] = None
         client.server_hardware.get.return_value = self.server_hardware
+
+        self.driver.bind_port(port_context)
+
+        self.assertTrue(client.server_hardware.get.called)
+        self.assertTrue(client.server_profiles.get.called)
+        self.assertFalse(client.server_profiles.update.called)
+
+    @mock.patch.object(database_manager, 'get_neutron_oneview_network')
+    @mock.patch.object(database_manager, 'get_network_segment')
+    def test_create_port_no_pxe_bootable_available(
+            self, mock_net_segment, mock_get_net):
+        port_context = FakeContext()
+        mock_net_segment.return_value = FAKE_NETWORK_SEGMENT
+        fake_network_obj = FakeNetwork()
+        mock_get_net.return_value = fake_network_obj
+        client = self.driver.oneview_client
+        client.server_hardware.get.return_value = self.server_hardware
+        client.server_profiles.get.return_value = self.server_profile
+        new_connection = {
+            'portId': '231',
+            'networkUri': '/fake_net_uri_2',
+            'mac': 'aa:11:22:33:ee:44',
+            'boot': {'priority': 'Secondary'}
+        }
+        self.server_profile['connections'].append(new_connection)
 
         self.driver.bind_port(port_context)
 
