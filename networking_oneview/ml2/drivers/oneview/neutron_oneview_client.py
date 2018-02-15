@@ -168,7 +168,10 @@ class Network(ResourceManager):
         compatible_networks = (
             self.oneview_client.ethernet_networks.get_by('name', name))
         if compatible_networks:
-            return compatible_networks[0]
+            network = compatible_networks[0]
+            if (network.get('ethernetNetworkType') == network_type and
+                    network.get('vlanId') == seg_id):
+                return network
 
         options = {
             'name': name,
