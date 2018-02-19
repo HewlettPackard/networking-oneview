@@ -13,8 +13,9 @@
 # Interval between synchronization executions in seconds. (integer value)
 #sync_interval = 3600
 
-# Only set this option as true if under developer mode. (boolean value)
-#developer_mode = false
+# If set to true, Networking OneView Synchronization is allowed to delete
+# outdated network and connections. (boolean value)
+#force_sync_delete_ops = false
 
 
 [oneview]
@@ -35,5 +36,5 @@
 # Option to allow insecure connection with OneView. (boolean value)
 #allow_insecure_connections = false
 
-# TLS File Path. (string value)
+# OneView CA cert file Path. (string value)
 #tls_cacert_file = <None>
