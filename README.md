@@ -1,3 +1,7 @@
+[![PyPI version](https://badge.fury.io/py/networking-oneview.svg)](https://badge.fury.io/py/networking-oneview)
+[![Build Status](https://travis-ci.org/HewlettPackard/networking-oneview.svg?branch=master)](https://travis-ci.org/HewlettPackard/networking-oneview)
+[![Coverage Status](https://codecov.io/gh/HewlettPackard/networking-oneview/branch/master/graphs/badge.svg)](https://codecov.io/gh/HewlettPackard/networking-oneview)
+
 HPE OneView Mechanism Driver
 ============================
 
