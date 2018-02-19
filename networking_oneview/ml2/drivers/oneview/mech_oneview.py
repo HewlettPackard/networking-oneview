@@ -16,7 +16,7 @@
 from oslo_log import log
 try:
     from neutron_lib.api.definitions import portbindings
-    from neutron_lib.plugins import constants as p_const
+    from neutron_lib import constants as p_const
     from neutron_lib.plugins.ml2 import api
 except ImportError:
     from neutron.extensions import portbindings
