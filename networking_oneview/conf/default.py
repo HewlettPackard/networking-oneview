@@ -29,7 +29,23 @@ opts = [
     cfg.BoolOpt('force_sync_delete_ops',
                 default=False,
                 help='If set to true, Networking OneView Synchronization is '
-                     'allowed to delete outdated network and connections.')
+                     'allowed to delete outdated network and connections.'),
+    cfg.IntOpt('retries_to_lock_sh',
+               default=10,
+               help='Maximum number of attempts when trying to lock Server '
+                    'Hardware for connection creation.'),
+    cfg.IntOpt('retries_to_lock_sh_interval',
+               default=30,
+               help='Time interval in seconds between attempts when trying '
+                    'to lock Server Hardware for connection creation.'),
+    cfg.IntOpt('retries_to_lock_sp',
+               default=10,
+               help='Maximum number of attempts when trying to lock Server '
+                    'Hardware for connection creation.'),
+    cfg.IntOpt('retries_to_lock_sp_interval',
+               default=30,
+               help='Time interval in seconds between attempts when trying '
+                    'to lock Server Profile for connection creation.')
 ]
 
 

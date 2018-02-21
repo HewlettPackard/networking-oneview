@@ -31,6 +31,9 @@ CONF_FLAT_NET_MAPPINGS = "physnet-mapped:112233AA"
 
 oneview_exceptions = importutils.try_import('hpOneView.exceptions')
 
+DEFAULT_RETRY_INTERVAL = 0.001
+DEFAULT_RETRY_LOCK = 4
+
 
 class CommonTestCase(base.AgentMechanismBaseTestCase):
     def setUp(self):
@@ -49,6 +52,8 @@ class CommonTestCase(base.AgentMechanismBaseTestCase):
         self.conf.oneview.tls_cacert_file = self.tls_cacert_file
         self.conf.DEFAULT.uplinkset_mappings = CONF_UPLINKSET_MAPPINGS
         self.conf.DEFAULT.flat_net_mappings = CONF_FLAT_NET_MAPPINGS
+        self.conf.DEFAULT.retries_to_lock_sh_interval = DEFAULT_RETRY_INTERVAL
+        self.conf.DEFAULT.retries_to_lock_sp_interval = DEFAULT_RETRY_INTERVAL
 
         self.credentials = {
             "ip": self.ov_manager_url,
@@ -89,19 +94,19 @@ class CommonTestCase(base.AgentMechanismBaseTestCase):
         common.check_flat_net_mappings_resources()
 
     @mock.patch.object(common, "get_oneview_client")
-    def test_check_flat_net_mappings_resources_fail(self,
-            mock_get_oneview_client):
+    def test_check_flat_net_mappings_resources_fail(
+            self, mock_get_oneview_client):
         mock_oneview = mock_get_oneview_client()
         ethernet_networks = mock_oneview.ethernet_networks
         ethernet_networks.get.side_effect = (
             exceptions.OneViewResourceNotFoundException())
 
         self.assertRaises(exceptions.ClientException,
-            common.check_flat_net_mappings_resources)
+                          common.check_flat_net_mappings_resources)
 
     @mock.patch.object(common, "get_oneview_client")
-    def test_check_flat_net_mappings_resources_no_uplinkset(self,
-            mock_get_oneview_client):
+    def test_check_flat_net_mappings_resources_no_uplinkset(
+            self, mock_get_oneview_client):
         mock_oneview = mock_get_oneview_client()
         ethernet_networks = mock_oneview.ethernet_networks
         ethernet_networks.get.return_value = (
@@ -109,7 +114,7 @@ class CommonTestCase(base.AgentMechanismBaseTestCase):
         ethernet_networks.get_associated_uplink_groups.return_value = []
 
         self.assertRaises(exceptions.ClientException,
-            common.check_flat_net_mappings_resources)
+                          common.check_flat_net_mappings_resources)
 
     @mock.patch.object(common, "get_oneview_client")
     def test_check_uplinkset_mappings_resources(self, mock_get_oneview_client):
@@ -120,12 +125,77 @@ class CommonTestCase(base.AgentMechanismBaseTestCase):
         common.check_uplinkset_mappings_resources()
 
     @mock.patch.object(common, "get_oneview_client")
-    def test_check_uplinkset_mappings_resources_fail(self,
-            mock_get_oneview_client):
+    def test_check_uplinkset_mappings_resources_fail(
+            self, mock_get_oneview_client):
         self.conf.DEFAULT.uplinkset_mappings = 'does:not:exist,neither:do:I'
         mock_oneview = mock_get_oneview_client()
         mock_oneview.logical_interconnect_groups.get.return_value = (
             test_oneview_mech_driver.FAKE_LIG)
 
         self.assertRaises(exceptions.ClientException,
-            common.check_uplinkset_mappings_resources)
+                          common.check_uplinkset_mappings_resources)
+
+    def test_check_server_hardware_availability_locked(self):
+        mock_sh = mock.MagicMock()
+        mock_sh.get.return_value = "i'm busy"
+        self.conf.DEFAULT.retries_to_lock_sh = DEFAULT_RETRY_LOCK
+        self.assertFalse(
+            common._check_server_hardware_availability(mock_sh))
+
+        self.assertEqual(mock_sh.get.call_count, DEFAULT_RETRY_LOCK)
+
+    def test_check_server_hardware_availability_unlocked_multiple_tries(self):
+        power_lock_states = ["i'm busy", "i'm busy", None]
+        mock_sh = mock.MagicMock()
+        mock_sh.get.side_effect = power_lock_states
+        self.conf.DEFAULT.retries_to_lock_sh = len(power_lock_states) + 1
+        self.assertTrue(
+            common._check_server_hardware_availability(mock_sh))
+
+        self.assertEqual(mock_sh.get.call_count, len(power_lock_states))
+
+    def test_check_server_hardware_availability_unlocked(self):
+        mock_sh = mock.MagicMock()
+        mock_sh.get.return_value = None
+        self.conf.DEFAULT.retries_to_lock_sh = DEFAULT_RETRY_LOCK
+        self.assertTrue(
+            common._check_server_hardware_availability(mock_sh))
+
+        self.assertEqual(mock_sh.get.call_count, 1)
+
+    @mock.patch.object(common, "get_oneview_client")
+    def test_check_server_profile_availability_locked(
+            self, mock_oneview_client):
+        mock_oneview_client.get_server_profile_state.return_value = None
+        self.conf.DEFAULT.retries_to_lock_sp = DEFAULT_RETRY_LOCK
+        self.assertFalse(
+            common._check_server_profile_availability(
+                mock_oneview_client, mock.MagicMock()))
+
+        self.assertEqual(
+            mock_oneview_client.get_server_profile_state.call_count,
+            DEFAULT_RETRY_LOCK)
+
+    @mock.patch.object(common, "get_oneview_client")
+    def test_check_server_profile_availability_unlocked_multiple_tries(
+            self, mock_oneview_client):
+        server_profile_states = [None, None, "Normal"]
+        mock_ov = mock_oneview_client
+        mock_ov.get_server_profile_state.side_effect = server_profile_states
+        self.conf.DEFAULT.retries_to_lock_sp = len(server_profile_states) + 1
+        self.assertTrue(
+            common._check_server_profile_availability(
+                mock_oneview_client, mock.MagicMock()))
+        self.assertEqual(mock_ov.get_server_profile_state.call_count,
+                         len(server_profile_states))
+
+    @mock.patch.object(common, "get_oneview_client")
+    def test_check_server_profile_availability_unlocked(
+            self, mock_oneview_client):
+        mock_ov = mock_oneview_client
+        mock_ov.get_server_profile_state.return_value = "Normal"
+        self.conf.DEFAULT.retries_to_lock_sp = DEFAULT_RETRY_LOCK
+        self.assertTrue(
+            common._check_server_profile_availability(
+                mock_oneview_client, mock.MagicMock()))
+        self.assertEqual(mock_ov.get_server_profile_state.call_count, 1)

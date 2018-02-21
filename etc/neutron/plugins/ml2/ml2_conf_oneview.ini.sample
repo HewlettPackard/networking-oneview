@@ -17,6 +17,22 @@
 # outdated network and connections. (boolean value)
 #force_sync_delete_ops = false
 
+# Maximum number of attempts when trying to lock Server Hardware for connection
+# creation. (integer value)
+#retries_to_lock_sh = 10
+
+# Time interval in seconds between attempts when trying to lock Server Hardware
+# for connection creation. (integer value)
+#retries_to_lock_sh_interval = 30
+
+# Maximum number of attempts when trying to lock Server Hardware for connection
+# creation. (integer value)
+#retries_to_lock_sp = 10
+
+# Time interval in seconds between attempts when trying to lock Server Profile
+# for connection creation. (integer value)
+#retries_to_lock_sp_interval = 30
+
 
 [oneview]
 

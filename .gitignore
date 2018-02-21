@@ -23,6 +23,7 @@ nosetests.xml
 .testrepository
 .stestr
 .venv
+coverage.xml
 
 # Translations
 *.mo

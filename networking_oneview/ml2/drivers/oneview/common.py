@@ -402,18 +402,26 @@ def check_oneview_entities_availability(oneview_client, server_hardware):
     _check_server_profile_availability(oneview_client, server_hardware)
 
 
-def _check_server_profile_availability(oneview_client, server_hardware):
-    while True:
-        if _get_server_profile_state(oneview_client, server_hardware):
-            return True
-        time.sleep(5)
-
-
 def _check_server_hardware_availability(server_hardware):
-    while True:
+    max_number_of_attempts = CONF.DEFAULT.retries_to_lock_sh
+    interval = CONF.DEFAULT.retries_to_lock_sh_interval
+
+    for _ in range(max_number_of_attempts):
         if not server_hardware.get('powerLock'):
             return True
-        time.sleep(30)
+        time.sleep(interval)
+    return False
+
+
+def _check_server_profile_availability(oneview_client, server_hardware):
+    max_number_of_attempts = CONF.DEFAULT.retries_to_lock_sp
+    interval = CONF.DEFAULT.retries_to_lock_sp_interval
+
+    for _ in range(max_number_of_attempts):
+        if oneview_client.get_server_profile_state(server_hardware):
+            return True
+        time.sleep(interval)
+    return False
 
 
 def _get_server_profile_state(oneview_client, server_hardware):
