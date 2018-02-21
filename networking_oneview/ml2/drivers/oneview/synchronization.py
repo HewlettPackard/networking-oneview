@@ -54,6 +54,7 @@ class Synchronization(object):
 
     @common.oneview_reauth
     def synchronize(self):
+        common.check_valid_resources()
         self.delete_outdated_flat_mapped_networks()
         self.create_oneview_networks_from_neutron()
 

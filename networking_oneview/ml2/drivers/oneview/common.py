@@ -17,8 +17,6 @@ import time
 
 import six
 
-from hpOneView import exceptions
-from hpOneView.exceptions import HPOneViewException
 from hpOneView.oneview_client import OneViewClient
 from oslo_log import log
 from oslo_serialization import jsonutils
@@ -27,6 +25,7 @@ from oslo_utils import strutils
 
 from networking_oneview.conf import CONF
 from networking_oneview.ml2.drivers.oneview import database_manager
+from networking_oneview.ml2.drivers.oneview import exceptions
 
 MAPPING_TYPE_NONE = 0
 FLAT_NET_MAPPINGS_TYPE = 1
@@ -47,7 +46,7 @@ def get_oneview_conf():
     ssl_certificate = CONF.oneview.tls_cacert_file
 
     if not (insecure or ssl_certificate):
-        raise exceptions.HPOneViewException(
+        raise oneview_exceptions.HPOneViewException(
             "Failed to start Networking OneView. Attempting to open secure "
             "connection to OneView but CA certificate file is missing. Please "
             "check your configuration file.")
@@ -91,7 +90,7 @@ def oneview_reauth(f):
     def wrapper(self, *args, **kwargs):
         try:
             self.oneview_client.connection.get('/rest/logindomains')
-        except HPOneViewException:
+        except oneview_exceptions.HPOneViewException:
             LOG.debug("Reauthenticating to OneView.")
             oneview_conf = get_oneview_conf()
             self.oneview_client.connection.login(oneview_conf["credentials"])
@@ -123,16 +122,19 @@ def get_uplinkset_by_name_from_list(uplinkset_list, uplinkset_name):
     :param uplinkset_list: a list of uplinksets;
     :param uplinkset_name: the name of the desired uplinkset;
     :returns: A uplinkset with name uplinkset_name
-    :raise Exception: Uplinkset name not found in Uplinkset list;
+    :raise ElementNotFoundException: Uplinkset name not found in
+        Uplinkset list;
     """
     try:
         uplinkset_obj = next(
             uplinkset for uplinkset in uplinkset_list if uplinkset.get(
                 'name') == uplinkset_name)
     except Exception:
-        err_msg = "Uplinkset not found in Uplinkset List"
+        err_msg = (
+            "Uplinkset '%s' is not found in the Uplinkset List '%s'"
+        ) % (uplinkset_name, uplinkset_list)
         LOG.error(err_msg)
-        raise Exception(err_msg)
+        raise exceptions.ElementNotFoundException(err_msg)
 
     return uplinkset_obj
 
@@ -152,19 +154,62 @@ def get_uplinkset_by_name_in_lig(oneview_client, lig_id, uplinkset_name):
     return uplinkset
 
 
-def get_logical_interconnect_group_by_id(oneview_client, lig_id):
+def get_logical_interconnect_group_by_id(lig_id):
     """Get a Logical Interconnect Group Object to a given LIG id.
 
-    :param oneview_client: a instance of the OneView Client;
     :param lig_id: the id of the Logical Interconnect Group;
     :returns: the Logical Interconnect Group object
-    :raise HPOneViewException: If was not possible to retrieve LIG;
+    :raise OneViewResourceNotFoundException: If it was not possible
+        to retrieve LIG;
     """
+    oneview_client = get_oneview_client()
     try:
         return oneview_client.logical_interconnect_groups.get(lig_id)
-    except exceptions.HPOneViewException as err:
-        LOG.error(err)
-        raise err
+    except oneview_exceptions.HPOneViewException:
+        err_msg = (
+            "Could not find a 'Logical Interconnect Group' with the id '%s'"
+        ) % lig_id
+        LOG.error(err_msg)
+        raise exceptions.OneViewResourceNotFoundException(err_msg)
+
+
+def get_ethernet_network_by_id(oneview_network_id):
+    """Get a Ethernet Network Object to a given Network id.
+
+    :param oneview_network_id: the id of the Ethernet Network;
+    :returns: the Ethernet Network object;
+    :raise OneViewResourceNotFoundException: If it was not possible
+        to retrieve the Network;
+    """
+    oneview_client = get_oneview_client()
+    try:
+        return oneview_client.ethernet_networks.get(oneview_network_id)
+    except oneview_exceptions.HPOneViewException:
+        err_msg = (
+            "Could not find an 'Ethernet Network' with the id '%s'"
+        ) % oneview_network_id
+        LOG.error(err_msg)
+        raise exceptions.OneViewResourceNotFoundException(err_msg)
+
+
+def get_uplink_port_group_uris_for_ethernet_network_by_id(oneview_network_id):
+    """Get Uplink Port Group URIs for a Ethernet Network by id.
+
+    :param oneview_network_id: the id of the Ethernet Network;
+    :returns: a list of Uplink Port Group URIs;
+    :raise OneViewResourceNotFoundException: If it was not possible
+        to retrieve the list;
+    """
+    oneview_client = get_oneview_client()
+    try:
+        return oneview_client.ethernet_networks.get_associated_uplink_groups(
+            oneview_network_id)
+    except oneview_exceptions.HPOneViewException:
+        err_msg = (
+            "Could not find an 'Ethernet Network' with the id '%s'"
+        ) % oneview_network_id
+        LOG.error(err_msg)
+        raise exceptions.OneViewResourceNotFoundException(err_msg)
 
 
 def get_logical_interconnect_group_from_uplink(oneview_client,
@@ -539,3 +584,140 @@ def remove_inconsistence_from_db(
     database_manager.delete_oneview_network_lig(
         session, oneview_network_id=oneview_network_id
     )
+
+
+def check_valid_resources():
+    """Verify if the OneView resources exist.
+
+    Verify if the resources described on the configuration file
+    exist on OneView.
+
+    :raise OneViewResourceNotFoundException: If any of the OneView
+        resources does not exist.
+    :raise ElementNotFoundException: If the UplinkSet name is not
+        in the LIG's UplinkSets list. If a Network is not associated
+        to any UplinkSet.
+    """
+    check_uplinkset_mappings_resources()
+    check_flat_net_mappings_resources()
+
+
+def check_uplinkset_mappings_resources():
+    """Verify if the Logical Interconnect Groups and UplinkSets exist.
+
+    :raise ClientException:: If a Logical Interconnect Group does not exist
+        or if a UplinkSet name is not in the LIG's UplinkSets list.
+    """
+    mappings = load_conf_option_to_dict(CONF.DEFAULT.uplinkset_mappings)
+
+    errors = {"ligs": [], "uplinksets": []}
+    for physnet in mappings:
+        provider = zip(
+            mappings.get(physnet)[0::2],
+            mappings.get(physnet)[1::2])
+
+        # Check if Logical Interconnect Groups and UplinkSets exist
+        for lig_id, uplinkset_name in provider:
+            try:
+                lig = get_logical_interconnect_group_by_id(lig_id)
+            except exceptions.OneViewResourceNotFoundException:
+                errors["ligs"].append(lig_id)
+                continue
+
+            uplinksets = lig.get('uplinkSets')
+
+            try:
+                get_uplinkset_by_name_from_list(uplinksets, uplinkset_name)
+            except exceptions.ElementNotFoundException:
+                errors["uplinksets"].append(
+                    "%s in the lig %s" % (uplinkset_name, lig_id))
+
+    if errors["ligs"] or errors["uplinksets"]:
+        err_msg = (
+            'There are invalid values in the UplinkSet mappings '
+            'within the OneView configuration file:')
+        if errors["ligs"]:
+            err_msg += (
+                "\nThose Logical Interconnect Groups "
+                "could not be found: {err[ligs]}")
+        if errors["uplinksets"]:
+            err_msg += (
+                '\nThose UplinkSets could not be found: {err[uplinksets]}')
+
+        err_msg = err_msg.format(err=errors)
+        raise exceptions.ClientException(err_msg)
+
+
+def check_flat_net_mappings_resources():
+    """Verify if the Ethernet Networks exist.
+
+    :raise ClientException: If an Ethernet Network does not exist
+        or If there is no UplinkSet associated with the Network.
+    """
+    mappings = load_conf_option_to_dict(CONF.DEFAULT.flat_net_mappings)
+
+    errors = {"networks": [], "no_uplinkset": []}
+    for physnet in mappings:
+        oneview_network_ids = mappings.get(physnet)
+        for oneview_network_id in oneview_network_ids:
+            try:
+                get_ethernet_network_by_id(oneview_network_id)
+            except exceptions.OneViewResourceNotFoundException:
+                errors["networks"].append(oneview_network_id)
+                continue
+
+            if not get_uplink_port_group_uris_for_ethernet_network_by_id(
+                    oneview_network_id):
+                errors["no_uplinkset"].append(oneview_network_id)
+
+    if errors["networks"] or errors["no_uplinkset"]:
+        err_msg = (
+            'There are invalid values in the Flat net mappings '
+            'within the OneView configuration file:')
+        if errors["networks"]:
+            err_msg += (
+                "\nThose Networks could not be found: {err[networks]}")
+        if errors["no_uplinkset"]:
+            err_msg += (
+                '\nThose Networks are not associated '
+                'to any Uplinkset: {err[no_uplinkset]}')
+
+        err_msg = err_msg.format(err=errors)
+        raise exceptions.ClientException(err_msg)
+
+
+def uplinkset_mappings_by_type(uplinkset_mappings):
+    uplinkset_by_type = {}
+
+    uplinkset_by_type[NETWORK_TYPE_TAGGED] = (
+        get_uplinkset_by_type(
+            uplinkset_mappings, NETWORK_TYPE_TAGGED
+        )
+    )
+
+    uplinkset_by_type[NETWORK_TYPE_UNTAGGED] = (
+        get_uplinkset_by_type(
+            uplinkset_mappings, NETWORK_TYPE_UNTAGGED
+        )
+    )
+
+    return uplinkset_by_type
+
+
+def get_uplinkset_by_type(uplinkset_mappings, net_type):
+    uplinksets_by_type = {}
+
+    for physnet in uplinkset_mappings:
+        provider = uplinkset_mappings.get(physnet)
+        for lig_id, uplinkset_name in zip(provider[0::2], provider[1::2]):
+            lig = get_logical_interconnect_group_by_id(lig_id)
+            lig_uplinksets = lig.get('uplinkSets')
+
+            uplinkset = get_uplinkset_by_name_from_list(
+                lig_uplinksets, uplinkset_name
+            )
+            if uplinkset.get('ethernetNetworkType').lower() == net_type:
+                uplinksets_by_type.setdefault(physnet, []).extend(
+                    [lig_id, uplinkset_name]
+                )
+    return uplinksets_by_type

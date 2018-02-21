@@ -188,9 +188,7 @@ class Network(ResourceManager):
         for lig_id, uplinkset_name in zip(
                 uplinkset_mappings[0::2], uplinkset_mappings[1::2]):
             logical_interconnect_group = (
-                common.get_logical_interconnect_group_by_id(
-                    self.oneview_client, lig_id
-                )
+                common.get_logical_interconnect_group_by_id(lig_id)
             )
             lig_uplinksets = logical_interconnect_group.get('uplinkSets')
             uplinkset = common.get_uplinkset_by_name_from_list(
@@ -459,48 +457,20 @@ class Port(ResourceManager):
 class Client(object):
     def __init__(self, oneview_client, uplinkset_mappings, flat_net_mappings):
         self.oneview_client = oneview_client
-        self.uplinkset_mappings = self.uplinkset_mappings_by_type(
+        self.uplinkset_mappings = common.uplinkset_mappings_by_type(
             uplinkset_mappings
         )
-        self.network = Network(
+        self.__network = Network(
             self.oneview_client, self.uplinkset_mappings, flat_net_mappings
         )
-        self.port = Port(
+        self.__port = Port(
             self.oneview_client, self.uplinkset_mappings, flat_net_mappings
         )
 
-    def uplinkset_mappings_by_type(self, uplinkset_mappings):
-        uplinkset_mappings_by_type = {}
+    @property
+    def network(self):
+        return self.__network
 
-        uplinkset_mappings_by_type[common.NETWORK_TYPE_TAGGED] = (
-            self.get_uplinkset_by_type(
-                uplinkset_mappings, common.NETWORK_TYPE_TAGGED
-            )
-        )
-
-        uplinkset_mappings_by_type[common.NETWORK_TYPE_UNTAGGED] = (
-            self.get_uplinkset_by_type(
-                uplinkset_mappings, common.NETWORK_TYPE_UNTAGGED
-            )
-        )
-
-        return uplinkset_mappings_by_type
-
-    def get_uplinkset_by_type(self, uplinkset_mappings, net_type):
-        uplinksets_by_type = {}
-
-        for physnet in uplinkset_mappings:
-            provider = uplinkset_mappings.get(physnet)
-            for lig_id, uplinkset_name in zip(provider[0::2], provider[1::2]):
-                lig = common.get_logical_interconnect_group_by_id(
-                    self.oneview_client, lig_id)
-                lig_uplinksets = lig.get('uplinkSets')
-
-                uplinkset = common.get_uplinkset_by_name_from_list(
-                    lig_uplinksets, uplinkset_name
-                )
-                if uplinkset.get('ethernetNetworkType').lower() == net_type:
-                    uplinksets_by_type.setdefault(physnet, []).extend(
-                        [lig_id, uplinkset_name]
-                    )
-        return uplinksets_by_type
+    @property
+    def port(self):
+        return self.__port
