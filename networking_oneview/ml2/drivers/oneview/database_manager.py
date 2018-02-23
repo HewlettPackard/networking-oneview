@@ -92,8 +92,7 @@ def map_neutron_network_to_oneview(
         return
     for lig_id, uplinkset_name in zip(mappings[0::2], mappings[1::2]):
         if not contains_network_lig(
-            session, oneview_network_id, lig_id, uplinkset_name
-        ):
+                session, oneview_network_id, lig_id, uplinkset_name):
             insert_oneview_network_lig(
                 session, oneview_network_id, lig_id, uplinkset_name
             )
@@ -143,7 +142,7 @@ def get_network_lig(session, oneview_network_id):
 
 
 def contains_network_lig(
-    session, oneview_network_id, oneview_lig_id, oneview_uplinkset_name):
+        session, oneview_network_id, oneview_lig_id, oneview_uplinkset_name):
     with session.begin(subtransactions=True):
         row = session.query(OneviewLogicalInterconnectGroup).filter_by(
             oneview_network_id=oneview_network_id,
