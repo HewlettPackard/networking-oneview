@@ -139,6 +139,17 @@ def get_network_lig(session, oneview_network_id):
             oneview_network_id=oneview_network_id).all()
 
 
+def contains_network_lig(
+    session, oneview_network_id, oneview_lig_id, oneview_uplinkset_name):
+    with session.begin(subtransactions=True):
+        row = session.query(OneviewLogicalInterconnectGroup).filter_by(
+            oneview_network_id=oneview_network_id,
+            oneview_lig_id=oneview_lig_id,
+            oneview_uplinkset_name=oneview_uplinkset_name
+        ).one_or_none()
+        return True if row else False
+
+
 def insert_oneview_network_lig(
         session, oneview_network_id, lig_id, uplinkset_name):
     with session.begin(subtransactions=True):
