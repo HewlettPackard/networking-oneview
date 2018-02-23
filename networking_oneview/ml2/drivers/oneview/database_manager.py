@@ -91,9 +91,12 @@ def map_neutron_network_to_oneview(
     if not mappings:
         return
     for lig_id, uplinkset_name in zip(mappings[0::2], mappings[1::2]):
-        insert_oneview_network_lig(
+        if not contains_network_lig(
             session, oneview_network_id, lig_id, uplinkset_name
-        )
+        ):
+            insert_oneview_network_lig(
+                session, oneview_network_id, lig_id, uplinkset_name
+            )
 
 
 # Neutron OneView Network
