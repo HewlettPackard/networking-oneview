@@ -41,7 +41,10 @@ class Synchronization(object):
 
     def start(self):
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
-        heartbeat.start(interval=CONF.DEFAULT.sync_interval, initial_delay=0)
+        heartbeat.start(
+            interval=CONF.DEFAULT.sync_interval,
+            initial_delay=0,
+            stop_on_exception=False)
 
     def get_session(self):
         Session = sessionmaker(bind=create_engine(self.connection),
