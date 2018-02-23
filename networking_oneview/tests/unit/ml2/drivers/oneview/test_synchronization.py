@@ -36,7 +36,6 @@ class SynchronizationTestCase(base.BaseTestCase):
         self.sync = sync(
             oneview_client=oneview_client,
             neutron_oneview_client=neutron_oneview_client,
-            connection=mock.Mock(),
             flat_net_mappings=flat_net_mappings)
 
     @mock.patch.object(loopingcall, 'FixedIntervalLoopingCall')
@@ -50,14 +49,12 @@ class SynchronizationTestCase(base.BaseTestCase):
     @mock.patch.object(sync, 'synchronize_uplinkset_from_mapped_networks')
     @mock.patch.object(sync, 'delete_unmapped_oneview_networks')
     @mock.patch.object(sync, 'create_oneview_networks_from_neutron')
-    @mock.patch.object(sync, 'delete_outdated_flat_mapped_networks')
     def test_synchronize(
-        self, mock_delete_outdated, mock_create_networks, mock_delete_unmapped,
+        self, mock_create_networks, mock_delete_unmapped,
         mock_synchronize_uplinkset, mock_recreate_connection
     ):
         self.sync.synchronize()
 
-        self.assertTrue(mock_delete_outdated.called)
         self.assertTrue(mock_create_networks.called)
         self.assertFalse(mock_delete_unmapped.called)
         self.assertFalse(mock_synchronize_uplinkset.called)
@@ -67,44 +64,24 @@ class SynchronizationTestCase(base.BaseTestCase):
     @mock.patch.object(sync, 'synchronize_uplinkset_from_mapped_networks')
     @mock.patch.object(sync, 'delete_unmapped_oneview_networks')
     @mock.patch.object(sync, 'create_oneview_networks_from_neutron')
-    @mock.patch.object(sync, 'delete_outdated_flat_mapped_networks')
     def test_synchronize_with_force_sync_delete(
-        self, mock_delete_outdated, mock_create_networks, mock_delete_unmapped,
+        self, mock_create_networks, mock_delete_unmapped,
         mock_synchronize_uplinkset, mock_recreate_connection
     ):
         common.CONF.DEFAULT.force_sync_delete_ops = True
         self.sync.synchronize()
 
-        self.assertTrue(mock_delete_outdated.called)
         self.assertTrue(mock_create_networks.called)
         self.assertTrue(mock_delete_unmapped.called)
         self.assertTrue(mock_synchronize_uplinkset.called)
         self.assertTrue(mock_recreate_connection.called)
-
-    @mock.patch.object(database_manager, 'delete_neutron_oneview_network')
-    @mock.patch.object(sync, 'get_session')
-    def test_delete_outdated_flat_mapped_networks(
-            self, mock_session, mock_delete):
-        self.sync.delete_outdated_flat_mapped_networks()
-        self.assertFalse(mock_delete.called)
-
-    @mock.patch.object(database_manager, 'list_neutron_oneview_network')
-    @mock.patch.object(database_manager, 'delete_neutron_oneview_network')
-    @mock.patch.object(sync, 'get_session')
-    def test_delete_outdated_flat_mapped_networks_clean(
-            self, mock_session, mock_delete, mock_list_net):
-        network_unmapped = mech_test.FakeNetwork()
-        network_unmapped.manageable = False
-        mock_list_net.return_value = [network_unmapped]
-        self.sync.delete_outdated_flat_mapped_networks()
-        self.assertTrue(mock_delete.called)
 
     @mock.patch.object(database_manager, 'get_neutron_oneview_network')
     @mock.patch.object(database_manager, 'delete_neutron_oneview_network')
     @mock.patch.object(database_manager, 'delete_oneview_network_lig')
     @mock.patch.object(database_manager,
                        'list_networks_and_segments_with_physnet')
-    @mock.patch.object(sync, 'get_session')
+    @mock.patch.object(common, 'get_database_session')
     def test_create_oneview_networks_from_neutron(
             self, mock_session, mock_phys_net, mock_del_lig, mock_del_net,
             mock_get_net):
@@ -137,7 +114,7 @@ class SynchronizationTestCase(base.BaseTestCase):
     @mock.patch.object(database_manager, 'delete_oneview_network_lig')
     @mock.patch.object(database_manager,
                        'list_networks_and_segments_with_physnet')
-    @mock.patch.object(sync, 'get_session')
+    @mock.patch.object(common, 'get_database_session')
     def test_create_oneview_networks_from_neutron_inconsistent(
             self, mock_session, mock_phys_net, mock_del_lig, mock_del_net,
             mock_get_net):
@@ -157,7 +134,7 @@ class SynchronizationTestCase(base.BaseTestCase):
 
     @mock.patch.object(database_manager, 'get_neutron_network')
     @mock.patch.object(database_manager, 'get_network_segment')
-    @mock.patch.object(sync, 'get_session')
+    @mock.patch.object(common, 'get_database_session')
     def test_delete_unmapped_oneview_networks(self, mock_session,
                                               mock_segment, mock_network):
         client = self.sync.oneview_client
@@ -176,7 +153,7 @@ class SynchronizationTestCase(base.BaseTestCase):
     @mock.patch.object(database_manager, 'delete_oneview_network_lig')
     @mock.patch.object(database_manager, 'get_neutron_network')
     @mock.patch.object(database_manager, 'get_network_segment')
-    @mock.patch.object(sync, 'get_session')
+    @mock.patch.object(common, 'get_database_session')
     def test_delete_unmapped_oneview_networks_no_net(
             self, mock_session, mock_segment, mock_network,
             mock_del_lig, mock_del_net):
@@ -199,7 +176,7 @@ class SynchronizationTestCase(base.BaseTestCase):
     @mock.patch.object(database_manager, 'get_neutron_network')
     @mock.patch.object(database_manager, 'get_network_segment')
     @mock.patch.object(sync, '_delete_connections')
-    @mock.patch.object(sync, 'get_session')
+    @mock.patch.object(common, 'get_database_session')
     def test_delete_unmapped_oneview_networks_not_mapped(
             self, mock_session, mock_del_conn, mock_segment, mock_network):
         session = mock_session()
@@ -220,7 +197,7 @@ class SynchronizationTestCase(base.BaseTestCase):
 
     @mock.patch.object(database_manager, 'list_neutron_oneview_network')
     @mock.patch.object(database_manager, 'get_network_segment')
-    @mock.patch.object(sync, 'get_session')
+    @mock.patch.object(common, 'get_database_session')
     def test_synchronize_uplinkset_from_mapped_networks(
             self, mock_session, mock_segment, mock_list_net):
         session = mock_session()
@@ -239,7 +216,7 @@ class SynchronizationTestCase(base.BaseTestCase):
 
     @mock.patch.object(database_manager, 'list_neutron_oneview_network')
     @mock.patch.object(database_manager, 'get_network_segment')
-    @mock.patch.object(sync, 'get_session')
+    @mock.patch.object(common, 'get_database_session')
     def test_synchronize_uplinkset_from_mapped_networks_no_segment(
             self, mock_session, mock_segment, mock_list_net):
         fake_network = mech_test.FakeNetwork()
@@ -259,7 +236,7 @@ class SynchronizationTestCase(base.BaseTestCase):
     @mock.patch.object(common, 'local_link_information_from_port')
     @mock.patch.object(sync, '_update_connection')
     @mock.patch.object(sync, '_fix_connections_with_removed_networks')
-    @mock.patch.object(sync, 'get_session')
+    @mock.patch.object(common, 'get_database_session')
     def test_recreate_connection(
             self, mock_session, mock_fix_sp, mock_update,
             mock_lli, mock_sh, mock_list_net, mock_port):
@@ -293,7 +270,7 @@ class SynchronizationTestCase(base.BaseTestCase):
     @mock.patch.object(common, 'local_link_information_from_port')
     @mock.patch.object(sync, '_update_connection')
     @mock.patch.object(sync, '_fix_connections_with_removed_networks')
-    @mock.patch.object(sync, 'get_session')
+    @mock.patch.object(common, 'get_database_session')
     def test_recreate_connection_different_network(
             self, mock_session, mock_fix_sp, mock_update,
             mock_lli, mock_sh, mock_list_net, mock_port):
@@ -328,7 +305,7 @@ class SynchronizationTestCase(base.BaseTestCase):
     @mock.patch.object(common, 'local_link_information_from_port')
     @mock.patch.object(sync, '_update_connection')
     @mock.patch.object(sync, '_fix_connections_with_removed_networks')
-    @mock.patch.object(sync, 'get_session')
+    @mock.patch.object(common, 'get_database_session')
     def test_recreate_connection_no_nets(
             self, mock_session, mock_fix_sp, mock_update,
             mock_lli, mock_sh, mock_list_net, mock_port):

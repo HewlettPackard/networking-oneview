@@ -15,14 +15,10 @@
 
 import re
 
-from itertools import chain
-
 from hpOneView import exceptions
 from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_service import loopingcall
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 from networking_oneview.conf import CONF
 from networking_oneview.ml2.drivers.oneview import common
@@ -32,11 +28,10 @@ LOG = log.getLogger(__name__)
 
 
 class Synchronization(object):
-    def __init__(self, oneview_client, neutron_oneview_client, connection,
+    def __init__(self, oneview_client, neutron_oneview_client,
                  flat_net_mappings):
         self.oneview_client = oneview_client
         self.neutron_client = neutron_oneview_client
-        self.connection = connection
         self.flat_net_mappings = flat_net_mappings
 
     def start(self):
@@ -46,15 +41,9 @@ class Synchronization(object):
             initial_delay=0,
             stop_on_exception=False)
 
-    def get_session(self):
-        Session = sessionmaker(bind=create_engine(self.connection),
-                               autocommit=True)
-        return Session()
-
     @common.oneview_reauth
     def synchronize(self):
         common.check_valid_resources()
-        self.delete_outdated_flat_mapped_networks()
         self.create_oneview_networks_from_neutron()
 
         force_delete = common.CONF.DEFAULT.force_sync_delete_ops
@@ -72,7 +61,7 @@ class Synchronization(object):
             LOG.error(err)
 
     def create_oneview_networks_from_neutron(self):
-        session = self.get_session()
+        session = common.get_database_session()
         for network, network_segment in (
                 database_manager.list_networks_and_segments_with_physnet(
                     session)):
@@ -101,7 +90,7 @@ class Synchronization(object):
             self.neutron_client.network.create(session, network_dict)
 
     def synchronize_uplinkset_from_mapped_networks(self):
-        session = self.get_session()
+        session = common.get_database_session()
         for neutron_oneview_network in (
                 database_manager.list_neutron_oneview_network(session)):
             oneview_network_id = neutron_oneview_network.oneview_network_id
@@ -116,7 +105,7 @@ class Synchronization(object):
                             'physical_network'))
 
     def delete_unmapped_oneview_networks(self):
-        session = self.get_session()
+        session = common.get_database_session()
         for network in self.oneview_client.ethernet_networks.get_all():
             mmanaged_network = re.search(r'Neutron \[(.*)\]', network.get(
                 'name'))
@@ -150,24 +139,8 @@ class Synchronization(object):
                             session, {'id': neutron_network_id}
                         )
 
-    def delete_outdated_flat_mapped_networks(self):
-        session = self.get_session()
-        mappings = self.flat_net_mappings.values()
-        mapped_networks_uuids = list(chain.from_iterable(mappings))
-        oneview_networks_uuids = (
-            network.oneview_network_id for network
-            in database_manager.list_neutron_oneview_network(session)
-            if not network.manageable)
-        unmapped_networks_uuids = (
-            uuid for uuid
-            in oneview_networks_uuids
-            if uuid not in mapped_networks_uuids)
-        for uuid in unmapped_networks_uuids:
-            database_manager.delete_neutron_oneview_network(
-                session, oneview_network_id=uuid)
-
     def _delete_connections(self, neutron_network_id):
-        session = self.get_session()
+        session = common.get_database_session()
         for port, port_binding in (
                 database_manager.get_port_with_binding_profile_by_net(
                     session, neutron_network_id)):
@@ -236,7 +209,7 @@ class Synchronization(object):
         Calls method to fix critical connections in the Server Profile that
         will be used.
         """
-        session = self.get_session()
+        session = common.get_database_session()
 
         for port, port_binding in (
                 database_manager.get_port_with_binding_profile(session)):

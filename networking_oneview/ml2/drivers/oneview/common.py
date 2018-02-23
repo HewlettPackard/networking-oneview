@@ -15,6 +15,7 @@
 
 import time
 
+from itertools import chain
 import six
 
 from hpOneView.oneview_client import OneViewClient
@@ -22,6 +23,8 @@ from oslo_log import log
 from oslo_serialization import jsonutils
 from oslo_utils import importutils
 from oslo_utils import strutils
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from networking_oneview.conf import CONF
 from networking_oneview.ml2.drivers.oneview import database_manager
@@ -793,3 +796,27 @@ def check_unique_lig_per_provider_constraint(uplinkset_mappings):
                     ) % err_message_attrs
                     LOG.error(err)
                     raise Exception(err)
+
+
+def delete_outdated_flat_mapped_networks(flat_net_mappings):
+    session = get_database_session()
+    mappings = flat_net_mappings.values()
+    mapped_networks_uuids = list(chain.from_iterable(mappings))
+    oneview_networks_uuids = (
+        network.oneview_network_id for network
+        in database_manager.list_neutron_oneview_network(session)
+        if not network.manageable)
+    unmapped_networks_uuids = (
+        uuid for uuid
+        in oneview_networks_uuids
+        if uuid not in mapped_networks_uuids)
+    for uuid in unmapped_networks_uuids:
+        database_manager.delete_neutron_oneview_network(
+            session, oneview_network_id=uuid)
+
+
+def get_database_session():
+    connection = CONF.database.connection
+    Session = sessionmaker(bind=create_engine(connection),
+                           autocommit=True)
+    return Session()

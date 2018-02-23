@@ -341,3 +341,26 @@ class CommonTestCase(base.AgentMechanismBaseTestCase):
             Exception, common.check_uplinkset_types_constraint,
             uplinkset_mappings_err
         )
+
+    @mock.patch.object(common, 'OneViewClient', autospec=True)
+    @mock.patch.object(database_manager, 'delete_neutron_oneview_network')
+    @mock.patch.object(common, 'get_database_session')
+    def test_delete_outdated_flat_mapped_networks(
+            self, mock_session, mock_delete, mock_oneview_client):
+        common.delete_outdated_flat_mapped_networks(
+            test_oneview_mech_driver.FLAT_NET_MAPPINGS)
+        self.assertFalse(mock_delete.called)
+
+    @mock.patch.object(common, 'OneViewClient', autospec=True)
+    @mock.patch.object(database_manager, 'list_neutron_oneview_network')
+    @mock.patch.object(database_manager, 'delete_neutron_oneview_network')
+    @mock.patch.object(common, 'get_database_session')
+    def test_delete_outdated_flat_mapped_networks_clean(
+            self, mock_session, mock_delete, mock_list_net,
+            mock_oneview_client):
+        network_unmapped = test_oneview_mech_driver.FakeNetwork()
+        network_unmapped.manageable = False
+        mock_list_net.return_value = [network_unmapped]
+        common.delete_outdated_flat_mapped_networks(
+            test_oneview_mech_driver.FLAT_NET_MAPPINGS)
+        self.assertTrue(mock_delete.called)

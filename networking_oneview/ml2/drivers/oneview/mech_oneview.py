@@ -52,10 +52,10 @@ class OneViewDriver(api.MechanismDriver):
         )
 
     def initialize(self):
+        common.delete_outdated_flat_mapped_networks(self.flat_net_mappings)
         sync = synchronization.Synchronization(
             oneview_client=self.oneview_client,
             neutron_oneview_client=self.neutron_oneview_client,
-            connection=CONF.database.connection,
             flat_net_mappings=self.flat_net_mappings
         )
         sync.start()
