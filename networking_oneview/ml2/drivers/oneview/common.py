@@ -571,7 +571,9 @@ def _is_local_link_information_valid(port_id, local_link_information):
     server_hardware_id = switch_info.get('server_hardware_id')
 
     try:
-        strutils.bool_from_string(switch_info.get('bootable'))
+        strutils.bool_from_string(
+            subject=switch_info.get('bootable'),
+            strict=True)
     except ValueError:
         LOG.warning("'bootable' must be a boolean.")
         return False
@@ -729,3 +731,65 @@ def get_uplinkset_by_type(uplinkset_mappings, net_type):
                     [lig_id, uplinkset_name]
                 )
     return uplinksets_by_type
+
+
+def check_uplinkset_types_constraint(oneview_client, uplinkset_mappings):
+    """Check the number of uplinkset types for a provider in a LIG.
+
+    It is only possible to map one provider to at the most one uplink
+    of each type.
+    """
+    for provider in uplinkset_mappings:
+        provider_mapping = zip(
+            uplinkset_mappings.get(provider)[::2],
+            uplinkset_mappings.get(provider)[1::2])
+        uplinksets_type = {}
+        for lig_id, ups_name in provider_mapping:
+            lig_mappings = uplinksets_type.setdefault(lig_id, [])
+            lig = oneview_client.logical_interconnect_groups.get(
+                lig_id
+            )
+            uplinkset = get_uplinkset_by_name_from_list(
+                lig.get('uplinkSets'), ups_name)
+            lig_mappings.append(uplinkset.get('ethernetNetworkType'))
+
+            if len(lig_mappings) != len(set(lig_mappings)):
+                err = (
+                    "The provider %(provider)s has more than one "
+                    "uplinkset of the same type in the logical "
+                    "interconnect group %(lig_id)s."
+                ) % {"provider": provider, "lig_id": lig_id}
+                LOG.error(err)
+                raise Exception(err)
+
+
+def check_unique_lig_per_provider_constraint(uplinkset_mappings):
+    for provider in uplinkset_mappings:
+        for provider2 in uplinkset_mappings:
+            if provider != provider2:
+                provider_lig_mapping_tupples = zip(
+                    uplinkset_mappings.get(provider)[::2],
+                    uplinkset_mappings.get(provider)[1::2])
+                provider2_lig_mapping_tupples = zip(
+                    uplinkset_mappings.get(provider2)[::2],
+                    uplinkset_mappings.get(provider2)[1::2])
+                identical_mappings = (set(provider_lig_mapping_tupples) &
+                                      set(provider2_lig_mapping_tupples))
+                if identical_mappings:
+                    err_message_attrs = {
+                        "prov1": provider,
+                        "prov2": provider2,
+                        "identical_mappings": "\n".join(
+                            (", ".join(mapping)
+                             for mapping in identical_mappings)
+                        )
+                    }
+                    err = (
+                        "The providers %(prov1)s and %(prov2)s are being "
+                        "mapped to the same Logical Interconnect Group "
+                        "and the same Uplinkset.\n"
+                        "The LIG ids and Uplink names are: "
+                        "%(identical_mappings)s"
+                    ) % err_message_attrs
+                    LOG.error(err)
+                    raise Exception(err)

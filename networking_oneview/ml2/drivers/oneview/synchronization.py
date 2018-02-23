@@ -33,17 +33,13 @@ LOG = log.getLogger(__name__)
 
 class Synchronization(object):
     def __init__(self, oneview_client, neutron_oneview_client, connection,
-                 uplinkset_mappings, flat_net_mappings):
+                 flat_net_mappings):
         self.oneview_client = oneview_client
         self.neutron_client = neutron_oneview_client
         self.connection = connection
-        self.uplinkset_mappings = uplinkset_mappings
         self.flat_net_mappings = flat_net_mappings
 
     def start(self):
-        self.check_uplinkset_types_constraint()
-        self.check_unique_lig_per_provider_constraint()
-
         heartbeat = loopingcall.FixedIntervalLoopingCall(self.synchronize)
         heartbeat.start(interval=CONF.DEFAULT.sync_interval, initial_delay=0)
 
@@ -71,66 +67,6 @@ class Synchronization(object):
             return self.oneview_client.ethernet_networks.get(oneview_net_id)
         except exceptions.HPOneViewException as err:
             LOG.error(err)
-
-    def check_uplinkset_types_constraint(self):
-        """Check the number of uplinkset types for a provider in a LIG.
-
-        It is only possible to map one provider to at the most one uplink
-        of each type.
-        """
-        for provider in self.uplinkset_mappings:
-            provider_mapping = zip(
-                self.uplinkset_mappings.get(provider)[::2],
-                self.uplinkset_mappings.get(provider)[1::2])
-            uplinksets_type = {}
-            for lig_id, ups_name in provider_mapping:
-                lig_mappings = uplinksets_type.setdefault(lig_id, [])
-                lig = self.oneview_client.logical_interconnect_groups.get(
-                    lig_id
-                )
-                uplinkset = common.get_uplinkset_by_name_from_list(
-                    lig.get('uplinkSets'), ups_name)
-                lig_mappings.append(uplinkset.get('ethernetNetworkType'))
-
-                if len(lig_mappings) != len(set(lig_mappings)):
-                    err = (
-                        "The provider %(provider)s has more than one "
-                        "uplinkset of the same type in the logical "
-                        "interconnect group %(lig_id)s."
-                    ) % {"provider": provider, "lig_id": lig_id}
-                    LOG.error(err)
-                    raise Exception(err)
-
-    def check_unique_lig_per_provider_constraint(self):
-        for provider in self.uplinkset_mappings:
-            for provider2 in self.uplinkset_mappings:
-                if provider != provider2:
-                    provider_lig_mapping_tupples = zip(
-                        self.uplinkset_mappings.get(provider)[::2],
-                        self.uplinkset_mappings.get(provider)[1::2])
-                    provider2_lig_mapping_tupples = zip(
-                        self.uplinkset_mappings.get(provider2)[::2],
-                        self.uplinkset_mappings.get(provider2)[1::2])
-                    identical_mappings = (set(provider_lig_mapping_tupples) &
-                                          set(provider2_lig_mapping_tupples))
-                    if identical_mappings:
-                        err_message_attrs = {
-                            "prov1": provider,
-                            "prov2": provider2,
-                            "identical_mappings": "\n".join(
-                                (", ".join(mapping)
-                                 for mapping in identical_mappings)
-                            )
-                        }
-                        err = (
-                            "The providers %(prov1)s and %(prov2)s are being "
-                            "mapped to the same Logical Interconnect Group "
-                            "and the same Uplinkset.\n"
-                            "The LIG ids and Uplink names are: "
-                            "%(identical_mappings)s"
-                        ) % err_message_attrs
-                        LOG.error(err)
-                        raise Exception(err)
 
     def create_oneview_networks_from_neutron(self):
         session = self.get_session()

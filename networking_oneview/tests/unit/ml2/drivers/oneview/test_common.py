@@ -14,6 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import copy
 import mock
 
 from neutron.tests.unit.plugins.ml2 import _test_mech_agent as base
@@ -21,6 +22,7 @@ from oslo_utils import importutils
 
 from networking_oneview.conf import CONF
 from networking_oneview.ml2.drivers.oneview import common
+from networking_oneview.ml2.drivers.oneview import database_manager
 from networking_oneview.ml2.drivers.oneview import exceptions
 from networking_oneview.tests.unit.ml2.drivers.oneview\
     import test_oneview_mech_driver
@@ -74,6 +76,96 @@ class CommonTestCase(base.AgentMechanismBaseTestCase):
         self.conf.oneview.tls_cacert_file = None
         self.assertRaises(
             oneview_exceptions.HPOneViewException, common.get_oneview_client)
+
+    @mock.patch.object(common, 'OneViewClient', autospec=True)
+    @mock.patch.object(database_manager, "get_neutron_oneview_network")
+    def test_is_port_valid_to_reflect_on_oneview(
+            self, mock_get_network, mock_oneview_client):
+        local_link_information = (
+            test_oneview_mech_driver.FAKE_PORT.get("binding:profile")
+            .get("local_link_information"))
+        self.assertTrue(
+            common.is_port_valid_to_reflect_on_oneview(
+                mock.MagicMock(), test_oneview_mech_driver.FAKE_PORT,
+                local_link_information))
+
+    @mock.patch.object(common, "get_oneview_client")
+    def test_is_port_valid_to_reflect_on_oneview_not_baremetal(
+            self, mock_oneview_client):
+        port = copy.deepcopy(test_oneview_mech_driver.FAKE_PORT)
+        port["binding:vnic_type"] = "not_baremetal"
+        lli = port.get("binding:profile").get("local_link_information")
+        self.assertFalse(
+            common.is_port_valid_to_reflect_on_oneview(
+                mock.MagicMock(), port, lli))
+
+    @mock.patch.object(common, "get_oneview_client")
+    @mock.patch.object(database_manager, "get_neutron_oneview_network")
+    def test_is_port_valid_to_reflect_on_oneview_not_in_database(
+            self, mock_get_network, mock_oneview_client):
+        mock_get_network.return_value = None
+
+        local_link_information = (
+            test_oneview_mech_driver.FAKE_PORT.get("binding:profile")
+            .get("local_link_information"))
+        self.assertFalse(
+            common.is_port_valid_to_reflect_on_oneview(
+                mock.MagicMock(), test_oneview_mech_driver.FAKE_PORT,
+                local_link_information))
+
+    @mock.patch.object(common, "get_oneview_client")
+    @mock.patch.object(database_manager, "get_neutron_oneview_network")
+    def test_is_port_valid_to_reflect_on_oneview_no_lli(
+            self, mock_get_network, mock_oneview_client):
+        lli = []
+        self.assertFalse(
+            common.is_port_valid_to_reflect_on_oneview(
+                mock.MagicMock(), test_oneview_mech_driver.FAKE_PORT, lli))
+
+    @mock.patch.object(common, "get_oneview_client")
+    @mock.patch.object(database_manager, "get_neutron_oneview_network")
+    def test_is_port_valid_to_reflect_on_oneview_multiple_llis(
+            self, mock_get_network, mock_oneview_client):
+        lli = [{}, {}]
+        self.assertFalse(
+            common.is_port_valid_to_reflect_on_oneview(
+                mock.MagicMock(), test_oneview_mech_driver.FAKE_PORT, lli))
+
+    @mock.patch.object(common, "get_oneview_client")
+    @mock.patch.object(database_manager, "get_neutron_oneview_network")
+    def test_is_port_valid_to_reflect_on_oneview_lli_no_switch_info(
+            self, mock_get_network, mock_oneview_client):
+        port = copy.deepcopy(test_oneview_mech_driver.FAKE_PORT)
+        lli = port['binding:profile']['local_link_information']
+        del lli[0]['switch_info']
+
+        self.assertFalse(
+            common.is_port_valid_to_reflect_on_oneview(
+                mock.MagicMock(), port, lli))
+
+    @mock.patch.object(common, 'OneViewClient', autospec=True)
+    @mock.patch.object(database_manager, "get_neutron_oneview_network")
+    def test_is_port_valid_to_reflect_on_oneview_lli_invalid_bootable(
+            self, mock_get_network, mock_oneview_client):
+        port = copy.deepcopy(test_oneview_mech_driver.FAKE_PORT)
+        lli = port['binding:profile']['local_link_information']
+        lli[0]['switch_info']['bootable'] = "invalid"
+
+        self.assertFalse(
+            common.is_port_valid_to_reflect_on_oneview(
+                mock.MagicMock(), port, lli))
+
+    @mock.patch.object(common, 'OneViewClient', autospec=True)
+    @mock.patch.object(database_manager, "get_neutron_oneview_network")
+    def test_is_port_valid_to_reflect_on_oneview_not_bootable(
+            self, mock_get_network, mock_oneview_client):
+        port = copy.deepcopy(test_oneview_mech_driver.FAKE_PORT)
+        lli = port['binding:profile']['local_link_information']
+        lli[0]['switch_info']['bootable'] = False
+
+        self.assertTrue(
+            common.is_port_valid_to_reflect_on_oneview(
+                mock.MagicMock(), port, lli))
 
     @mock.patch.object(common, 'OneViewClient', autospec=True)
     def test_get_oneview_client_insecure_cafile(self, mock_oneview_client):
@@ -199,3 +291,53 @@ class CommonTestCase(base.AgentMechanismBaseTestCase):
             common._check_server_profile_availability(
                 mock_oneview_client, mock.MagicMock()))
         self.assertEqual(mock_ov.get_server_profile_state.call_count, 1)
+
+    @mock.patch.object(common, "get_oneview_client")
+    def test_check_unique_lig_per_provider_constraint(
+            self, mock_oneview_client):
+        success = True
+        try:
+            common.check_unique_lig_per_provider_constraint(
+                test_oneview_mech_driver.UPLINKSET_MAPPINGS)
+        except Exception:
+            success = False
+
+        self.assertTrue(success)
+
+    @mock.patch.object(common, "get_oneview_client")
+    def test_check_unique_lig_per_provider_constraint_fails(
+            self, mock_oneview_client):
+        uplinkset_mappings_err = {
+            'physnet': ['lig_123', 'uplinkset_flat'],
+            'physnet2': ['lig_123', 'uplinkset_flat']
+        }
+        self.assertRaises(
+            Exception, common.check_unique_lig_per_provider_constraint,
+            uplinkset_mappings_err
+        )
+
+    @mock.patch.object(common, "get_oneview_client")
+    def test_check_uplinkset_types_constraint(self, mock_oneview_client):
+        success = True
+        try:
+            common.check_unique_lig_per_provider_constraint(
+                test_oneview_mech_driver.UPLINKSET_MAPPINGS)
+        except Exception:
+            success = False
+
+        self.assertTrue(success)
+
+    @mock.patch.object(common, "get_oneview_client")
+    def test_check_uplinkset_types_constraint_fails(self, mock_oneview_client):
+        client = mock_oneview_client()
+        client.logical_interconnect_groups.get.return_value = (
+            test_oneview_mech_driver.FAKE_LIG
+        )
+        uplinkset_mappings_err = {
+            'physnet': ['lig_123', 'uplinkset_vlan',
+                        'lig_123', 'uplinkset_vlan']
+        }
+        self.assertRaises(
+            Exception, common.check_uplinkset_types_constraint,
+            uplinkset_mappings_err
+        )

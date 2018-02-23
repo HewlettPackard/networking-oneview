@@ -40,6 +40,11 @@ class OneViewDriver(api.MechanismDriver):
             CONF.DEFAULT.flat_net_mappings)
 
         common.check_valid_resources()
+        common.check_uplinkset_types_constraint(
+            self.oneview_client, self.uplinkset_mappings)
+        common.check_unique_lig_per_provider_constraint(
+            self.uplinkset_mappings)
+
         self.neutron_oneview_client = neutron_oneview_client.Client(
             self.oneview_client,
             self.uplinkset_mappings,
@@ -48,9 +53,10 @@ class OneViewDriver(api.MechanismDriver):
 
     def initialize(self):
         sync = synchronization.Synchronization(
-            self.oneview_client, self.neutron_oneview_client,
-            CONF.database.connection,
-            self.uplinkset_mappings, self.flat_net_mappings
+            oneview_client=self.oneview_client,
+            neutron_oneview_client=self.neutron_oneview_client,
+            connection=CONF.database.connection,
+            flat_net_mappings=self.flat_net_mappings
         )
         sync.start()
         LOG.info("OneView synchronization tool was initialized.")

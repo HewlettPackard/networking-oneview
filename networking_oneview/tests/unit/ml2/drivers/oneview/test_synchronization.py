@@ -32,61 +32,19 @@ class SynchronizationTestCase(base.BaseTestCase):
         super(SynchronizationTestCase, self).setUp()
         oneview_client = mock.MagicMock()
         neutron_oneview_client = mock.MagicMock()
-        uplinkset_mappings = mech_test.UPLINKSET_MAPPINGS
         flat_net_mappings = mech_test.FLAT_NET_MAPPINGS
-        self.sync = sync(oneview_client, neutron_oneview_client, mock.Mock(),
-                         uplinkset_mappings, flat_net_mappings)
+        self.sync = sync(
+            oneview_client=oneview_client,
+            neutron_oneview_client=neutron_oneview_client,
+            connection=mock.Mock(),
+            flat_net_mappings=flat_net_mappings)
 
     @mock.patch.object(loopingcall, 'FixedIntervalLoopingCall')
-    @mock.patch.object(sync, 'check_uplinkset_types_constraint')
-    @mock.patch.object(sync, 'check_unique_lig_per_provider_constraint')
-    def test_start(self, mock_check_provider, mock_check_uplinkset, mock_loop):
+    def test_start(self, mock_loop):
         self.sync.start()
-        self.assertTrue(mock_check_provider.called)
-        self.assertTrue(mock_check_uplinkset.called)
         heartbeat = mock_loop.return_value
         mock_loop.assert_called_with(self.sync.synchronize)
         self.assertTrue(heartbeat.start.called)
-
-    def test_check_unique_lig_per_provider_constraint(self):
-        success = True
-        try:
-            self.sync.check_unique_lig_per_provider_constraint()
-        except Exception:
-            success = False
-
-        self.assertTrue(success)
-
-    def test_check_unique_lig_per_provider_constraint_fails(self):
-        uplinkset_mappings_err = {
-            'physnet': ['lig_123', 'uplinkset_flat'],
-            'physnet2': ['lig_123', 'uplinkset_flat']
-        }
-        self.sync.uplinkset_mappings = uplinkset_mappings_err
-        self.assertRaises(
-            Exception, self.sync.check_unique_lig_per_provider_constraint
-        )
-
-    def test_check_uplinkset_types_constraint(self):
-        client = self.sync.oneview_client
-        self.sync.check_unique_lig_per_provider_constraint()
-        client.logical_interconnect_groups.get.assert_called_with = (
-            'lig_123'
-        )
-
-    def test_check_uplinkset_types_constraint_fails(self):
-        client = self.sync.oneview_client
-        client.logical_interconnect_groups.get.return_value = (
-            mech_test.FAKE_LIG
-        )
-        uplinkset_mappings_err = {
-            'physnet': ['lig_123', 'uplinkset_vlan',
-                        'lig_123', 'uplinkset_vlan']
-        }
-        self.sync.uplinkset_mappings = uplinkset_mappings_err
-        self.assertRaises(
-            Exception, self.sync.check_uplinkset_types_constraint
-        )
 
     @mock.patch.object(sync, 'recreate_connection')
     @mock.patch.object(sync, 'synchronize_uplinkset_from_mapped_networks')
