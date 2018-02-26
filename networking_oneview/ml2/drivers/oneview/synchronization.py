@@ -43,6 +43,7 @@ class Synchronization(object):
 
     @common.oneview_reauth
     def synchronize(self):
+        LOG.info("Starting synchronization mechanism.")
         common.check_valid_resources()
         self.create_oneview_networks_from_neutron()
 
@@ -53,6 +54,7 @@ class Synchronization(object):
             self.delete_unmapped_oneview_networks()
             self.synchronize_uplinkset_from_mapped_networks()
             self.recreate_connection()
+        LOG.info("Synchronization mechanism finished successfully.")
 
     def get_oneview_network(self, oneview_net_id):
         try:
@@ -61,6 +63,7 @@ class Synchronization(object):
             LOG.error(err)
 
     def create_oneview_networks_from_neutron(self):
+        LOG.info("Synchronizing Neutron networks not in OneView.")
         session = common.get_database_session()
         for network, network_segment in (
                 database_manager.list_networks_and_segments_with_physnet(
@@ -90,6 +93,7 @@ class Synchronization(object):
             self.neutron_client.network.create(session, network_dict)
 
     def synchronize_uplinkset_from_mapped_networks(self):
+        LOG.info("Synchronizing OneView uplinksets.")
         session = common.get_database_session()
         for neutron_oneview_network in (
                 database_manager.list_neutron_oneview_network(session)):
@@ -105,6 +109,7 @@ class Synchronization(object):
                             'physical_network'))
 
     def delete_unmapped_oneview_networks(self):
+        LOG.info("Synchronizing outdated networks in OneView.")
         session = common.get_database_session()
         for network in self.oneview_client.ethernet_networks.get_all():
             mmanaged_network = re.search(r'Neutron \[(.*)\]', network.get(
@@ -209,6 +214,7 @@ class Synchronization(object):
         Calls method to fix critical connections in the Server Profile that
         will be used.
         """
+        LOG.info("Synchronizing connections in OneView Server Profiles.")
         session = common.get_database_session()
 
         for port, port_binding in (

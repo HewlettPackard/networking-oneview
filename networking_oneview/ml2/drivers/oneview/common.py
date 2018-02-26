@@ -611,6 +611,7 @@ def check_valid_resources():
         in the LIG's UplinkSets list. If a Network is not associated
         to any UplinkSet.
     """
+    LOG.info("Checking if resources in mappings exist in OneView.")
     check_uplinkset_mappings_resources()
     check_flat_net_mappings_resources()
 
@@ -742,6 +743,8 @@ def check_uplinkset_types_constraint(oneview_client, uplinkset_mappings):
     It is only possible to map one provider to at the most one uplink
     of each type.
     """
+    LOG.info("Checking if a provider has two mappings for the same LIG with "
+             "different uplinksets of the same type.")
     for provider in uplinkset_mappings:
         provider_mapping = zip(
             uplinkset_mappings.get(provider)[::2],
@@ -767,6 +770,7 @@ def check_uplinkset_types_constraint(oneview_client, uplinkset_mappings):
 
 
 def check_unique_lig_per_provider_constraint(uplinkset_mappings):
+    LOG.info("Checking if different providers have the same mapping.")
     for provider in uplinkset_mappings:
         for provider2 in uplinkset_mappings:
             if provider != provider2:
@@ -799,6 +803,7 @@ def check_unique_lig_per_provider_constraint(uplinkset_mappings):
 
 
 def delete_outdated_flat_mapped_networks(flat_net_mappings):
+    LOG.info("Synchronizing flat network mappings.")
     session = get_database_session()
     mappings = flat_net_mappings.values()
     mapped_networks_uuids = list(chain.from_iterable(mappings))
