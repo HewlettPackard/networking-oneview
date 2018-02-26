@@ -16,14 +16,16 @@
 import abc
 import six
 
-from hpOneView import exceptions
 from oslo_log import log
+from oslo_utils import importutils
 
-from networking_oneview.ml2.drivers.oneview import (
-    database_manager as db_manager)
 from networking_oneview.ml2.drivers.oneview import common
+from networking_oneview.ml2.drivers.oneview import database_manager
+from networking_oneview.ml2.drivers.oneview import exceptions
 
 LOG = log.getLogger(__name__)
+
+oneview_exceptions = importutils.try_import('hpOneView.exceptions')
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -88,7 +90,7 @@ class Network(ResourceManager):
                 "configuration file.", network_id)
             return
 
-        if db_manager.get_neutron_oneview_network(session, network_id):
+        if database_manager.get_neutron_oneview_network(session, network_id):
             LOG.warning(
                 "The network %s is already created.", network_id)
             return
@@ -106,15 +108,19 @@ class Network(ResourceManager):
                 name="Neutron [" + network_id + "]",
                 network_type=network_type.capitalize(), seg_id=network_seg_id)
             oneview_network_id = common.id_from_uri(oneview_network.get('uri'))
-            mappings = self._add_to_ligs(
-                network_type, physical_network, oneview_network)
-        elif mapping_type == common.FLAT_NET_MAPPINGS_TYPE:
-            oneview_network_id = self.flat_net_mappings.get(physical_network)
-        # BUG(nicodemos) This is not reachable. see: line 126
-        else:
-            LOG.warning("Network Type unsupported")
+            try:
+                mappings = self._add_to_ligs(
+                    network_type, physical_network, oneview_network.get('uri'))
+            except Exception:
+                LOG.warning("Network Creation failed, deleting OneView "
+                            "Network: %s" % oneview_network_id)
+                self.oneview_client.ethernet_networks.delete(oneview_network)
+                raise exceptions.NetworkCreationException()
 
-        db_manager.map_neutron_network_to_oneview(
+        else:
+            oneview_network_id = self.flat_net_mappings.get(physical_network)
+
+        database_manager.map_neutron_network_to_oneview(
             session, network_id, oneview_network_id,
             mapping_type == common.UPLINKSET_MAPPINGS_TYPE, mappings)
 
@@ -128,10 +134,6 @@ class Network(ResourceManager):
             return common.UPLINKSET_MAPPINGS_TYPE
         elif physical_network in self.flat_net_mappings:
             return common.FLAT_NET_MAPPINGS_TYPE
-        # BUG(nicodemos) if a network provider:physical_network is mapped
-        # in uplinkset_mappings and using any 'provider:network_type' != flat
-        # we return this.
-        # NOTE(nicodemos) adding network_type == 'flat' is the rigth call?
         elif network_type == 'flat' and physnet_in_uplinkset_mapping:
             return common.UPLINKSET_MAPPINGS_TYPE
 
@@ -183,6 +185,15 @@ class Network(ResourceManager):
         }
         return self.oneview_client.ethernet_networks.create(options)
 
+    def _add_to_ligs(self, network_type, physical_network, oneview_net_uri):
+        lig_list = self._get_lig_list(physical_network, network_type)
+        uplinksets_list = self._get_uplinksets_from_lig(
+            network_type, lig_list)
+        self._add_network_to_logical_interconnect_group(
+            lig_list, oneview_net_uri)
+        self._add_network_to_uplink_sets(uplinksets_list, oneview_net_uri)
+        return lig_list
+
     def _add_network_to_logical_interconnect_group(
             self, uplinkset_mappings, network_uri):
         for lig_id, uplinkset_name in zip(
@@ -191,25 +202,40 @@ class Network(ResourceManager):
                 common.get_logical_interconnect_group_by_id(lig_id)
             )
             lig_uplinksets = logical_interconnect_group.get('uplinkSets')
+            lig_uri = logical_interconnect_group.get('uri')
             uplinkset = common.get_uplinkset_by_name_from_list(
-                lig_uplinksets, uplinkset_name
-            )
+                lig_uplinksets, uplinkset_name)
             if network_uri not in uplinkset['networkUris']:
-                uplinkset['networkUris'].append(network_uri)
-                self.oneview_client.logical_interconnect_groups.update(
-                    logical_interconnect_group
-                )
+                try:
+                    uplinkset['networkUris'].append(network_uri)
+                    self.oneview_client.logical_interconnect_groups.update(
+                        logical_interconnect_group)
+                except oneview_exceptions.HPOneViewException as err:
+                    LOG.error("Driver couldn't add network %(network_uri)s to "
+                              "Logical Interconnect Group: %(lig_uri)s. "
+                              "%(error)s" % {'network_uri': network_uri,
+                                             'lig_uri': lig_uri,
+                                             'error': err})
+                    raise err
 
-    def _add_network_to_logical_interconnects(
-            self, uplinkset_list, network_uri):
+    def _add_network_to_uplink_sets(self, uplinkset_list, network_uri):
         for uplinkset in uplinkset_list:
+            uplinksets_uri = uplinkset.get('uri')
             if network_uri not in uplinkset['networkUris']:
-                uplinkset['networkUris'].append(network_uri)
-                self.oneview_client.uplink_sets.update(uplinkset)
+                try:
+                    self.oneview_client.uplink_sets.add_ethernet_networks(
+                        uplinksets_uri, network_uri)
+                except oneview_exceptions.HPOneViewException as err:
+                    LOG.error("Driver couldn't add network %(network_uri)s to "
+                              "uplink set: %(uplinksets_uri)s. %(error)s" % {
+                                  'network_uri': network_uri,
+                                  'uplinksets_uri': uplinksets_uri,
+                                  'error': err})
+                    raise err
 
     def delete(self, session, network_dict):
         network_id = network_dict.get('id')
-        neutron_oneview_network = db_manager.get_neutron_oneview_network(
+        neutron_oneview_network = database_manager.get_neutron_oneview_network(
             session, network_id
         )
         if neutron_oneview_network is None:
@@ -219,10 +245,10 @@ class Network(ResourceManager):
         if neutron_oneview_network.manageable:
             self.oneview_client.ethernet_networks.delete(oneview_network_id)
 
-        db_manager.delete_neutron_oneview_network(
+        database_manager.delete_neutron_oneview_network(
             session, neutron_network_id=network_id
         )
-        db_manager.delete_oneview_network_lig(
+        database_manager.delete_oneview_network_lig(
             session, oneview_network_id=oneview_network_id
         )
         LOG.info("Network %s deleted", oneview_network_id)
@@ -235,7 +261,7 @@ class Network(ResourceManager):
             physical_network)
         if mappings is None:
             mappings = []
-        mapped_ligs = db_manager.list_oneview_network_lig(
+        mapped_ligs = database_manager.list_oneview_network_lig(
             session, oneview_network_id=oneview_network_id)
         for lig_bd_entry in mapped_ligs:
             if not common.is_lig_id_uplink_name_mapped(lig_bd_entry, mappings):
@@ -244,7 +270,7 @@ class Network(ResourceManager):
                     lig_bd_entry.get('oneview_lig_id'),
                     lig_bd_entry.get('oneview_uplinkset_name'), network_type
                 )
-                db_manager.delete_oneview_network_lig(
+                database_manager.delete_oneview_network_lig(
                     session, oneview_network_id=oneview_network_id,
                     oneview_lig_id=lig_bd_entry.get('oneview_lig_id'),
                     oneview_uplinkset_name=lig_bd_entry.get(
@@ -253,26 +279,15 @@ class Network(ResourceManager):
             network_type, physical_network,
             self.oneview_client.ethernet_networks.get(oneview_network_id))
         for lig_id, uplinkset_name in zip(mappings[0::2], mappings[1::2]):
-            network_mapped = db_manager.get_oneview_network_lig(
+            network_mapped = database_manager.get_oneview_network_lig(
                 session,
                 oneview_network_id=oneview_network_id,
                 oneview_lig_id=lig_id,
                 oneview_uplinkset_name=uplinkset_name)
             if not network_mapped:
-                db_manager.insert_oneview_network_lig(
+                database_manager.insert_oneview_network_lig(
                     session, oneview_network_id, lig_id, uplinkset_name
                 )
-
-    def _add_to_ligs(self, network_type, physical_network, oneview_network):
-        lig_list = self._get_lig_list(physical_network, network_type)
-        uplinksets_list = self._get_uplinksets_from_lig(
-            network_type, lig_list)
-        self._add_network_to_logical_interconnect_group(
-            lig_list, oneview_network.get('uri'))
-        self._add_network_to_logical_interconnects(
-            uplinksets_list, oneview_network.get('uri')
-        )
-        return lig_list
 
     def _remove_network_from_lig_and_lis(
             self, network_id, lig_id, uplinkset_name, network_type):
@@ -302,33 +317,14 @@ class Network(ResourceManager):
                 uplinkset_id, network_id
             )
 
-    def _add_network_to_uplink_sets(self, network_id, uplinksets_id_list):
-        if not uplinksets_id_list:
-            return
-
-        uplinksets_id_list = list(uplinksets_id_list)
-        for uplinkset_id in uplinksets_id_list:
-            try:
-                self.oneview_client.uplink_sets.add_ethernet_networks(
-                    uplinkset_id, network_id
-                )
-            except exceptions.HPOneViewException as err:
-                LOG.error(
-                    "Driver couldn't add network %(network_id)s to uplink set "
-                    "%(uplink_set_id)s. %(error)s" % {
-                        'network_id': network_id,
-                        'uplink_set_id': uplinkset_id,
-                        'error': err
-                    }
-                )
-
 
 class Port(ResourceManager):
     def create(self, session, port_dict):
         network_id = port_dict.get('network_id')
         neutron_port_id = port_dict.get('id')
 
-        network_segment = db_manager.get_network_segment(session, network_id)
+        network_segment = database_manager.get_network_segment(
+            session, network_id)
         physical_network = network_segment.get('physical_network')
         network_type = network_segment.get('network_type')
 
@@ -347,7 +343,7 @@ class Port(ResourceManager):
                 "Port %s is not valid to reflect on OneView.", neutron_port_id)
             return
 
-        neutron_oneview_network = db_manager.get_neutron_oneview_network(
+        neutron_oneview_network = database_manager.get_neutron_oneview_network(
             session, network_id)
         network_uri = common.network_uri_from_id(
             neutron_oneview_network.oneview_network_id)

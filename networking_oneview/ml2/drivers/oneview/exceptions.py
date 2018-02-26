@@ -24,3 +24,7 @@ class ElementNotFoundException(ClientException):
 
 class OneViewResourceNotFoundException(ClientException):
     """The OneView Resource does not exist."""
+
+
+class NetworkCreationException(ClientException):
+    """The Network was unable to be created."""

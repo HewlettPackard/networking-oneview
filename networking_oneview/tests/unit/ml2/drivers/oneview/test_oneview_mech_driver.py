@@ -21,6 +21,7 @@ from neutron.tests.unit.plugins.ml2 import _test_mech_agent as base
 
 from networking_oneview.ml2.drivers.oneview import common
 from networking_oneview.ml2.drivers.oneview import database_manager
+from networking_oneview.ml2.drivers.oneview import exceptions
 from networking_oneview.ml2.drivers.oneview import mech_oneview
 from networking_oneview.ml2.drivers.oneview import neutron_oneview_client
 
@@ -282,6 +283,32 @@ class OneViewMechanismDriverTestCase(base.AgentMechanismBaseTestCase):
         self.driver.create_network_postcommit(network_context)
 
         self.assertFalse(client.ethernet_networks.create.called)
+        self.assertFalse(mock_map_net.called)
+
+    @mock.patch.object(neutron_oneview_client.Network, '_add_to_ligs')
+    @mock.patch.object(database_manager, 'map_neutron_network_to_oneview')
+    def test_create_network_postcommit_in_lig(self, mock_map_net, mock_add):
+        network_context = FakeContext()
+        network_context._network = FAKE_VLAN_NETWORK
+        client = self.driver.oneview_client
+        mock_add.side_effect = Exception("BOOM")
+
+        vlan_network = {
+            'name': 'Neutron [%s]' % FAKE_VLAN_NETWORK.get('id'),
+            'ethernetNetworkType': 'Tagged',
+            'vlanId': '%s' % FAKE_VLAN_NETWORK.get('provider:segmentation_id'),
+            'purpose': 'General',
+            'smartLink': False,
+            'privateNetwork': False,
+        }
+
+        self.assertRaises(
+            exceptions.NetworkCreationException,
+            self.driver.create_network_postcommit,
+            network_context
+        )
+        client.ethernet_networks.create.assert_called_with(vlan_network)
+        self.assertTrue(client.ethernet_networks.delete.called)
         self.assertFalse(mock_map_net.called)
 
     @mock.patch.object(database_manager, 'map_neutron_network_to_oneview')
