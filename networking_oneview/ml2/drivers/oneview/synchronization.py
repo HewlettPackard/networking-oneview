@@ -82,6 +82,8 @@ class Synchronization(object):
                         neutron_oneview_network.neutron_network_id,
                         neutron_oneview_network.oneview_network_id
                     )
+                else:
+                    continue
 
             physical_network = network_segment.get('physical_network')
             network_type = network_segment.get('network_type')

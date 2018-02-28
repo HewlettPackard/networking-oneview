@@ -88,6 +88,8 @@ class SynchronizationTestCase(base.BaseTestCase):
         session = mock_session()
         client = self.sync.oneview_client
         client.ethernet_networks.get.return_value = True
+        mock_get_net.return_value = None
+
         mock_phys_net.return_value = [[
             {'id': '123'},
             {'physical_network': 'physnet',
