@@ -1,3 +1,27 @@
+# 1.1.0
+
+#### Notes
+- Due to the update on the configuration parameters, it is recommended to generate a new one with genrc 
+
+#### Bugfixes & Enhancements
+- Abort port delete if its a rack server
+- Remove option for 'developer_mode' and add option for 'force_sync_delete_ops'
+- Ignore port create if there is no available PXE connections
+- Fix import of ML2 constants
+- Migrate uplinkset_mappings checks to driver initialization. Driver will not load if:
+   - two different physnets have the same mapping LIG:uplinkset
+   - the same physnet have two mappings with the same LIG but both uplinks are of the same type
+- Keep sync alive even after an Exception occurs
+- Move outdated flat network synchronization to driver initialization
+- Update log information
+- Fail network-creation gracefully if uplinkset already contains a network with same VLAN ID
+- Remove unnecessary calls to network creation during synchronization
+
+#### New features
+- Move networking oneview configurations to DEFAULT section
+- Add new check for resource existence in OneView
+- Configure maximum number of attempts when trying to lock Server Hardware and Server Profile for connection creation
+
 # 1.0.0
 
 #### Notes
